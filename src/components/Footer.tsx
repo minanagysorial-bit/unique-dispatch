@@ -16,9 +16,17 @@ export default function Footer() {
           
           {/* Brand Column */}
           <div className="lg:col-span-4 space-y-4">
-            <Link href="#home">
+            <a 
+              href="/"
+              onClick={(e) => {
+                e.preventDefault();
+                window.location.href = "/";
+              }}
+              className="inline-block cursor-pointer focus:outline-none"
+              title="Refresh Page"
+            >
               <Logo variant="light" size="md" />
-            </Link>
+            </a>
 
             <p className="text-xs text-slate-300 leading-relaxed pr-4 mt-3">
               Unique Dispatch arranges professional freight dispatch services for owner-operators and truckers 

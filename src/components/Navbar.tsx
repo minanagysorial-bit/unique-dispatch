@@ -18,6 +18,11 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  const handleLogoClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    window.location.href = "/";
+  };
+
   const navLinks = [
     { name: "Home", href: "#home" },
     { name: "About Us", href: "#about" },
@@ -61,6 +66,10 @@ export default function Navbar() {
 
           {/* Right Direct WhatsApp Action */}
           <div className="flex items-center space-x-2 sm:space-x-3">
+            <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-emerald-400 font-medium">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              Verified Entity
+            </span>
             <a
               href={COMPANY_INFO.contacts.whatsappUrl}
               target="_blank"
@@ -83,10 +92,16 @@ export default function Navbar() {
       >
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           
-          {/* SVG Logo Component */}
-          <Link href="#home" className="focus:outline-none">
+          {/* SVG Logo Component with Page Refresh */}
+          <a
+            href="/"
+            onClick={handleLogoClick}
+            className="focus:outline-none cursor-pointer group"
+            title="Refresh Page"
+            aria-label="Unique Dispatch Home & Refresh"
+          >
             <Logo variant="dark" size="sm" />
-          </Link>
+          </a>
 
           {/* Desktop Navigation Links */}
           <nav className="hidden xl:flex items-center space-x-1 lg:space-x-2">
