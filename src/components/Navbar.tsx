@@ -57,28 +57,22 @@ export default function Navbar() {
               <Mail className="w-3.5 h-3.5 text-orange-500" />
               <span className="truncate max-w-[180px] md:max-w-none">{COMPANY_INFO.contacts.emailPrimary}</span>
             </a>
-
-            <div className="hidden lg:flex items-center gap-1.5 text-slate-300">
-              <Clock className="w-3.5 h-3.5 text-orange-500" />
-              <span>24/7 Live US Dispatch Desk</span>
-            </div>
           </div>
 
-          {/* Right Direct WhatsApp Action */}
-          <div className="flex items-center space-x-2 sm:space-x-3">
-            <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-emerald-400 font-medium">
+          {/* Right Status Indicators */}
+          <div className="flex items-center space-x-3 sm:space-x-4">
+            <div className="flex items-center gap-1.5 text-slate-300 text-[11px]">
+              <div className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </div>
+              <span className="hidden xs:inline sm:inline">24/7 Live Dispatch Desk</span>
+            </div>
+
+            <span className="inline-flex items-center gap-1 text-[11px] text-emerald-400 font-medium">
               <ShieldCheck className="w-3.5 h-3.5" />
               Verified Entity
             </span>
-            <a
-              href={COMPANY_INFO.contacts.whatsappUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 sm:px-3 py-1 rounded font-bold text-[11px] sm:text-xs transition-colors shadow-sm"
-            >
-              <MessageSquare className="w-3 h-3" />
-              <span>WhatsApp Direct</span>
-            </a>
           </div>
 
         </div>
