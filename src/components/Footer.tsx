@@ -51,43 +51,53 @@ export default function Footer() {
             <h4 className="text-xs font-black uppercase tracking-wider text-white">Quick Links</h4>
             <ul className="space-y-2">
               <li>
-                <Link href="#home" className="hover:text-orange-400 transition-colors flex items-center gap-1">
+                <Link href="/#home" className="hover:text-orange-400 transition-colors flex items-center gap-1">
                   <ChevronRight className="w-3 h-3 text-orange-500" /> Home
                 </Link>
               </li>
               <li>
-                <Link href="#about" className="hover:text-orange-400 transition-colors flex items-center gap-1">
+                <Link href="/#about" className="hover:text-orange-400 transition-colors flex items-center gap-1">
                   <ChevronRight className="w-3 h-3 text-orange-500" /> About Us
                 </Link>
               </li>
               <li>
-                <Link href="#services" className="hover:text-orange-400 transition-colors flex items-center gap-1">
+                <Link href="/#services" className="hover:text-orange-400 transition-colors flex items-center gap-1">
                   <ChevronRight className="w-3 h-3 text-orange-500" /> Our Services
                 </Link>
               </li>
               <li>
-                <Link href="#amazon-relay" className="hover:text-orange-400 transition-colors flex items-center gap-1">
+                <Link href="/#amazon-relay" className="hover:text-orange-400 transition-colors flex items-center gap-1">
                   <ChevronRight className="w-3 h-3 text-orange-500" /> Amazon Relay
                 </Link>
               </li>
               <li>
-                <Link href="#equipment" className="hover:text-orange-400 transition-colors flex items-center gap-1">
+                <Link href="/#equipment" className="hover:text-orange-400 transition-colors flex items-center gap-1">
                   <ChevronRight className="w-3 h-3 text-orange-500" /> Equipment
                 </Link>
               </li>
               <li>
-                <Link href="#how-it-works" className="hover:text-orange-400 transition-colors flex items-center gap-1">
+                <Link href="/#how-it-works" className="hover:text-orange-400 transition-colors flex items-center gap-1">
                   <ChevronRight className="w-3 h-3 text-orange-500" /> How It Works
                 </Link>
               </li>
               <li>
-                <Link href="#leadership" className="hover:text-orange-400 transition-colors flex items-center gap-1">
+                <Link href="/#leadership" className="hover:text-orange-400 transition-colors flex items-center gap-1">
                   <ChevronRight className="w-3 h-3 text-orange-500" /> Leadership
                 </Link>
               </li>
               <li>
-                <Link href="#contact-us" className="hover:text-orange-400 transition-colors flex items-center gap-1">
+                <Link href="/#contact-us" className="hover:text-orange-400 transition-colors flex items-center gap-1">
                   <ChevronRight className="w-3 h-3 text-orange-500" /> Contact Us
+                </Link>
+              </li>
+              <li className="pt-2 border-t border-slate-800/80">
+                <Link href="/privacy" className="hover:text-orange-400 transition-colors flex items-center gap-1 text-slate-400 font-medium">
+                  <ChevronRight className="w-3 h-3 text-orange-500" /> Privacy Policy
+                </Link>
+              </li>
+              <li>
+                <Link href="/terms" className="hover:text-orange-400 transition-colors flex items-center gap-1 text-slate-400 font-medium">
+                  <ChevronRight className="w-3 h-3 text-orange-500" /> Terms of Service
                 </Link>
               </li>
             </ul>
@@ -172,18 +182,22 @@ export default function Footer() {
           <p className="text-slate-400">
             &copy; 2026 Unique Dispatch. All rights reserved. Registered Address: Khaled Ibn El-Walid St., off El-Geish St. - Miami, Alexandria 21614, Egypt.
           </p>
-          <div className="flex items-center justify-center space-x-4 text-slate-400">
-            <a href="#leadership" className="hover:text-white transition-colors">
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-slate-400">
+            <Link href="/privacy" className="hover:text-white transition-colors">
+              Privacy Policy
+            </Link>
+            <span>•</span>
+            <Link href="/terms" className="hover:text-white transition-colors">
+              Terms of Service
+            </Link>
+            <span>•</span>
+            <Link href="/#leadership" className="hover:text-white transition-colors">
               Owner Profile
-            </a>
+            </Link>
             <span>•</span>
-            <a href="#contact-us" className="hover:text-white transition-colors">
+            <Link href="/#contact-us" className="hover:text-white transition-colors">
               Office Location
-            </a>
-            <span>•</span>
-            <a href="#about" className="hover:text-white transition-colors">
-              Why Choose Us
-            </a>
+            </Link>
           </div>
         </div>
       </div>

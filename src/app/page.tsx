@@ -11,6 +11,7 @@ import FAQSection from "@/components/FAQSection";
 import LeadershipSection from "@/components/LeadershipSection";
 import ContactSection from "@/components/ContactSection";
 import Footer from "@/components/Footer";
+import FloatingContactWidget from "@/components/FloatingContactWidget";
 
 export default function Home() {
   return (
@@ -55,6 +56,9 @@ export default function Home() {
 
       {/* Corporate Deep Navy Footer */}
       <Footer />
+
+      {/* Floating 24/7 Fast Contact Widget (WhatsApp & Direct Call) */}
+      <FloatingContactWidget />
     </div>
   );
 }

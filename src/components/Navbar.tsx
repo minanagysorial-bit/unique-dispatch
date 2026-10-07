@@ -24,14 +24,14 @@ export default function Navbar() {
   };
 
   const navLinks = [
-    { name: "Home", href: "#home" },
-    { name: "About Us", href: "#about" },
-    { name: "Our Services", href: "#services" },
-    { name: "Amazon Relay", href: "#amazon-relay" },
-    { name: "Equipment", href: "#equipment" },
-    { name: "How It Works", href: "#how-it-works" },
-    { name: "Leadership", href: "#leadership" },
-    { name: "Contact Us", href: "#contact-us" },
+    { name: "Home", href: "/#home" },
+    { name: "About Us", href: "/#about" },
+    { name: "Our Services", href: "/#services" },
+    { name: "Amazon Relay", href: "/#amazon-relay" },
+    { name: "Equipment", href: "/#equipment" },
+    { name: "How It Works", href: "/#how-it-works" },
+    { name: "Leadership", href: "/#leadership" },
+    { name: "Contact Us", href: "/#contact-us" },
   ];
 
   return (
