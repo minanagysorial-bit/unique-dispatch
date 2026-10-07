@@ -1,12 +1,10 @@
 import React from "react";
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
-import MarketStatsTicker from "@/components/MarketStatsTicker";
 import WhyChooseUs from "@/components/WhyChooseUs";
 import Services from "@/components/Services";
 import AmazonRelaySpecial from "@/components/AmazonRelaySpecial";
 import EquipmentSection from "@/components/EquipmentSection";
-import RateCalculator from "@/components/RateCalculator";
 import HowItWorks from "@/components/HowItWorks";
 import CarrierReviews from "@/components/CarrierReviews";
 import FAQSection from "@/components/FAQSection";
@@ -22,40 +20,36 @@ export default function Home() {
 
       {/* Main Content Sections */}
       <main className="flex-1">
-        {/* 1. Hero: "For Owner Operators and Truckers - Freight Dispatch Service" */}
+        {/* 1. Hero: Video Background with Scenic Semi-Truck Driving Through Green Landscape */}
         <Hero />
 
-        {/* 2. Live Spot Market Ticker */}
-        <MarketStatsTicker />
-
-        {/* 3. Why Choose Us: "WE ADD VALUE TO YOUR BUSINESS" */}
+        {/* 2. Why Choose Us: "WE ADD VALUE TO YOUR BUSINESS" */}
         <WhyChooseUs />
 
-        {/* 4. Our Services: "OUR AWESOME SERVICES" */}
+        {/* 3. Our Services: "OUR AWESOME SERVICES" */}
         <Services />
 
-        {/* 5. Specialized Amazon Relay Middle-Mile & Block Desk */}
+        {/* 4. Specialized Amazon Relay Middle-Mile & Dedicated Block Desk */}
         <AmazonRelaySpecial />
 
-        {/* 6. Equipment Grid: "TRUCKS & TRAILERS WE DISPATCH" */}
+        {/* 5. Equipment Showcase: "TRUCKS & TRAILERS WE DISPATCH" */}
         <EquipmentSection />
 
-        {/* 7. Revenue & Rate Calculator */}
-        <RateCalculator />
+        {/* 6. How It Works: Simple 4-Step 24H Onboarding */}
+        <div id="how-it-works">
+          <HowItWorks />
+        </div>
 
-        {/* 8. How It Works: 4-Step 24h Onboarding */}
-        <HowItWorks />
-
-        {/* 9. Verified Carrier Reviews & Success Stories */}
+        {/* 7. Verified Carrier Reviews & Success Stories */}
         <CarrierReviews />
 
-        {/* 10. Frequently Asked Questions */}
+        {/* 8. Frequently Asked Questions */}
         <FAQSection />
 
-        {/* 11. Executive Leadership & Verified Ownership (Payoneer Verification) */}
+        {/* 9. Executive Leadership & Verified Ownership (Payoneer Verification Compliance) */}
         <LeadershipSection />
 
-        {/* 12. Contact Us & Registered Physical Office with Map */}
+        {/* 10. Contact Us & Registered Physical Office with Map */}
         <ContactSection />
       </main>
 

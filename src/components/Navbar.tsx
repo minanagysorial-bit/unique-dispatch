@@ -24,7 +24,7 @@ export default function Navbar() {
     { name: "Our Services", href: "#services" },
     { name: "Amazon Relay", href: "#amazon-relay" },
     { name: "Equipment", href: "#equipment" },
-    { name: "Rate Calculator", href: "#calculator" },
+    { name: "How It Works", href: "#how-it-works" },
     { name: "Leadership", href: "#leadership" },
     { name: "Contact Us", href: "#contact-us" },
   ];
@@ -59,9 +59,9 @@ export default function Navbar() {
             </div>
           </div>
 
-          {/* Right Direct WhatsApp Action */}
+          {/* Right Direct WhatsApp & Verification Badge */}
           <div className="flex items-center space-x-3 text-xs">
-            <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-emerald-400">
+            <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-emerald-400 font-medium">
               <ShieldCheck className="w-3.5 h-3.5" />
               Verified Entity
             </span>
@@ -79,7 +79,7 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Main Header with SVG Logo */}
+      {/* Main Navigation Header */}
       <div
         className={`px-4 lg:px-8 bg-white transition-all duration-300 ${
           isScrolled ? "shadow-md py-3" : "shadow-sm py-4"
@@ -87,7 +87,7 @@ export default function Navbar() {
       >
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           
-          {/* Brand Logo Component */}
+          {/* SVG Logo */}
           <Link href="#home">
             <Logo variant="dark" size="md" />
           </Link>
