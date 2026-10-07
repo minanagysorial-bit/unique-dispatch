@@ -35,21 +35,40 @@ export default function ContactSection() {
     setErrorMessage("");
 
     try {
-      const res = await fetch("/api/contact", {
+      const formPayload = new FormData();
+      formPayload.append("access_key", "f7bc0ee2-2931-4868-8548-2e70b3f0f925");
+      formPayload.append(
+        "subject",
+        `🚚 New Carrier Dispatch Lead: ${formData.fullName} (${formData.mcDotNumber}) - ${formData.truckType}`
+      );
+      formPayload.append("from_name", "Unique Dispatch Carrier Portal");
+      formPayload.append("Full Name", formData.fullName);
+      formPayload.append("Company Name", formData.companyName || "N/A");
+      formPayload.append("MC / DOT Number", formData.mcDotNumber);
+      formPayload.append("Equipment Type", formData.truckType);
+      formPayload.append("Phone Number", formData.phone);
+      formPayload.append("Email Address", formData.email);
+      formPayload.append("Message / Target Lanes", formData.message || "None provided");
+
+      const response = await fetch("https://api.web3forms.com/submit", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
+        body: formPayload,
       });
 
-      const data = await res.json();
+      const data = await response.json();
 
-      if (res.ok) {
+      if (data.success) {
         setSubmitted(true);
       } else {
-        // Fallback directly to Web3Forms API
-        const directRes = await fetch("https://api.web3forms.com/submit", {
+        setErrorMessage(
+          data.message || "Unable to send request right now. Please call our 24/7 dispatch desk directly."
+        );
+      }
+    } catch (err: any) {
+      console.error("Submission error:", err);
+      // Fallback JSON submission
+      try {
+        const jsonRes = await fetch("https://api.web3forms.com/submit", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -57,47 +76,25 @@ export default function ContactSection() {
           },
           body: JSON.stringify({
             access_key: "f7bc0ee2-2931-4868-8548-2e70b3f0f925",
-            subject: `🚚 New Carrier Dispatch Request: ${formData.fullName} (${formData.mcDotNumber}) - ${formData.truckType}`,
+            subject: `🚚 New Carrier Dispatch Lead: ${formData.fullName} (${formData.mcDotNumber})`,
             name: formData.fullName,
+            email: formData.email,
+            phone: formData.phone,
             company: formData.companyName,
             mc_number: formData.mcDotNumber,
             equipment: formData.truckType,
-            phone: formData.phone,
-            email: formData.email,
             message: formData.message,
           }),
         });
-
-        if (directRes.ok) {
+        const jsonData = await jsonRes.json();
+        if (jsonData.success) {
           setSubmitted(true);
         } else {
-          setErrorMessage(data.error || "Failed to submit request. Please call our US dispatch line directly.");
+          setErrorMessage(jsonData.message || "Please call our US dispatch line directly.");
         }
+      } catch (jsonErr) {
+        setErrorMessage("Network error. Please call our direct US line: +1 (332) 244-5532");
       }
-    } catch (err) {
-      try {
-        await fetch("https://api.web3forms.com/submit", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify({
-            access_key: "f7bc0ee2-2931-4868-8548-2e70b3f0f925",
-            subject: `🚚 New Carrier Dispatch Request: ${formData.fullName} (${formData.mcDotNumber}) - ${formData.truckType}`,
-            name: formData.fullName,
-            company: formData.companyName,
-            mc_number: formData.mcDotNumber,
-            equipment: formData.truckType,
-            phone: formData.phone,
-            email: formData.email,
-            message: formData.message,
-          }),
-        });
-      } catch (fallbackErr) {
-        console.error(fallbackErr);
-      }
-      setSubmitted(true);
     } finally {
       setLoading(false);
     }
