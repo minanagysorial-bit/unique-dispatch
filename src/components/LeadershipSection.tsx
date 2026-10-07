@@ -24,7 +24,7 @@ export default function LeadershipSection() {
           </p>
         </div>
 
-        {/* Executive Profile Card (Payoneer Verification Compliant) */}
+        {/* Executive Profile Card */}
         <div className="max-w-4xl mx-auto bg-white rounded-2xl border border-slate-200 shadow-lg p-6 sm:p-10 relative overflow-hidden">
           
           {/* Top Border Accent */}
@@ -147,7 +147,7 @@ export default function LeadershipSection() {
             </div>
             <div className="flex items-center gap-2">
               <Building2 className="w-4 h-4 text-blue-600 shrink-0" />
-              <span>Registered commercial entity for international logistics &amp; Payoneer settlement.</span>
+              <span>Registered commercial entity for North American freight logistics and global operations.</span>
             </div>
           </div>
 

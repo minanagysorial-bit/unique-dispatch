@@ -4,7 +4,7 @@ export const COMPANY_INFO = {
   tagline: "For Owner Operators and Truckers — Freight Dispatch Service",
   shortDesc: "Unique Dispatch arranges professional dispatch services for owner-operators and truckers who are tired of wasting their time and energy on cheap freight.",
   
-  // Leadership & Owner Profile (Payoneer Verification Critical)
+  // Leadership & Owner Profile
   founder: {
     name: "Marven Awad",
     title: "Founder & Managing Director",
@@ -31,7 +31,7 @@ export const COMPANY_INFO = {
     responseTime: "Under 15 Minutes",
   },
 
-  // Registered Business Physical Address (Payoneer Verification Critical)
+  // Registered Business Physical Address
   address: {
     street: "Khaled Ibn El-Walid St., off El-Geish St. - Miami",
     district: "Awal El-Montazah",
@@ -219,6 +219,6 @@ export const FAQS = [
   },
   {
     question: "How do dispatch payments work?",
-    answer: "We send you a transparent weekly invoice based on completed dispatched loads with zero hidden fees. We accept Wire, ACH, and Payoneer.",
+    answer: "We send you a transparent weekly invoice based on completed dispatched loads with zero hidden fees. We accept standard Wire, ACH, and direct bank transfer.",
   },
 ];

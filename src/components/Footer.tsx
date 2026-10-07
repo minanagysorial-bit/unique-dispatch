@@ -68,8 +68,8 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="#calculator" className="hover:text-orange-400 transition-colors flex items-center gap-1">
-                  <ChevronRight className="w-3 h-3 text-orange-500" /> Rate Calculator
+                <Link href="#how-it-works" className="hover:text-orange-400 transition-colors flex items-center gap-1">
+                  <ChevronRight className="w-3 h-3 text-orange-500" /> How It Works
                 </Link>
               </li>
               <li>
@@ -100,7 +100,7 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Contact & Registered Head Office (PAYONEER VERIFICATION CRITICAL) */}
+          {/* Contact & Registered Head Office */}
           <div className="lg:col-span-3 space-y-3">
             <h4 className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
               <MapPin className="w-3.5 h-3.5 text-orange-500" />
@@ -151,7 +151,7 @@ export default function Footer() {
             </span>
           </div>
           <div className="flex items-center gap-3 shrink-0 text-slate-300 font-semibold">
-            <span>Payoneer Verified Merchant</span>
+            <span>Verified Freight Entity</span>
             <span>•</span>
             <span>FMCSA Non-Forced Dispatch Standard</span>
           </div>
