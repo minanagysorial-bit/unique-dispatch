@@ -46,8 +46,6 @@ export const COMPANY_INFO = {
 
   stats: [
     { label: "On-Time Dispatch Rate", value: "99.4%" },
-    { label: "Average Rate Per Mile", value: "$2.85+" },
-    { label: "Weekly Average Gross", value: "$8,500+" },
     { label: "Forced Dispatch", value: "0%" },
   ],
 };
@@ -74,8 +72,8 @@ export const SERVICES = [
     image: "https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&w=800&q=80",
     features: [
       "Consistent cross-country and regional lanes",
-      "Average $2.60 - $3.20+ per mile",
       "No cheap broker freight — top rate negotiation",
+      "Round-trip lane planning and zero deadhead",
       "Detention & layover collection support",
     ],
   },
@@ -84,12 +82,12 @@ export const SERVICES = [
     title: "Reefer (53') Dispatch",
     tagline: "Premium Temperature Controlled",
     description: "Specialized cold-chain dispatching for produce, meat, frozen foods, and pharmaceuticals with top-tier spot rates across the United States.",
-    image: "https://images.unsplash.com/photo-1586191582056-a602c3497d41?auto=format&fit=crop&w=800&q=80",
+    image: "https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&w=800&q=80",
     features: [
-      "Highest paying spot market loads ($3.00 - $4.00+/mi)",
-      "Continuous reefer temperature monitoring",
+      "Top-tier cold chain & produce market loads",
+      "Continuous reefer temperature coordination",
       "Immediate lumper fee reimbursement handling",
-      "Round-trip dedicated produce lane planning",
+      "Dedicated produce lane seasonal positioning",
     ],
   },
   {
@@ -97,9 +95,9 @@ export const SERVICES = [
     title: "Flatbed & Step Deck Dispatch",
     tagline: "Machinery & Heavy Haul",
     description: "Tailored load booking for open-deck equipment, oversized machinery, steel, and building materials with verified certified shippers.",
-    image: "https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&w=800&q=80",
+    image: "https://images.unsplash.com/photo-1592838064575-70ed626d3a0e?auto=format&fit=crop&w=800&q=80",
     features: [
-      "High gross rates ($3.20 - $4.50+/mi)",
+      "High-paying industrial machinery loads",
       "Tarp fees & extra stop charges collected",
       "Oversized permit and route assistance",
       "Direct construction & industrial contracts",
@@ -112,7 +110,7 @@ export const SERVICES = [
     description: "Dedicated dispatch for 26ft straight trucks, dock-high and liftgate loads, palletized LTL, and Amazon Relay middle-mile operations.",
     image: "https://images.unsplash.com/photo-1580674285054-bed31e145f59?auto=format&fit=crop&w=800&q=80",
     features: [
-      "High rate-per-mile regional expedited loads",
+      "Regional expedited & local dedicated freight",
       "Amazon Relay box truck loads & short-hauls",
       "Liftgate and inside delivery fee collection",
       "Low deadhead city-to-city routing",
@@ -123,7 +121,7 @@ export const SERVICES = [
     title: "Back-Office & Paperwork Support",
     tagline: "Zero Administrative Headaches",
     description: "We complete carrier setup packets, request COIs, audit Rate Confirmations, and submit Invoices/BOLs to your factoring company for same-day funding.",
-    image: "https://images.unsplash.com/photo-1450133064473-71024230f91b?auto=format&fit=crop&w=800&q=80",
+    image: "https://images.unsplash.com/photo-1578575437130-527eed3abbec?auto=format&fit=crop&w=800&q=80",
     features: [
       "Instant broker setup packet completion",
       "Factoring company submission & NOA processing",
@@ -136,82 +134,39 @@ export const SERVICES = [
 export const EQUIPMENT_TYPES = [
   {
     name: "Dry Van (53')",
-    image: "https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&w=600&q=80",
-    rateAvg: "$2.60 - $3.20 / mi",
-    weeklyGross: "$7,500 - $9,500+",
+    image: "https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&w=800&q=80",
+    category: "Full Truckload / Nationwide",
+    specialty: "High-Volume Freight & Palletized Cargo",
   },
   {
     name: "Step Deck",
-    image: "https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&w=600&q=80",
-    rateAvg: "$3.20 - $4.20 / mi",
-    weeklyGross: "$9,500 - $13,000+",
+    image: "https://images.unsplash.com/photo-1592838064575-70ed626d3a0e?auto=format&fit=crop&w=800&q=80",
+    category: "Heavy Haul & Machinery",
+    specialty: "Oversized Equipment & Tall Freight",
   },
   {
     name: "Reefer (53')",
-    image: "https://images.unsplash.com/photo-1586191582056-a602c3497d41?auto=format&fit=crop&w=600&q=80",
-    rateAvg: "$2.90 - $3.90 / mi",
-    weeklyGross: "$8,500 - $11,500+",
+    image: "https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&w=800&q=80",
+    category: "Temperature Controlled",
+    specialty: "Fresh Produce, Frozen & Pharmaceuticals",
   },
   {
     name: "Flatbed",
-    image: "https://images.unsplash.com/photo-1506015391300-4802dc74de2e?auto=format&fit=crop&w=600&q=80",
-    rateAvg: "$3.00 - $4.10 / mi",
-    weeklyGross: "$9,000 - $12,500+",
+    image: "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80",
+    category: "Open Deck Hauling",
+    specialty: "Steel, Lumber, Building Materials & Pipes",
   },
   {
     name: "Power Only",
-    image: "https://images.unsplash.com/photo-1592838064575-70ed626d3a0e?auto=format&fit=crop&w=600&q=80",
-    rateAvg: "$2.40 - $3.10 / mi",
-    weeklyGross: "$6,500 - $8,800+",
+    image: "https://images.unsplash.com/photo-1578575437130-527eed3abbec?auto=format&fit=crop&w=800&q=80",
+    category: "Drop-and-Hook",
+    specialty: "Trailer Moves, Reposition & Amazon Relays",
   },
   {
     name: "26ft Box Truck",
-    image: "https://images.unsplash.com/photo-1580674285054-bed31e145f59?auto=format&fit=crop&w=600&q=80",
-    rateAvg: "$2.20 - $2.90 / mi",
-    weeklyGross: "$5,000 - $7,500+",
-  },
-];
-
-export const PRICING_PLANS = [
-  {
-    name: "Percentage Plan",
-    subtitle: "Pay As You Earn",
-    price: "6%",
-    priceDetail: "of gross load revenue",
-    description: "The most flexible plan for owner-operators. You only pay when you make money.",
-    badge: "Most Popular",
-    isPopular: true,
-    features: [
-      "100% No Forced Dispatch — you approve every load",
-      "Dedicated senior dispatcher assigned to you",
-      "Amazon Relay, DAT One & Truckstop load booking",
-      "Aggressive rate negotiation & broker credit check",
-      "All broker setup packets & paperwork completed",
-      "Factoring invoicing & detention/layover billing",
-      "24/7 live driver support & route planning",
-      "Cancel anytime — zero lock-in contracts",
-    ],
-    ctaText: "Start With 6% Plan",
-  },
-  {
-    name: "Weekly Flat Fee",
-    subtitle: "Predictable Fleet Cost",
-    price: "$299",
-    priceDetail: "per truck / week",
-    description: "Fixed predictable weekly dispatch cost regardless of how high your gross revenue is.",
-    badge: "Best Value for Fleets",
-    isPopular: false,
-    features: [
-      "Fixed predictable weekly fee (no percentage taken)",
-      "High volume lane booking & round-trip optimization",
-      "Dedicated senior dispatcher with 24/7 direct cell access",
-      "Amazon Relay block management & spot booking",
-      "Complete back-office & billing administration",
-      "Direct broker negotiations & rate confirmation auditing",
-      "Detention, layover & TONU claim processing",
-      "Multi-truck fleet discount available for 3+ trucks",
-    ],
-    ctaText: "Start With Flat Fee Plan",
+    image: "https://images.unsplash.com/photo-1580674285054-bed31e145f59?auto=format&fit=crop&w=800&q=80",
+    category: "Expedited & Liftgate",
+    specialty: "LTL Commercial, Middle-Mile & Dock-High",
   },
 ];
 
@@ -229,7 +184,7 @@ export const ONBOARDING_STEPS = [
   {
     step: "03",
     title: "Set Preferences & Lanes",
-    description: "Tell your dedicated dispatcher your target RPM, preferred driving regions, and schedule.",
+    description: "Tell your dedicated dispatcher your preferred driving regions, equipment, and schedule.",
   },
   {
     step: "04",
@@ -240,7 +195,7 @@ export const ONBOARDING_STEPS = [
 
 export const WHY_CHOOSE_POINTS = [
   "You Choose the Locations you Desire to Move (100% No Forced Dispatch)",
-  "We Deal Hard For Efficient Delivering Rates & Maximum Revenue Per Mile",
+  "We Deal Hard For Efficient Delivering Rates & Maximum Market Revenue",
   "Our experienced dispatchers focus on booking loads ahead with destinations while negotiating the best rates for active day bookings",
   "We also take care of your documentation segment while ensuring quick availability of documents such as filling Carrier Packets and Factoring submissions to contribute to your success.",
 ];
@@ -264,6 +219,6 @@ export const FAQS = [
   },
   {
     question: "How do dispatch payments work?",
-    answer: "We send you a transparent weekly invoice based on completed loads. For percentage plans (6%), fees are calculated strictly on gross dispatched revenue. For flat plans, it's $299/truck weekly. We accept Wire, ACH, and Payoneer.",
+    answer: "We send you a transparent weekly invoice based on completed dispatched loads with zero hidden fees. We accept Wire, ACH, and Payoneer.",
   },
 ];

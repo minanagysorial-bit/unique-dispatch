@@ -10,7 +10,7 @@ export default function Hero() {
       id="home"
       className="relative min-h-[92vh] pt-36 pb-24 md:pt-48 md:pb-32 bg-[#070d1e] flex items-center overflow-hidden"
     >
-      {/* Real Background HTML5 Video: Semi-Truck driving through green landscape & highway */}
+      {/* Self-Hosted HD Video: Semi-Truck driving through scenic nature & highway */}
       <div className="absolute inset-0 w-full h-full overflow-hidden">
         <video
           autoPlay
@@ -20,6 +20,7 @@ export default function Hero() {
           poster="https://images.unsplash.com/photo-1506015391300-4802dc74de2e?auto=format&fit=crop&w=2000&q=80"
           className="w-full h-full object-cover object-center scale-105"
         >
+          <source src="/hero_truck.mp4" type="video/mp4" />
           <source
             src="https://uniquedispatcher.com/wp-content/uploads/2022/11/video_new.mp4"
             type="video/mp4"
