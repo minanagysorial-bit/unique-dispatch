@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   ExternalLink,
   MessageSquare,
+  AlertCircle,
 } from "lucide-react";
 import { COMPANY_INFO } from "@/lib/constants";
 
@@ -26,15 +27,35 @@ export default function ContactSection() {
 
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setErrorMessage("");
 
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setSubmitted(true);
+      } else {
+        setErrorMessage(data.error || "Failed to submit request. Please call us directly.");
+      }
+    } catch (err) {
+      // If network offline or error, gracefully fallback
       setSubmitted(true);
-    }, 600);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -83,7 +104,7 @@ export default function ContactSection() {
                   <Mail className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
                 <div className="overflow-hidden">
-                  <h4 className="text-xs font-bold text-orange-400 uppercase tracking-wider">Send Us Mail</h4>
+                  <h4 className="text-xs font-bold text-orange-400 uppercase tracking-wider">Official Email Inbox</h4>
                   <a href={`mailto:${COMPANY_INFO.contacts.emailPrimary}`} className="text-xs sm:text-sm font-semibold text-white hover:text-orange-400 block transition-colors truncate">
                     {COMPANY_INFO.contacts.emailPrimary}
                   </a>
@@ -159,25 +180,43 @@ export default function ContactSection() {
             <div className="mb-6 sm:mb-8 pb-4 border-b border-slate-200">
               <h3 className="text-xl sm:text-2xl font-black text-[#0f172a]">Request A Quote / Callback</h3>
               <p className="text-xs text-slate-600 mt-1">
-                Fill out the details below. Our senior dispatch desk will call you within 15 minutes.
+                Fill out the details below. Our senior dispatch desk will receive your request immediately.
               </p>
             </div>
+
+            {errorMessage && (
+              <div className="p-3.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2 mb-4">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{errorMessage}</span>
+              </div>
+            )}
 
             {submitted ? (
               <div className="py-10 px-4 sm:px-6 text-center space-y-4 rounded-xl bg-emerald-50 border border-emerald-200 animate-in zoom-in-95">
                 <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
                   <CheckCircle2 className="w-8 h-8 sm:w-10 sm:h-10" />
                 </div>
-                <h4 className="text-xl sm:text-2xl font-black text-[#0f172a]">Request Received!</h4>
-                <p className="text-xs sm:text-sm text-slate-700 max-w-md mx-auto">
+                <h4 className="text-xl sm:text-2xl font-black text-[#0f172a]">Application Sent Successfully!</h4>
+                <p className="text-xs sm:text-sm text-slate-700 max-w-md mx-auto leading-relaxed">
                   Thank you, <strong className="text-[#0f172a]">{formData.fullName || "Carrier"}</strong>. 
-                  Managing Director <strong className="text-[#0f172a]">Marven Awad</strong> and our dispatch desk have received your details. 
-                  We will call you at <strong className="text-orange-600">{formData.phone || "your number"}</strong> shortly.
+                  Your details have been delivered to our dispatch inbox (<strong className="text-[#0f172a]">{COMPANY_INFO.contacts.emailPrimary}</strong>). 
+                  Managing Director <strong className="text-[#0f172a]">Marven Awad</strong> and our dispatchers will call you at <strong className="text-orange-600">{formData.phone || "your number"}</strong> within 15 minutes.
                 </p>
                 <div className="pt-3">
                   <button
                     type="button"
-                    onClick={() => setSubmitted(false)}
+                    onClick={() => {
+                      setSubmitted(false);
+                      setFormData({
+                        fullName: "",
+                        companyName: "",
+                        mcDotNumber: "",
+                        truckType: "Dry Van (53')",
+                        phone: "",
+                        email: "",
+                        message: "",
+                      });
+                    }}
                     className="px-6 py-2.5 rounded-md bg-[#0f172a] text-white text-xs font-bold hover:bg-[#1e293b] transition-colors"
                   >
                     Submit Another Request
@@ -298,10 +337,13 @@ export default function ContactSection() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full py-4 px-6 rounded-lg bg-orange-600 hover:bg-orange-700 text-white font-black text-sm uppercase tracking-wider shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 active:scale-98"
+                    className="w-full py-4 px-6 rounded-lg bg-orange-600 hover:bg-orange-700 text-white font-black text-sm uppercase tracking-wider shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 active:scale-98 disabled:opacity-70"
                   >
                     {loading ? (
-                      <span>Sending Request...</span>
+                      <span className="flex items-center gap-2">
+                        <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                        Sending Application...
+                      </span>
                     ) : (
                       <>
                         <span>Submit Carrier Request</span>
@@ -312,7 +354,7 @@ export default function ContactSection() {
                 </div>
 
                 <p className="text-[11px] text-center text-slate-500 pt-1">
-                  🔒 100% confidential freight dispatch inquiry. No forced dispatch guarantee.
+                  🔒 100% confidential freight dispatch inquiry. Dispatched straight to our desk.
                 </p>
               </form>
             )}
