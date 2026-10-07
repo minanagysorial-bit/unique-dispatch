@@ -1,22 +1,39 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { COMPANY_INFO } from "@/lib/constants";
+import { COMPANY_INFO, FAQS } from "@/lib/constants";
+
+export const viewport: Viewport = {
+  themeColor: "#ea580c",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+};
 
 export const metadata: Metadata = {
-  title: "Unique Dispatch | US Truck Dispatching & Amazon Relay Management",
+  metadataBase: new URL("https://uniquedispatcher.com"),
+  title: {
+    default: "Unique Dispatch | US Freight Dispatch Service & Amazon Relay Management",
+    template: "%s | Unique Dispatch",
+  },
   description:
-    "Unique Dispatch offers premier US freight dispatching, Amazon Relay management, top rate-per-mile negotiation, and 24/7 dedicated dispatch for owner-operators and fleets. Directed by Marven Awad.",
+    "Unique Dispatch arranges professional freight dispatch services for owner-operators and truckers. Top rate-per-mile negotiation, Amazon Relay middle-mile & block booking, 24/7 dedicated dispatchers, and zero forced dispatch. Managed by Marven Awad.",
   keywords: [
     "Unique Dispatch",
-    "Truck Dispatching",
+    "Freight Dispatch Service",
+    "Truck Dispatching Service",
     "Amazon Relay Dispatcher",
-    "US Freight Dispatch",
+    "Amazon Relay Middle Mile",
+    "Amazon Relay Block Booking",
     "Dry Van Dispatch",
     "Reefer Dispatch",
     "Flatbed Dispatch",
-    "Box Truck Dispatch",
+    "26ft Box Truck Dispatch",
+    "US Freight Logistics",
+    "Owner Operator Dispatch",
     "Marven Awad",
     "Alexandria Egypt Dispatch",
+    "No Forced Dispatch",
+    "Top Rate Per Mile",
   ],
   authors: [{ name: "Marven Awad", url: "https://uniquedispatcher.com" }],
   creator: "Marven Awad",
@@ -26,24 +43,51 @@ export const metadata: Metadata = {
     address: true,
     telephone: true,
   },
+  alternates: {
+    canonical: "/",
+  },
   openGraph: {
-    title: "Unique Dispatch | Reliable US Truck Dispatching & Amazon Relay Management",
+    title: "Unique Dispatch | US Freight Dispatch Service & Amazon Relay Management",
     description:
-      "Maximize your gross revenue per mile with 24/7 dedicated dispatchers, top rate negotiations, and 100% no forced dispatch. Verified Leadership: Marven Awad.",
+      "For Owner Operators and Truckers. Professional dispatch services, top rate negotiations, Amazon Relay blocks, and 24/7 dedicated dispatch support.",
     url: "https://uniquedispatcher.com",
     siteName: "Unique Dispatch",
     locale: "en_US",
     type: "website",
+    images: [
+      {
+        url: "https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&w=1200&h=630&q=80",
+        width: 1200,
+        height: 630,
+        alt: "Unique Dispatch - US Freight & Amazon Relay Dispatching",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Unique Dispatch | US Truck Dispatching & Amazon Relay Management",
+    title: "Unique Dispatch | Freight Dispatch Service & Amazon Relay",
     description:
-      "Premier truck dispatching and Amazon Relay operations management. Dedicated dispatchers, zero forced dispatch.",
+      "Professional dispatch services for owner-operators and truckers tired of cheap freight. 24/7 US dispatch desk.",
+    images: [
+      "https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&w=1200&h=630&q=80",
+    ],
   },
   robots: {
     index: true,
     follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  other: {
+    "geo.region": "EG-ALX",
+    "geo.placename": "Alexandria, Egypt",
+    "geo.position": "31.2565;29.9863",
+    ICBM: "31.2565, 29.9863",
   },
 };
 
@@ -52,12 +96,12 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const jsonLd = {
+  const logisticsSchema = {
     "@context": "https://schema.org",
     "@type": "LogisticsService",
     name: COMPANY_INFO.name,
-    description:
-      "Professional US truck dispatching, spot rate negotiation, and Amazon Relay middle-mile operations management.",
+    alternateName: "Unique Dispatch Logistics",
+    description: COMPANY_INFO.shortDesc,
     url: "https://uniquedispatcher.com",
     telephone: COMPANY_INFO.contacts.phoneUS,
     email: COMPANY_INFO.contacts.emailPrimary,
@@ -97,9 +141,22 @@ export default function RootLayout({
       "Dry Van Dispatch",
       "Reefer Dispatch",
       "Flatbed Dispatch",
-      "Box Truck Dispatch",
-      "Factoring & Invoicing Assistance",
+      "26ft Box Truck Dispatch",
+      "Carrier Packet & Factoring Assistance",
     ],
+  };
+
+  const faqSchema = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: FAQS.map((faq) => ({
+      "@type": "Question",
+      name: faq.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: faq.answer,
+      },
+    })),
   };
 
   return (
@@ -107,10 +164,14 @@ export default function RootLayout({
       <head>
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(logisticsSchema) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
         />
       </head>
-      <body className="bg-slate-950 text-slate-100 min-h-screen antialiased selection:bg-emerald-500 selection:text-slate-950">
+      <body className="bg-white text-slate-900 min-h-screen antialiased selection:bg-orange-500 selection:text-white">
         {children}
       </body>
     </html>
