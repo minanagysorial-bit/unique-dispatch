@@ -2,7 +2,8 @@
 
 import React from "react";
 import Link from "next/link";
-import { Phone, Mail, MapPin, Clock, ChevronRight, Truck, ShieldCheck, BadgeCheck } from "lucide-react";
+import { Phone, Mail, MapPin, ChevronRight, ShieldCheck, BadgeCheck } from "lucide-react";
+import Logo from "@/components/Logo";
 import { COMPANY_INFO } from "@/lib/constants";
 
 export default function Footer() {
@@ -15,32 +16,21 @@ export default function Footer() {
           
           {/* Brand Column */}
           <div className="lg:col-span-4 space-y-4">
-            <Link href="#home" className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-orange-600 flex items-center justify-center text-white shadow">
-                <Truck className="w-6 h-6" />
-              </div>
-              <div className="flex flex-col">
-                <div className="flex items-center">
-                  <span className="text-xl font-black text-white tracking-tight">UNIQUE</span>
-                  <span className="text-xl font-black text-orange-500 tracking-tight ml-1">DISPATCH</span>
-                </div>
-                <span className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">
-                  Freight Dispatch Service
-                </span>
-              </div>
+            <Link href="#home">
+              <Logo variant="light" size="md" />
             </Link>
 
-            <p className="text-xs text-slate-300 leading-relaxed pr-4">
-              Unique Dispatch arranges professional dispatch services for owner-operators and truckers 
-              who are tired of wasting their time and energy on cheap freight. Top rate negotiation, 
-              Amazon Relay management, and 24/7 dedicated support.
+            <p className="text-xs text-slate-300 leading-relaxed pr-4 mt-3">
+              Unique Dispatch arranges professional freight dispatch services for owner-operators and truckers 
+              who are tired of wasting their time and energy on cheap freight. Top spot rate negotiation, 
+              Amazon Relay middle-mile management, and 24/7 dedicated dispatch.
             </p>
 
             {/* Owner badge */}
-            <div className="p-3 rounded-lg bg-[#0f172a] border border-slate-800 text-[11px] text-slate-300 space-y-1">
+            <div className="p-3.5 rounded-xl bg-[#0f172a] border border-slate-800 text-[11px] text-slate-300 space-y-1">
               <div className="flex items-center gap-1.5 text-orange-400 font-bold">
                 <BadgeCheck className="w-4 h-4" />
-                <span>Executive Management</span>
+                <span>Executive Leadership &amp; Governance</span>
               </div>
               <p>
                 Founder &amp; Managing Director: <strong className="text-white">{COMPANY_INFO.founder.name}</strong>
@@ -68,13 +58,18 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
+                <Link href="#amazon-relay" className="hover:text-orange-400 transition-colors flex items-center gap-1">
+                  <ChevronRight className="w-3 h-3 text-orange-500" /> Amazon Relay
+                </Link>
+              </li>
+              <li>
                 <Link href="#equipment" className="hover:text-orange-400 transition-colors flex items-center gap-1">
                   <ChevronRight className="w-3 h-3 text-orange-500" /> Equipment
                 </Link>
               </li>
               <li>
-                <Link href="#pricing" className="hover:text-orange-400 transition-colors flex items-center gap-1">
-                  <ChevronRight className="w-3 h-3 text-orange-500" /> Pricing
+                <Link href="#calculator" className="hover:text-orange-400 transition-colors flex items-center gap-1">
+                  <ChevronRight className="w-3 h-3 text-orange-500" /> Rate Calculator
                 </Link>
               </li>
               <li>
@@ -92,15 +87,15 @@ export default function Footer() {
 
           {/* Services List */}
           <div className="lg:col-span-3 space-y-3">
-            <h4 className="text-xs font-black uppercase tracking-wider text-white">Dispatch Solutions</h4>
+            <h4 className="text-xs font-black uppercase tracking-wider text-white">Freight Solutions</h4>
             <ul className="space-y-2 text-slate-300">
-              <li>• Amazon Relay Middle-Mile &amp; Blocks</li>
-              <li>• Dry Van 53&apos; Nationwide Hauls</li>
+              <li>• Amazon Relay Spot &amp; Blocks</li>
+              <li>• Dry Van 53&apos; Full Truckload</li>
               <li>• Reefer 53&apos; Cold Chain Freight</li>
-              <li>• Flatbed &amp; Step Deck Machinery</li>
+              <li>• Flatbed &amp; Heavy Machinery</li>
               <li>• 26ft Box Truck &amp; Liftgate</li>
-              <li>• Power Only &amp; Trailer Moves</li>
-              <li>• Carrier Setup &amp; Factoring NOA</li>
+              <li>• Power Only &amp; Trailer Reposition</li>
+              <li>• Carrier Packets &amp; Factoring NOA</li>
               <li>• Detention &amp; Layover Claims</li>
             </ul>
           </div>
@@ -112,7 +107,7 @@ export default function Footer() {
               Registered Head Office
             </h4>
 
-            <div className="bg-[#0f172a] p-3.5 rounded-lg border border-slate-800 text-slate-300 leading-relaxed space-y-1">
+            <div className="bg-[#0f172a] p-3.5 rounded-xl border border-slate-800 text-slate-300 leading-relaxed space-y-1">
               <p className="font-bold text-white">{COMPANY_INFO.name}</p>
               <p>{COMPANY_INFO.address.street}</p>
               <p>{COMPANY_INFO.address.district}</p>
@@ -124,7 +119,7 @@ export default function Footer() {
             <div className="space-y-1.5 pt-1 text-slate-300">
               <p>
                 <strong className="text-white">US Line: </strong>
-                <a href={`tel:${COMPANY_INFO.contacts.phoneUS.replace(/[^0-9+]/g, "")}`} className="text-orange-400 hover:underline">
+                <a href={`tel:${COMPANY_INFO.contacts.phoneUS.replace(/[^0-9+]/g, "")}`} className="text-orange-400 hover:underline font-bold">
                   {COMPANY_INFO.contacts.phoneUSDisplay}
                 </a>
               </p>
@@ -152,13 +147,13 @@ export default function Footer() {
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
             <span>
-              <strong>Verified Business Entity:</strong> Unique Dispatch is registered in Alexandria, Egypt, providing third-party freight coordination and dispatching services worldwide.
+              <strong>Verified Business Entity:</strong> Unique Dispatch is registered in Alexandria, Egypt, providing third-party freight coordination, Amazon Relay dispatch, and logistics support services worldwide.
             </span>
           </div>
           <div className="flex items-center gap-3 shrink-0 text-slate-300 font-semibold">
-            <span>Payoneer Verified</span>
+            <span>Payoneer Verified Merchant</span>
             <span>•</span>
-            <span>100% Non-Forced Dispatch</span>
+            <span>FMCSA Non-Forced Dispatch Standard</span>
           </div>
         </div>
       </div>
@@ -178,8 +173,8 @@ export default function Footer() {
               Office Location
             </a>
             <span>•</span>
-            <a href="#pricing" className="hover:text-white transition-colors">
-              Pricing Terms
+            <a href="#about" className="hover:text-white transition-colors">
+              Why Choose Us
             </a>
           </div>
         </div>

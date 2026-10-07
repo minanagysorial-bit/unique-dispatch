@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Phone, Mail, Clock, Menu, X, ArrowRight, Truck, MessageSquare } from "lucide-react";
+import { Phone, Mail, Clock, Menu, X, ArrowRight, MessageSquare, ShieldCheck } from "lucide-react";
+import Logo from "@/components/Logo";
 import { COMPANY_INFO } from "@/lib/constants";
 
 export default function Navbar() {
@@ -21,9 +22,9 @@ export default function Navbar() {
     { name: "Home", href: "#home" },
     { name: "About Us", href: "#about" },
     { name: "Our Services", href: "#services" },
+    { name: "Amazon Relay", href: "#amazon-relay" },
     { name: "Equipment", href: "#equipment" },
-    { name: "Why Choose Us", href: "#why-us" },
-    { name: "Pricing", href: "#pricing" },
+    { name: "Rate Calculator", href: "#calculator" },
     { name: "Leadership", href: "#leadership" },
     { name: "Contact Us", href: "#contact-us" },
   ];
@@ -31,10 +32,10 @@ export default function Navbar() {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 transition-all duration-300">
       {/* Top Header Bar (Deep Navy Corporate) */}
-      <div className="bg-[#0f172a] text-slate-200 text-xs py-2 px-4 border-b border-slate-800">
+      <div className="bg-[#0a1128] text-slate-300 text-xs py-2 px-4 border-b border-slate-800">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
           
-          {/* Left CTA Contacts */}
+          {/* Left Contacts */}
           <div className="flex flex-wrap items-center space-x-4 sm:space-x-6">
             <a
               href={`mailto:${COMPANY_INFO.contacts.emailPrimary}`}
@@ -46,25 +47,29 @@ export default function Navbar() {
 
             <a
               href={`tel:${COMPANY_INFO.contacts.phoneUS.replace(/[^0-9+]/g, "")}`}
-              className="flex items-center gap-1.5 hover:text-orange-400 transition-colors font-medium"
+              className="flex items-center gap-1.5 hover:text-orange-400 transition-colors font-medium text-white"
             >
               <Phone className="w-3.5 h-3.5 text-orange-500" />
               <span>{COMPANY_INFO.contacts.phoneUSDisplay}</span>
             </a>
 
-            <div className="hidden md:flex items-center gap-1.5 text-slate-300">
+            <div className="hidden lg:flex items-center gap-1.5 text-slate-300">
               <Clock className="w-3.5 h-3.5 text-orange-500" />
               <span>Opening Hours: 24/7 Live US Dispatch</span>
             </div>
           </div>
 
-          {/* Right Fast WhatsApp & Direct Owner Link */}
+          {/* Right Direct WhatsApp Action */}
           <div className="flex items-center space-x-3 text-xs">
+            <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-emerald-400">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              Verified Entity
+            </span>
             <a
               href={COMPANY_INFO.contacts.whatsappUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-0.5 rounded font-semibold transition-colors"
+              className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-0.5 rounded font-bold transition-colors shadow-sm"
             >
               <MessageSquare className="w-3 h-3" />
               <span>WhatsApp Direct</span>
@@ -74,7 +79,7 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Main Header (Clean White / Sticky Shadow) */}
+      {/* Main Header with SVG Logo */}
       <div
         className={`px-4 lg:px-8 bg-white transition-all duration-300 ${
           isScrolled ? "shadow-md py-3" : "shadow-sm py-4"
@@ -82,20 +87,9 @@ export default function Navbar() {
       >
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           
-          {/* Brand Logo */}
-          <Link href="#home" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 rounded-lg bg-[#0f172a] flex items-center justify-center text-white shadow group-hover:bg-orange-600 transition-colors">
-              <Truck className="w-6 h-6 text-orange-400 group-hover:text-white transition-colors" />
-            </div>
-            <div className="flex flex-col">
-              <div className="flex items-center">
-                <span className="text-xl font-black text-[#0f172a] tracking-tight">UNIQUE</span>
-                <span className="text-xl font-black text-orange-600 tracking-tight ml-1">DISPATCH</span>
-              </div>
-              <span className="text-[10px] font-bold text-slate-500 tracking-wider uppercase">
-                Freight Dispatch Service
-              </span>
-            </div>
+          {/* Brand Logo Component */}
+          <Link href="#home">
+            <Logo variant="dark" size="md" />
           </Link>
 
           {/* Desktop Navigation Links */}
@@ -115,7 +109,7 @@ export default function Navbar() {
           <div className="hidden sm:flex items-center">
             <a
               href="#contact-us"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-md bg-orange-600 hover:bg-orange-700 text-white font-bold text-sm tracking-wide shadow-md hover:shadow-lg transition-all active:scale-95"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-md bg-orange-600 hover:bg-orange-700 text-white font-black text-sm tracking-wide shadow-md hover:shadow-lg transition-all active:scale-95"
             >
               <span>Get A Quote</span>
               <ArrowRight className="w-4 h-4" />
