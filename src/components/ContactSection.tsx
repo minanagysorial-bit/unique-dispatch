@@ -48,10 +48,55 @@ export default function ContactSection() {
       if (res.ok) {
         setSubmitted(true);
       } else {
-        setErrorMessage(data.error || "Failed to submit request. Please call us directly.");
+        // Fallback directly to Web3Forms API
+        const directRes = await fetch("https://api.web3forms.com/submit", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            access_key: "f7bc0ee2-2931-4868-8548-2e70b3f0f925",
+            subject: `🚚 New Carrier Dispatch Request: ${formData.fullName} (${formData.mcDotNumber}) - ${formData.truckType}`,
+            name: formData.fullName,
+            company: formData.companyName,
+            mc_number: formData.mcDotNumber,
+            equipment: formData.truckType,
+            phone: formData.phone,
+            email: formData.email,
+            message: formData.message,
+          }),
+        });
+
+        if (directRes.ok) {
+          setSubmitted(true);
+        } else {
+          setErrorMessage(data.error || "Failed to submit request. Please call our US dispatch line directly.");
+        }
       }
     } catch (err) {
-      // If network offline or error, gracefully fallback
+      try {
+        await fetch("https://api.web3forms.com/submit", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            access_key: "f7bc0ee2-2931-4868-8548-2e70b3f0f925",
+            subject: `🚚 New Carrier Dispatch Request: ${formData.fullName} (${formData.mcDotNumber}) - ${formData.truckType}`,
+            name: formData.fullName,
+            company: formData.companyName,
+            mc_number: formData.mcDotNumber,
+            equipment: formData.truckType,
+            phone: formData.phone,
+            email: formData.email,
+            message: formData.message,
+          }),
+        });
+      } catch (fallbackErr) {
+        console.error(fallbackErr);
+      }
       setSubmitted(true);
     } finally {
       setLoading(false);
