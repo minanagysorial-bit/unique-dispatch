@@ -35,13 +35,16 @@ export default function Footer() {
             </p>
 
             {/* Owner badge */}
-            <div className="p-3.5 rounded-xl bg-[#0f172a] border border-slate-800 text-[11px] text-slate-300 space-y-1">
+            <div className="p-3.5 rounded-xl bg-[#0f172a] border border-slate-800 text-[11px] text-slate-300 space-y-1.5">
               <div className="flex items-center gap-1.5 text-orange-400 font-bold">
                 <BadgeCheck className="w-4 h-4" />
                 <span>Executive Leadership &amp; Governance</span>
               </div>
               <p>
                 Founder &amp; Managing Director: <strong className="text-white">{COMPANY_INFO.founder.name}</strong>
+              </p>
+              <p className="text-slate-300">
+                Email: <a href="mailto:marvengerges2008@gmail.com" className="text-orange-400 hover:underline font-medium">marvengerges2008@gmail.com</a>
               </p>
             </div>
           </div>
