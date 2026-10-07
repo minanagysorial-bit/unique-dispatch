@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Amazon Relay Dispatch - AI Copilot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Top Global Header -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="logo-box">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M10 17h4V5H2v12h4"/><path d="M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5v8h2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
+      </div>
+      <div>
+        <h1 class="header-title">Amazon Relay <span class="badge-ai">AI COPILOT</span></h1>
+        <p class="header-subtitle">Autonomous Driver Inquiries & Human Review</p>
+      </div>
+    </div>
+
+    <!-- Clean Navigation Tabs -->
+    <nav class="header-nav-tabs">
+      <button class="nav-tab active" id="tabBtnAction" data-tab="tab-action">
+        <span class="tab-icon">🚨</span>
+        <span class="tab-label">Action Needed</span>
+        <span class="nav-badge alert" id="badgeStoppedCount">0</span>
+      </button>
+
+      <button class="nav-tab" id="tabBtnConsole" data-tab="tab-console">
+        <span class="tab-icon">🎙️</span>
+        <span class="tab-label">Live Dialogue</span>
+        <span class="live-dot hidden" id="liveCallIndicator"></span>
+      </button>
+
+      <button class="nav-tab" id="tabBtnApprovals" data-tab="tab-approvals">
+        <span class="tab-icon">📋</span>
+        <span class="tab-label">Approval Queue</span>
+        <span class="nav-badge" id="badgePendingCount">0</span>
+      </button>
+
+      <button class="nav-tab" id="tabBtnFleet" data-tab="tab-fleet">
+        <span class="tab-icon">🚛</span>
+        <span class="tab-label">All Fleet Loads</span>
+      </button>
+    </nav>
+
+    <!-- Quick Utilities -->
+    <div class="header-right">
+      <button class="btn btn-secondary btn-sm" id="btnAutoPilotToggle" title="Toggle Autonomous Auto-Pilot">
+        <span id="apIcon">⚡</span> <span id="apText">Auto-Pilot: OFF</span>
+      </button>
+
+      <button class="icon-toggle" id="btnAudioToggle" title="Mute/Unmute Voice Audio">
+        <span id="audioIcon">🔊</span>
+      </button>
+
+      <button class="btn btn-ghost btn-sm" id="btnOpenConfigModal" title="Settings & Customization">
+        ⚙️ Settings
+      </button>
+    </div>
+  </header>
+
+  <!-- Priority Stoppage Alert Banner (Instant 1-Click Action) -->
+  <div class="smart-priority-banner hidden" id="smartPriorityBanner">
+    <div class="banner-content">
+      <span class="pulse-icon">🛑</span>
+      <div class="banner-text">
+        <strong id="bannerTitle">Marcus Vance (TOU-984210) stopped on I-80</strong>
+        <span id="bannerSub">Stopped for 25 mins • Gate: 14:30 EST (Late Risk)</span>
+      </div>
+    </div>
+    <div class="banner-actions" id="bannerActions">
+      <button class="btn btn-primary btn-sm" id="bannerBtnCall">📞 1-Click AI Call</button>
+      <button class="btn btn-secondary btn-sm" id="bannerBtnChat">💬 SMS Inquiry</button>
+      <a href="#" target="_blank" class="btn btn-whatsapp btn-sm" id="bannerBtnWA">📲 WA</a>
+    </div>
+  </div>
+
+  <!-- Main Viewport Container -->
+  <main class="main-workspace-container">
+
+    <!-- ============================================================== -->
+    <!-- TAB 1: ACTION NEEDED (STOPPED / AT-RISK LOADS) -->
+    <!-- ============================================================== -->
+    <section class="tab-panel active" id="tab-action">
+      <div class="panel-header-row">
+        <div>
+          <h2>🚨 Loads Needing Immediate Attention</h2>
+          <p class="sub-text">Unscheduled stops or delayed drivers requiring status inquiry and resolution</p>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="btnSimulateTour">+ Simulate Stopped Load</button>
+      </div>
+
+      <div class="stopped-grid-container" id="stoppedLoadsContainer">
+        <!-- Stopped load cards dynamically rendered here -->
+      </div>
+
+      <div class="empty-state-card hidden" id="emptyStoppedState">
+        <div class="empty-icon-circle">✅</div>
+        <h3>All Fleet Rolling Smoothly</h3>
+        <p>No unscheduled stops or late risks detected. Auto-Pilot is actively monitoring your Amazon Relay tours in real-time.</p>
+      </div>
+    </section>
+
+    <!-- ============================================================== -->
+    <!-- TAB 2: LIVE DIALOGUE CONSOLE (FOCUSED & INTUITIVE) -->
+    <!-- ============================================================== -->
+    <section class="tab-panel" id="tab-console">
+      <div class="live-console-card">
+        
+        <!-- Live Call Header Bar -->
+        <div class="live-console-header">
+          <div class="live-driver-profile">
+            <div class="driver-avatar-circle" id="consoleDriverAvatar">🚚</div>
+            <div>
+              <div class="driver-title-row">
+                <h3 id="targetDriverName">No Active Inquiry</h3>
+                <span class="hud-status-badge" id="callStatusBadge">IDLE / STANDBY</span>
+                <span class="nav-badge" id="turnCountBadge" style="background-color: var(--border-color); color: var(--text-muted);">0 Turns</span>
+              </div>
+              <p class="sub-text" id="targetDriverMeta">Select a stopped load from Action Needed tab or launch a demo below.</p>
+              <span id="consoleModeSub" class="hidden"></span>
+            </div>
+          </div>
+
+          <div class="live-header-actions">
+            <!-- Full Call Audio Replay -->
+            <button class="btn btn-secondary btn-sm" id="btnPlayFullRecording" title="Listen to the full call conversation audio">
+              🔊 Play Entire Call
+            </button>
+
+            <!-- Takeover Controls -->
+            <button class="btn btn-warning btn-sm hidden" id="btnTakeOverCall" title="Mute AI and speak directly into your mic">
+              👤 Take Over Call (Speak)
+            </button>
+            <button class="btn btn-success btn-sm hidden" id="btnResumeAICall" title="Return dialogue control to AI">
+              🤖 Resume AI
+            </button>
+            <button class="btn btn-primary btn-sm hidden" id="btnFinishAndDraft" title="End inquiry and compile Relay delay report">
+              ✅ Finish & Draft Report
+            </button>
+            <button class="btn btn-danger btn-sm hidden" id="btnForceHangup" title="Immediately terminate inquiry">
+              🛑 End Call
+            </button>
+
+            <!-- Quick Launch Demos if Idle -->
+            <div id="idleActionButtons" class="btn-group">
+              <button class="btn btn-primary btn-sm" id="btnQuickDemoCall">▶ Auto AI Call Demo</button>
+              <button class="btn btn-secondary btn-sm" id="btnQuickInteractiveCall">🎙️ Live Mic Test</button>
+              <button class="btn btn-ghost btn-sm" id="btnQuickDemoChat">💬 SMS Demo</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Accent & Driver Style Test Scenarios Bar -->
+        <div class="accent-scenario-bar" style="display: flex; gap: 6px; align-items: center; padding: 8px 16px; background: rgba(255, 255, 255, 0.02); border-bottom: 1px solid var(--border-color); flex-wrap: wrap;">
+          <span style="font-size: 0.75rem; font-weight: 700; color: var(--color-amber);">🎯 Test Accents & Styles:</span>
+          <button class="btn btn-ghost btn-xs accent-scenario-btn" data-scenario="hispanic_esl" title="Spanish/Latino Driver - Tire ponchada">🇪🇸 Hispanic ESL</button>
+          <button class="btn btn-ghost btn-xs accent-scenario-btn" data-scenario="slavic_esl" title="Eastern European Driver - Engine smoke">🇷🇺 Slavic ESL</button>
+          <button class="btn btn-ghost btn-xs accent-scenario-btn" data-scenario="punjabi_esl" title="South Asian Driver - Gridlock traffic">🇮🇳 South Asian ESL</button>
+          <button class="btn btn-ghost btn-xs accent-scenario-btn" data-scenario="sleepy_driver" title="Sleepy Night Driver - 30m ELD break">🥱 Sleepy Driver</button>
+          <button class="btn btn-ghost btn-xs accent-scenario-btn" data-scenario="inaudible_clarification" title="Low Signal / AI Clarification">🔇 Low Audio / Clarify</button>
+        </div>
+
+        <!-- Dialogue Stream (Clean WhatsApp/iMessage Style) -->
+        <div class="live-chat-viewport">
+          <div class="dialogue-scroll" id="transcriptScroll">
+            <div class="empty-notice" id="transcriptEmptyNotice">
+              <div style="font-size: 2rem; margin-bottom: 8px;">💬</div>
+              <strong>Live Conversation Stream</strong>
+              <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">
+                Spoken dialogue or SMS messages between AI and driver will stream here automatically in real-time.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom Dialogue Footer & Controls -->
+        <div class="live-console-footer">
+          <!-- Voice status indicator -->
+          <div class="live-status-pill-bar">
+            <div class="waveform-anim" id="waveformBars">
+              <span class="bar"></span><span class="bar"></span><span class="bar"></span>
+              <span class="bar"></span><span class="bar"></span><span class="bar"></span>
+            </div>
+            <span class="status-msg" id="waveformStatus">SYSTEM READY</span>
+            <div class="silence-mini-wrap" title="AI waits for driver silence before replying">
+              <span>Silence Buffer:</span>
+              <strong id="silenceCountdown">2.5s</strong>
+              <div class="silence-mini-track">
+                <div class="silence-mini-fill" id="silenceProgress" style="width: 0%;"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dispatcher Quick Assist Chips -->
+          <div class="operator-quick-toolbar">
+            <span class="toolbar-label">⚡ Quick Assist:</span>
+            <button class="btn btn-ghost btn-xs" onclick="window.dispatchApp.injectQuickPrompt('mileMarker')">📍 Ask Mile Marker</button>
+            <button class="btn btn-ghost btn-xs" onclick="window.dispatchApp.injectQuickPrompt('trailerSeal')">🔒 Trailer / Seal #</button>
+            <button class="btn btn-ghost btn-xs" onclick="window.dispatchApp.injectQuickPrompt('authRoadside')">🛠️ Authorize Roadside</button>
+            <button class="btn btn-ghost btn-xs" onclick="window.dispatchApp.injectQuickPrompt('confirmSafety')">🛡️ Safety Check</button>
+            
+            <button class="btn btn-secondary btn-xs" id="btnMicToggle" style="margin-left: auto;">
+              <span id="micIcon">🎙️</span> <span id="micText">Dispatcher Mic</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================================================== -->
+    <!-- TAB 3: APPROVAL QUEUE (HUMAN REVIEW & SUBMIT) -->
+    <!-- ============================================================== -->
+    <section class="tab-panel" id="tab-approvals">
+      <div class="panel-header-row">
+        <div>
+          <h2>📋 Relay Delay Reports Approval Queue</h2>
+          <p class="sub-text">AI drafts official delay tickets from completed inquiries. Review, edit if needed, and commit to Amazon Relay.</p>
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-ghost btn-sm" id="btnExportCSV">📊 Export CSV</button>
+          <button class="btn btn-secondary btn-sm" id="btnFilterPending">Pending Review</button>
+          <button class="btn btn-secondary btn-sm" id="btnFilterAll">All Reports</button>
+        </div>
+      </div>
+
+      <div class="approvals-grid-stack" id="pendingReportsContainer">
+        <!-- Approval report cards -->
+      </div>
+
+      <div class="empty-state-card hidden" id="emptyApprovalsState">
+        <div class="empty-icon-circle">✓</div>
+        <h3>Approval Queue Clear</h3>
+        <p>No delay reports pending review. When an inquiry concludes, Gemini synthesizes the delay ticket here for 1-click submission.</p>
+      </div>
+    </section>
+
+    <!-- ============================================================== -->
+    <!-- TAB 4: ALL FLEET LOADS (FULL MONITORED INVENTORY) -->
+    <!-- ============================================================== -->
+    <section class="tab-panel" id="tab-fleet">
+      <div class="panel-header-row">
+        <div>
+          <h2>🚛 All Monitored Amazon Relay Loads</h2>
+          <p class="sub-text">Live overview of all in-transit and stopped loads connected via Relay API</p>
+        </div>
+        <div class="driver-filter-bar" style="margin: 0; max-width: 450px;">
+          <div class="search-input-box">
+            <input type="text" id="driverSearchInput" class="form-control-compact" placeholder="🔍 Search driver, tour, truck, city...">
+            <button class="clear-search-btn hidden" id="btnClearDriverSearch">&times;</button>
+          </div>
+          <div class="filter-chips">
+            <button class="chip active" id="chipAllLoads" data-filter="all">All</button>
+            <button class="chip" id="chipStoppedLoads" data-filter="stopped">🛑 Stopped</button>
+            <button class="chip" id="chipInTransitLoads" data-filter="transit">🚛 Rolling</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="fleet-cards-grid" id="driversListContainer">
+        <!-- Dynamically populated fleet cards -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Settings & Config Modal -->
+  <div class="modal-layer hidden" id="configModal">
+    <div class="modal-card">
+      <div class="modal-top">
+        <h3>⚙️ Settings & Configuration</h3>
+        <button class="modal-close-btn" id="btnCloseConfigModal">&times;</button>
+      </div>
+      <div class="modal-body-scroll">
+        <div class="form-group">
+          <label>Formal Opening Statement</label>
+          <textarea id="cfgFormalOpening" class="form-control" rows="2"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Formal Closing Statement</label>
+          <textarea id="cfgFormalClosing" class="form-control" rows="2"></textarea>
+        </div>
+        <div class="two-col-grid">
+          <div class="form-group">
+            <label>Silence Window (Seconds)</label>
+            <input type="number" step="0.1" id="cfgSilenceWindow" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Safety Timeout (Seconds)</label>
+            <input type="number" id="cfgSafetyTimeout" class="form-control">
+          </div>
+        </div>
+
+        <h4 class="mt-4">🎙️ AI Voice Tuning & Speed</h4>
+        <div class="form-group mb-2">
+          <label>Voice Model</label>
+          <select id="voiceSelector" class="form-control-compact" style="width: 100%;"></select>
+        </div>
+        <div class="two-col-grid">
+          <div class="form-group">
+            <label>Speech Speed: <strong id="valVoiceSpeed">0.95x</strong></label>
+            <input type="range" min="0.75" max="1.30" step="0.05" value="0.95" id="cfgVoiceSpeed" class="form-range" style="width:100%;">
+          </div>
+          <div class="form-group">
+            <label>Voice Pitch: <strong id="valVoicePitch">1.00x</strong></label>
+            <input type="range" min="0.80" max="1.20" step="0.05" value="1.00" id="cfgVoicePitch" class="form-range" style="width:100%;">
+          </div>
+        </div>
+        <button class="btn btn-ghost btn-sm mt-2" id="btnPreviewTunedVoice">▶ Test Voice Tone</button>
+
+        <h4 class="mt-4">📋 Inquiry Questions</h4>
+        <div id="questionsContainer" style="display: flex; flex-direction: column; gap: 8px;"></div>
+
+        <h4 class="mt-4">Persistent Browser Profiles (2FA Login)</h4>
+        <div class="session-btn-row">
+          <button class="btn btn-secondary btn-sm" id="btnLaunchRelayLogin">Launch Relay 2FA Login</button>
+          <button class="btn btn-secondary btn-sm" id="btnLaunchOpenPhoneLogin">Launch OpenPhone 2FA Login</button>
+        </div>
+
+        <h4 class="mt-3">Gemini 2.5 Flash API Key</h4>
+        <div class="inline-btn-input">
+          <input type="password" id="inputGeminiKey" class="form-control" placeholder="Enter API Key">
+          <button class="btn btn-primary btn-sm" id="btnSaveGeminiKey">Save Key</button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary btn-sm" id="btnCancelConfig">Cancel</button>
+        <button class="btn btn-primary btn-sm" id="btnSaveConfig">Save Configuration</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Transcript Modal -->
+  <div class="modal-layer hidden" id="transcriptModal">
+    <div class="modal-card">
+      <div class="modal-top">
+        <h3 id="modalTitle">Call Transcript</h3>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <button class="btn btn-primary btn-sm" id="btnModalPlayAudio" title="Play full conversation audio recording">
+            🔊 Play Audio Recording
+          </button>
+          <button class="modal-close-btn" id="btnCloseTranscriptModal">&times;</button>
+        </div>
+      </div>
+      <div class="modal-body-scroll" id="modalTranscriptBody"></div>
+    </div>
+  </div>
+
+  <!-- Toast Hub -->
+  <div class="toast-hub" id="toastContainer"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

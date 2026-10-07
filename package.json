@@ -1,0 +1,45 @@
+{
+  "name": "unique-dispatch",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Unique Dispatch - Premium US Truck Dispatching & Amazon Relay Management",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "bot:server": "node server.js",
+    "bot:relay": "node -e \"require('./relay_monitor').launchLoginSession()\"",
+    "bot:openphone": "node -e \"require('./openphone_caller').launchLoginSession()\""
+  },
+  "keywords": [
+    "truck-dispatch",
+    "freight-dispatching",
+    "amazon-relay",
+    "dry-van",
+    "reefer",
+    "flatbed",
+    "box-truck",
+    "unique-dispatch"
+  ],
+  "author": "Marven Awad - Unique Dispatch",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.52.0",
+    "next": "^16.4.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "tailwind-merge": "^3.7.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^26.6.4",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "autoprefixer": "^10.6.1",
+    "postcss": "^8.5.29",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2"
+  }
+}

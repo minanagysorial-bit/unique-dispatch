@@ -1,0 +1,66 @@
+{
+  "voiceRules": {
+    "ttsEngine": "edge-tts",
+    "defaultVoice": "en-US-GuyNeural",
+    "driverVoice": "en-US-ChristopherNeural",
+    "operatorVoice": "en-US-EricNeural",
+    "silenceWindowSeconds": 2.5,
+    "maxWordsPerTurn": 12,
+    "zeroSmallTalk": true,
+    "safetyTimeoutSeconds": 75,
+    "language": "en-US",
+    "speechRate": 1.0,
+    "speechPitch": 1.0,
+    "humanPauseMs": 350
+  },
+  "scripts": {
+    "formalOpening": "Hello, Amazon Relay Dispatch here. Notice your truck is stopped on route. Everything okay?",
+    "formalClosing": "Got that logged with dispatch. Appreciate the update, drive safe.",
+    "unresponsiveWarning": "Dispatch checking in. Can you confirm your status when safe?",
+    "timeoutExit": "Need to clear the line. Dispatch will message you shortly. Stay safe."
+  },
+  "questions": [
+    {
+      "id": "q1_reason",
+      "order": 1,
+      "field": "stopReason",
+      "question": "What's causing the unscheduled stop right now?",
+      "required": true,
+      "maxWords": 12,
+      "description": "Determines root cause (Breakdown, Traffic, Rest, Gate/Facility, Weather)"
+    },
+    {
+      "id": "q2_eta",
+      "order": 2,
+      "field": "estimatedTimeToResume",
+      "question": "Got it. About how long until you're rolling again?",
+      "required": true,
+      "maxWords": 12,
+      "description": "Extracts ETA to resume transit or arrival"
+    },
+    {
+      "id": "q3_assistance",
+      "order": 3,
+      "field": "assistanceNeeded",
+      "question": "Do you need roadside service or a mechanic authorized?",
+      "required": true,
+      "maxWords": 12,
+      "description": "Flags critical safety or mechanical emergencies"
+    }
+  ],
+  "operationalThresholds": {
+    "stoppedThresholdMinutes": 15,
+    "delayedThresholdMinutes": 20,
+    "autoDialEnabled": false,
+    "monitoringIntervalSeconds": 30,
+    "requireHumanApproval": true
+  },
+  "delayCategories": [
+    "Mechanical Breakdown",
+    "Traffic Delay",
+    "Mandatory Rest",
+    "Facility/Gate Delay",
+    "Weather",
+    "Unresponsive"
+  ]
+}

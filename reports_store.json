@@ -1,0 +1,1841 @@
+[
+  {
+    "id": "RPT-1789291085416-581",
+    "tourId": "TOU-662901",
+    "tripId": "TRP-91023",
+    "driverName": "David Kowalski",
+    "driverPhone": "+1 (555) 441-9876",
+    "truckId": "FRT-3122",
+    "location": "I-85 NB Rest Area MM 112",
+    "category": "Unresponsive",
+    "estimatedTimeToResume": "Unknown",
+    "appointmentImpact": "⚠️ LATE RISK: Stoppage will likely exceed scheduled Amazon gate arrival",
+    "rootCauseSummary": "Driver did not respond to automated dispatch inquiry.",
+    "driverNotes": "Driver stated stop in progress.",
+    "dispatcherNotes": "[OFFICIAL RELAY MEMO] Tour ID: TOU-662901 | Tractor: FRT-3122 | Driver: David Kowalski. Stop Category: Unresponsive. Driver reported: \"Driver stated stop in progress.\". Estimated resume time: Unknown.",
+    "requiresRoadsideAssistance": false,
+    "confidenceScore": 0.88,
+    "transcript": [
+      {
+        "speaker": "AI",
+        "text": "Hello, Amazon Relay Dispatch here. Notice your truck is stopped on route..",
+        "audioUrl": "/api/tts?text=Hello%2C%20Amazon%20Relay%20Dispatch%20here.%20Notice%20your%20truck%20is%20stopped%20on%20route..&speaker=AI",
+        "timestamp": "12:18:03 PM"
+      }
+    ],
+    "status": "PENDING_APPROVAL",
+    "createdAt": "2026-09-13T09:18:05.416Z",
+    "source": "Intelligent Conversational Engine"
+  },
+  {
+    "id": "RPT-1789291056125-954",
+    "tourId": "TOU-984210",
+    "tripId": "TRP-55219",
+    "driverName": "Marcus Vance",
+    "driverPhone": "+1 (555) 349-2041",
+    "truckId": "VOL-8821",
+    "location": "I-83 NB MM 24 (York, PA)",
+    "category": "Unresponsive",
+    "estimatedTimeToResume": "Unknown",
+    "appointmentImpact": "⚠️ LATE RISK: Stoppage will likely exceed scheduled Amazon gate arrival",
+    "rootCauseSummary": "Driver did not respond to automated dispatch inquiry.",
+    "driverNotes": "Driver stated stop in progress.",
+    "dispatcherNotes": "[OFFICIAL RELAY MEMO] Tour ID: TOU-984210 | Tractor: VOL-8821 | Driver: Marcus Vance. Stop Category: Unresponsive. Driver reported: \"Driver stated stop in progress.\". Estimated resume time: Unknown.",
+    "requiresRoadsideAssistance": false,
+    "confidenceScore": 0.88,
+    "transcript": [
+      {
+        "speaker": "AI",
+        "text": "Hello, Amazon Relay Dispatch here. Notice your truck is stopped on route..",
+        "audioUrl": "/api/tts?text=Hello%2C%20Amazon%20Relay%20Dispatch%20here.%20Notice%20your%20truck%20is%20stopped%20on%20route..&speaker=AI",
+        "timestamp": "12:17:33 PM"
+      }
+    ],
+    "status": "PENDING_APPROVAL",
+    "createdAt": "2026-09-13T09:17:36.125Z",
+    "source": "Intelligent Conversational Engine"
+  },
+  {
+    "id": "RPT-1789288933938-953",
+    "tourId": "TOU-662901",
+    "tripId": "TRP-91023",
+    "driverName": "David Kowalski",
+    "driverPhone": "+1 (555) 441-9876",
+    "truckId": "FRT-3122",
+    "location": "I-85 NB Rest Area MM 112",
+    "category": "Weather",
+    "estimatedTimeToResume": "40 min",
+    "appointmentImpact": "⚠️ LATE RISK: Stoppage will likely exceed scheduled Amazon gate arrival",
+    "rootCauseSummary": "Adverse weather conditions hindering safe vehicle operation.",
+    "driverNotes": "Hola dispatch, tire ponchada on my trailer right side, pulled over safely. Roadside mechanic say about 40 minutos to arrive. Si, carrier already call roadside service for the llanta.",
+    "dispatcherNotes": "[OFFICIAL RELAY MEMO] Tour ID: TOU-662901 | Tractor: FRT-3122 | Driver: David Kowalski. Stop Category: Weather. Driver reported: \"Hola dispatch, tire ponchada on my trailer right side, pulled over safely. Roadside mechanic say about 40 minutos to arrive. Si, carrier already call roadside service for the llanta.\". Estimated resume time: 40 min.",
+    "requiresRoadsideAssistance": false,
+    "confidenceScore": 0.88,
+    "transcript": [
+      {
+        "speaker": "AI",
+        "text": "Hello, Amazon Relay Dispatch here. Notice your truck is stopped on route..",
+        "audioUrl": "/api/tts?text=Hello%2C%20Amazon%20Relay%20Dispatch%20here.%20Notice%20your%20truck%20is%20stopped%20on%20route..&speaker=AI",
+        "timestamp": "11:41:36 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Hola dispatch, tire ponchada on my trailer right side, pulled over safely.",
+        "audioUrl": "/api/tts?text=Hola%20dispatch%2C%20tire%20ponchada%20on%20my%20trailer%20right%20side%2C%20pulled%20over%20safely.&speaker=Driver",
+        "timestamp": "11:41:43 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Got it. About how long until you're rolling again?",
+        "audioUrl": "/api/tts?text=Got%20it.%20About%20how%20long%20until%20you're%20rolling%20again%3F&speaker=AI",
+        "timestamp": "11:41:52 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Roadside mechanic say about 40 minutos to arrive.",
+        "audioUrl": "/api/tts?text=Roadside%20mechanic%20say%20about%2040%20minutos%20to%20arrive.&speaker=Driver",
+        "timestamp": "11:41:57 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Do you need roadside service or a mechanic authorized?",
+        "audioUrl": "/api/tts?text=Do%20you%20need%20roadside%20service%20or%20a%20mechanic%20authorized%3F&speaker=AI",
+        "timestamp": "11:42:05 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Si, carrier already call roadside service for the llanta.",
+        "audioUrl": "/api/tts?text=Si%2C%20carrier%20already%20call%20roadside%20service%20for%20the%20llanta.&speaker=Driver",
+        "timestamp": "11:42:09 AM"
+      }
+    ],
+    "status": "PENDING_APPROVAL",
+    "createdAt": "2026-09-13T08:42:13.938Z",
+    "source": "Intelligent Conversational Engine"
+  },
+  {
+    "id": "RPT-1789288769537-17",
+    "tourId": "TOU-TEST-881",
+    "tripId": "TRP-11223",
+    "driverName": "Carlos Ramirez",
+    "driverPhone": "+1 (555) 998-1122",
+    "truckId": "VOL-9988",
+    "location": "I-40 WB MM 102",
+    "category": "Weather",
+    "estimatedTimeToResume": "35 minutes",
+    "appointmentImpact": "⚠️ LATE RISK: Stoppage will likely exceed scheduled Amazon gate arrival",
+    "rootCauseSummary": "Adverse weather conditions hindering safe vehicle operation.",
+    "driverNotes": "Trailer tire blew out near mile marker 102. Around 35 minutes once mobile repair gets here. Yes, need mobile tire service authorized.",
+    "dispatcherNotes": "[OFFICIAL RELAY MEMO] Tour ID: TOU-TEST-881 | Tractor: VOL-9988 | Driver: Carlos Ramirez. Stop Category: Weather. Driver reported: \"Trailer tire blew out near mile marker 102. Around 35 minutes once mobile repair gets here. Yes, need mobile tire service authorized.\". Estimated resume time: 35 minutes.",
+    "requiresRoadsideAssistance": false,
+    "confidenceScore": 0.88,
+    "transcript": [
+      {
+        "speaker": "AI",
+        "text": "Hello, Amazon Relay Dispatch here. Notice your truck is stopped on route..",
+        "audioUrl": "/api/tts?text=Hello%2C%20Amazon%20Relay%20Dispatch%20here.%20Notice%20your%20truck%20is%20stopped%20on%20route..&speaker=AI",
+        "timestamp": "11:38:38 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Trailer tire blew out near mile marker 102.",
+        "audioUrl": "/api/tts?text=Trailer%20tire%20blew%20out%20near%20mile%20marker%20102.&speaker=Driver",
+        "timestamp": "11:38:47 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Got it. About how long until you're rolling again?",
+        "audioUrl": "/api/tts?text=Got%20it.%20About%20how%20long%20until%20you're%20rolling%20again%3F&speaker=AI",
+        "timestamp": "11:38:54 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Around 35 minutes once mobile repair gets here.",
+        "audioUrl": "/api/tts?text=Around%2035%20minutes%20once%20mobile%20repair%20gets%20here.&speaker=Driver",
+        "timestamp": "11:39:02 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Do you need roadside service or a mechanic authorized?",
+        "audioUrl": "/api/tts?text=Do%20you%20need%20roadside%20service%20or%20a%20mechanic%20authorized%3F&speaker=AI",
+        "timestamp": "11:39:09 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Yes, need mobile tire service authorized.",
+        "audioUrl": "/api/tts?text=Yes%2C%20need%20mobile%20tire%20service%20authorized.&speaker=Driver",
+        "timestamp": "11:39:15 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Got that logged with dispatch. Appreciate the update, drive safe.",
+        "audioUrl": "/api/tts?text=Got%20that%20logged%20with%20dispatch.%20Appreciate%20the%20update%2C%20drive%20safe.&speaker=AI",
+        "timestamp": "11:39:22 AM"
+      }
+    ],
+    "status": "PENDING_APPROVAL",
+    "createdAt": "2026-09-13T08:39:29.537Z",
+    "source": "Intelligent Conversational Engine"
+  },
+  {
+    "id": "RPT-1789288198273-553",
+    "tourId": "TOU-984210",
+    "tripId": "TRP-55219",
+    "driverName": "Marcus Vance",
+    "driverPhone": "+1 (555) 349-2041",
+    "truckId": "VOL-8821",
+    "location": "I-83 NB MM 24 (York, PA)",
+    "category": "Weather",
+    "estimatedTimeToResume": "45 minutes",
+    "appointmentImpact": "⚠️ LATE RISK: Stoppage will likely exceed scheduled Amazon gate arrival",
+    "rootCauseSummary": "Adverse weather conditions hindering safe vehicle operation.",
+    "driverNotes": "I got a flat drive tire on the right side of the trailer. Roadside service estimated about 45 minutes.",
+    "dispatcherNotes": "[OFFICIAL RELAY MEMO] Tour ID: TOU-984210 | Tractor: VOL-8821 | Driver: Marcus Vance. Stop Category: Weather. Driver reported: \"I got a flat drive tire on the right side of the trailer. Roadside service estimated about 45 minutes.\". Estimated resume time: 45 minutes.",
+    "requiresRoadsideAssistance": false,
+    "confidenceScore": 0.88,
+    "transcript": [
+      {
+        "speaker": "AI",
+        "text": "Hello, Amazon Relay Dispatch here. Notice your truck is stopped on route..",
+        "audioUrl": "/api/tts?text=Hello%2C%20Amazon%20Relay%20Dispatch%20here.%20Notice%20your%20truck%20is%20stopped%20on%20route..&speaker=AI",
+        "timestamp": "11:29:38 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "I got a flat drive tire on the right side of the trailer.",
+        "audioUrl": "/api/tts?text=I%20got%20a%20flat%20drive%20tire%20on%20the%20right%20side%20of%20the%20trailer.&speaker=Driver",
+        "timestamp": "11:29:45 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Got it. About how long until you're rolling again?",
+        "audioUrl": "/api/tts?text=Got%20it.%20About%20how%20long%20until%20you're%20rolling%20again%3F&speaker=AI",
+        "timestamp": "11:29:52 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Roadside service estimated about 45 minutes.",
+        "audioUrl": "/api/tts?text=Roadside%20service%20estimated%20about%2045%20minutes.&speaker=Driver",
+        "timestamp": "11:29:57 AM"
+      }
+    ],
+    "status": "DISCARDED",
+    "createdAt": "2026-09-13T08:29:58.273Z",
+    "source": "Intelligent Conversational Engine",
+    "discardedAt": "2026-09-13T08:30:42.332Z",
+    "discardReason": "Dismissed by dispatcher"
+  },
+  {
+    "id": "RPT-1789285033289-184",
+    "tourId": "TOU-984210",
+    "tripId": "TRP-55219",
+    "driverName": "Carlos Mendoza",
+    "driverPhone": "+1 (555) 349-2041",
+    "truckId": "VOL-8821",
+    "location": "I-83 NB MM 24 (York, PA)",
+    "category": "Mechanical Breakdown",
+    "estimatedTimeToResume": "45 minutes",
+    "appointmentImpact": "⚠️ LATE RISK: Stoppage will likely exceed scheduled Amazon gate arrival",
+    "rootCauseSummary": "Mechanical issue reported with tractor/trailer.",
+    "driverNotes": "Hola dispatch, tire ponchada on my trailer right side, pulled over safely.",
+    "dispatcherNotes": "[OFFICIAL RELAY MEMO] Tour ID: TOU-984210 | Tractor: VOL-8821 | Driver: Carlos Mendoza. Stop Category: Mechanical Breakdown. Driver reported: \"Hola dispatch, tire ponchada on my trailer right side, pulled over safely.\". Estimated resume time: 45 minutes.",
+    "requiresRoadsideAssistance": false,
+    "confidenceScore": 0.88,
+    "transcript": [
+      {
+        "speaker": "AI",
+        "text": "Hello, Amazon Relay Dispatch here. Notice your truck is stopped on route..",
+        "audioUrl": "/api/tts?text=Hello%2C%20Amazon%20Relay%20Dispatch%20here.%20Notice%20your%20truck%20is%20stopped%20on%20route..&speaker=AI",
+        "timestamp": "10:36:53 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Hola dispatch, tire ponchada on my trailer right side, pulled over safely.",
+        "audioUrl": "/api/tts?text=Hola%20dispatch%2C%20tire%20ponchada%20on%20my%20trailer%20right%20side%2C%20pulled%20over%20safely.&speaker=Driver",
+        "timestamp": "10:37:01 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Got it. About how long until you're rolling again?",
+        "audioUrl": "/api/tts?text=Got%20it.%20About%20how%20long%20until%20you're%20rolling%20again%3F&speaker=AI",
+        "timestamp": "10:37:11 AM"
+      }
+    ],
+    "status": "DISCARDED",
+    "createdAt": "2026-09-13T07:37:13.289Z",
+    "source": "Intelligent Conversational Engine",
+    "discardedAt": "2026-09-13T08:30:39.170Z",
+    "discardReason": "Dismissed by dispatcher"
+  },
+  {
+    "id": "RPT-1789284680778-967",
+    "tourId": "TOU-984210",
+    "tripId": "TRP-55219",
+    "driverName": "Marcus Vance",
+    "driverPhone": "+1 (555) 349-2041",
+    "truckId": "VOL-8821",
+    "location": "I-83 NB MM 24 (York, PA)",
+    "category": "Unresponsive",
+    "estimatedTimeToResume": "Unknown",
+    "appointmentImpact": "⚠️ LATE RISK: Stoppage will likely exceed scheduled Amazon gate arrival",
+    "rootCauseSummary": "Driver did not respond to automated dispatch inquiry.",
+    "driverNotes": "Driver stated stop in progress.",
+    "dispatcherNotes": "[OFFICIAL RELAY MEMO] Tour ID: TOU-984210 | Tractor: VOL-8821 | Driver: Marcus Vance. Stop Category: Unresponsive. Driver reported: \"Driver stated stop in progress.\". Estimated resume time: Unknown.",
+    "requiresRoadsideAssistance": false,
+    "confidenceScore": 0.88,
+    "transcript": [
+      {
+        "speaker": "AI",
+        "text": "Hello, Amazon Relay Dispatch here. Notice your truck is stopped on route..",
+        "audioUrl": "/api/tts?text=Hello%2C%20Amazon%20Relay%20Dispatch%20here.%20Notice%20your%20truck%20is%20stopped%20on%20route..&speaker=AI",
+        "timestamp": "10:31:11 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "What's causing the unscheduled stop right now?",
+        "audioUrl": "/api/tts?text=What's%20causing%20the%20unscheduled%20stop%20right%20now%3F&speaker=AI",
+        "timestamp": "10:31:18 AM"
+      }
+    ],
+    "status": "PENDING_APPROVAL",
+    "createdAt": "2026-09-13T07:31:20.778Z",
+    "source": "Intelligent Conversational Engine"
+  },
+  {
+    "id": "RPT-1789284615903-295",
+    "tourId": "TOU-984210",
+    "tripId": "TRP-55219",
+    "driverName": "Marcus Vance",
+    "driverPhone": "+1 (555) 349-2041",
+    "truckId": "VOL-8821",
+    "location": "I-83 NB MM 24 (York, PA)",
+    "category": "Traffic Delay",
+    "estimatedTimeToResume": "45 minutes",
+    "appointmentImpact": "⚠️ LATE RISK: Stoppage will likely exceed scheduled Amazon gate arrival",
+    "rootCauseSummary": "Heavy highway congestion / road blockage encountered.",
+    "driverNotes": "I make an accent I make an accident 45 minutes",
+    "dispatcherNotes": "[OFFICIAL RELAY MEMO] Tour ID: TOU-984210 | Tractor: VOL-8821 | Driver: Marcus Vance. Stop Category: Traffic Delay. Driver reported: \"I make an accent I make an accident 45 minutes\". Estimated resume time: 45 minutes.",
+    "requiresRoadsideAssistance": false,
+    "confidenceScore": 0.88,
+    "transcript": [
+      {
+        "speaker": "AI",
+        "text": "Hello Marcus Vance, this is Amazon Relay Dispatch. Notice your tractor VOL-8821 is stopped. Everything okay?"
+      },
+      {
+        "speaker": "Driver",
+        "text": "I make an accent"
+      },
+      {
+        "speaker": "AI",
+        "text": "Got it. Can you confirm the exact reason your truck is currently stopped?"
+      },
+      {
+        "speaker": "Driver",
+        "text": "I make an accident"
+      },
+      {
+        "speaker": "AI",
+        "text": "Understood. About how long until you're estimated to resume rolling?"
+      },
+      {
+        "speaker": "Driver",
+        "text": "45 minutes"
+      }
+    ],
+    "status": "DISCARDED",
+    "createdAt": "2026-09-13T07:30:15.903Z",
+    "source": "Intelligent Conversational Engine",
+    "discardedAt": "2026-09-13T08:30:44.655Z",
+    "discardReason": "Dismissed by dispatcher"
+  },
+  {
+    "id": "RPT-1789284495916-830",
+    "tourId": "TOU-662901",
+    "tripId": "TRP-91023",
+    "driverName": "David Kowalski",
+    "driverPhone": "+1 (555) 441-9876",
+    "truckId": "FRT-3122",
+    "location": "I-85 NB Rest Area MM 112",
+    "category": "Traffic Delay",
+    "estimatedTimeToResume": "40 minutes",
+    "appointmentImpact": "⚠️ LATE RISK: Stoppage will likely exceed scheduled Amazon gate arrival",
+    "rootCauseSummary": "Heavy highway congestion / road blockage encountered.",
+    "driverNotes": "Major accident ahead on the highway. All lanes stopped. Police say about 30 to 40 minutes to clear.",
+    "dispatcherNotes": "[OFFICIAL RELAY MEMO] Tour ID: TOU-662901 | Tractor: FRT-3122 | Driver: David Kowalski. Stop Category: Traffic Delay. Driver reported: \"Major accident ahead on the highway. All lanes stopped. Police say about 30 to 40 minutes to clear.\". Estimated resume time: 40 minutes.",
+    "requiresRoadsideAssistance": false,
+    "confidenceScore": 0.88,
+    "transcript": [
+      {
+        "speaker": "AI",
+        "text": "Hello, Amazon Relay Dispatch here. Notice your truck is stopped on route..",
+        "audioUrl": "/api/tts?text=Hello%2C%20Amazon%20Relay%20Dispatch%20here.%20Notice%20your%20truck%20is%20stopped%20on%20route..&speaker=AI",
+        "timestamp": "10:27:52 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "What's causing the unscheduled stop right now?",
+        "audioUrl": "/api/tts?text=What's%20causing%20the%20unscheduled%20stop%20right%20now%3F&speaker=AI",
+        "timestamp": "10:27:56 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Major accident ahead on the highway. All lanes stopped.",
+        "audioUrl": "/api/tts?text=Major%20accident%20ahead%20on%20the%20highway.%20All%20lanes%20stopped.&speaker=Driver",
+        "timestamp": "10:28:02 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Got it. About how long until you're rolling again?",
+        "audioUrl": "/api/tts?text=Got%20it.%20About%20how%20long%20until%20you're%20rolling%20again%3F&speaker=AI",
+        "timestamp": "10:28:05 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Police say about 30 to 40 minutes to clear.",
+        "audioUrl": "/api/tts?text=Police%20say%20about%2030%20to%2040%20minutes%20to%20clear.&speaker=Driver",
+        "timestamp": "10:28:11 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Do you need roadside service or a mechanic authorized?",
+        "audioUrl": "/api/tts?text=Do%20you%20need%20roadside%20service%20or%20a%20mechanic%20authorized%3F&speaker=AI",
+        "timestamp": "10:28:14 AM"
+      }
+    ],
+    "status": "PENDING_APPROVAL",
+    "createdAt": "2026-09-13T07:28:15.916Z",
+    "source": "Intelligent Conversational Engine"
+  },
+  {
+    "id": "RPT-1789284288333-367",
+    "tourId": "TOU-984210",
+    "tripId": "TRP-55219",
+    "driverName": "Marcus Vance",
+    "driverPhone": "+1 (555) 349-2041",
+    "truckId": "VOL-8821",
+    "location": "I-83 NB MM 24 (York, PA)",
+    "category": "Weather",
+    "estimatedTimeToResume": "45 minutes",
+    "appointmentImpact": "⚠️ LATE RISK: Stoppage will likely exceed scheduled Amazon gate arrival",
+    "rootCauseSummary": "Adverse weather conditions hindering safe vehicle operation.",
+    "driverNotes": "I got a flat drive tire on the right side of the trailer. Roadside service estimated about 45 minutes. Yes, already called carrier dispatch for mobile tire truck.",
+    "dispatcherNotes": "[OFFICIAL RELAY MEMO] Tour ID: TOU-984210 | Tractor: VOL-8821 | Driver: Marcus Vance. Stop Category: Weather. Driver reported: \"I got a flat drive tire on the right side of the trailer. Roadside service estimated about 45 minutes. Yes, already called carrier dispatch for mobile tire truck.\". Estimated resume time: 45 minutes.",
+    "requiresRoadsideAssistance": false,
+    "confidenceScore": 0.88,
+    "transcript": [
+      {
+        "speaker": "AI",
+        "text": "Hello, Amazon Relay Dispatch here. Notice your truck is stopped on route..",
+        "audioUrl": "/api/tts?text=Hello%2C%20Amazon%20Relay%20Dispatch%20here.%20Notice%20your%20truck%20is%20stopped%20on%20route..&speaker=AI",
+        "timestamp": "10:24:12 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "What's causing the unscheduled stop right now?",
+        "audioUrl": "/api/tts?text=What's%20causing%20the%20unscheduled%20stop%20right%20now%3F&speaker=AI",
+        "timestamp": "10:24:17 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "I got a flat drive tire on the right side of the trailer.",
+        "audioUrl": "/api/tts?text=I%20got%20a%20flat%20drive%20tire%20on%20the%20right%20side%20of%20the%20trailer.&speaker=Driver",
+        "timestamp": "10:24:23 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Got it. About how long until you're rolling again?",
+        "audioUrl": "/api/tts?text=Got%20it.%20About%20how%20long%20until%20you're%20rolling%20again%3F&speaker=AI",
+        "timestamp": "10:24:26 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Roadside service estimated about 45 minutes.",
+        "audioUrl": "/api/tts?text=Roadside%20service%20estimated%20about%2045%20minutes.&speaker=Driver",
+        "timestamp": "10:24:31 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Do you need roadside service or a mechanic authorized?",
+        "audioUrl": "/api/tts?text=Do%20you%20need%20roadside%20service%20or%20a%20mechanic%20authorized%3F&speaker=AI",
+        "timestamp": "10:24:34 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Yes, already called carrier dispatch for mobile tire truck.",
+        "audioUrl": "/api/tts?text=Yes%2C%20already%20called%20carrier%20dispatch%20for%20mobile%20tire%20truck.&speaker=Driver",
+        "timestamp": "10:24:41 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Got that logged with dispatch. Appreciate the update, drive safe.",
+        "audioUrl": "/api/tts?text=Got%20that%20logged%20with%20dispatch.%20Appreciate%20the%20update%2C%20drive%20safe.&speaker=AI",
+        "timestamp": "10:24:44 AM"
+      }
+    ],
+    "status": "PENDING_APPROVAL",
+    "createdAt": "2026-09-13T07:24:48.333Z",
+    "source": "Intelligent Conversational Engine"
+  },
+  {
+    "id": "RPT-1789284211523-285",
+    "tourId": "TOU-984210",
+    "tripId": "TRP-55219",
+    "driverName": "Marcus Vance",
+    "driverPhone": "+1 (555) 349-2041",
+    "truckId": "VOL-8821",
+    "location": "I-83 NB MM 24 (York, PA)",
+    "category": "Weather",
+    "estimatedTimeToResume": "45 minutes",
+    "appointmentImpact": "⚠️ LATE RISK: Stoppage will likely exceed scheduled Amazon gate arrival",
+    "rootCauseSummary": "Adverse weather conditions hindering safe vehicle operation.",
+    "driverNotes": "I got a flat drive tire on the right side of the trailer. Roadside service estimated about 45 minutes. Yes, already called carrier dispatch for mobile tire truck.",
+    "dispatcherNotes": "[OFFICIAL RELAY MEMO] Tour ID: TOU-984210 | Tractor: VOL-8821 | Driver: Marcus Vance. Stop Category: Weather. Driver reported: \"I got a flat drive tire on the right side of the trailer. Roadside service estimated about 45 minutes. Yes, already called carrier dispatch for mobile tire truck.\". Estimated resume time: 45 minutes.",
+    "requiresRoadsideAssistance": false,
+    "confidenceScore": 0.88,
+    "transcript": [
+      {
+        "speaker": "AI",
+        "text": "Hello, Amazon Relay Dispatch here. Notice your truck is stopped on route..",
+        "audioUrl": "/api/tts?text=Hello%2C%20Amazon%20Relay%20Dispatch%20here.%20Notice%20your%20truck%20is%20stopped%20on%20route..&speaker=AI",
+        "timestamp": "10:22:54 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "What's causing the unscheduled stop right now?",
+        "audioUrl": "/api/tts?text=What's%20causing%20the%20unscheduled%20stop%20right%20now%3F&speaker=AI",
+        "timestamp": "10:22:59 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "I got a flat drive tire on the right side of the trailer.",
+        "audioUrl": "/api/tts?text=I%20got%20a%20flat%20drive%20tire%20on%20the%20right%20side%20of%20the%20trailer.&speaker=Driver",
+        "timestamp": "10:23:05 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Got it. About how long until you're rolling again?",
+        "audioUrl": "/api/tts?text=Got%20it.%20About%20how%20long%20until%20you're%20rolling%20again%3F&speaker=AI",
+        "timestamp": "10:23:08 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Roadside service estimated about 45 minutes.",
+        "audioUrl": "/api/tts?text=Roadside%20service%20estimated%20about%2045%20minutes.&speaker=Driver",
+        "timestamp": "10:23:14 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Do you need roadside service or a mechanic authorized?",
+        "audioUrl": "/api/tts?text=Do%20you%20need%20roadside%20service%20or%20a%20mechanic%20authorized%3F&speaker=AI",
+        "timestamp": "10:23:17 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Yes, already called carrier dispatch for mobile tire truck.",
+        "audioUrl": "/api/tts?text=Yes%2C%20already%20called%20carrier%20dispatch%20for%20mobile%20tire%20truck.&speaker=Driver",
+        "timestamp": "10:23:23 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Got that logged with dispatch. Appreciate the update, drive safe.",
+        "audioUrl": "/api/tts?text=Got%20that%20logged%20with%20dispatch.%20Appreciate%20the%20update%2C%20drive%20safe.&speaker=AI",
+        "timestamp": "10:23:26 AM"
+      }
+    ],
+    "status": "PENDING_APPROVAL",
+    "createdAt": "2026-09-13T07:23:31.523Z",
+    "source": "Intelligent Conversational Engine"
+  },
+  {
+    "id": "RPT-1789283541046-442",
+    "tourId": "TOU-984210",
+    "tripId": "TRP-55219",
+    "driverName": "Marcus Vance",
+    "driverPhone": "+1 (555) 349-2041",
+    "truckId": "VOL-8821",
+    "location": "I-83 NB MM 24 (York, PA)",
+    "category": "Weather",
+    "estimatedTimeToResume": "45 minutes",
+    "appointmentImpact": "⚠️ LATE RISK: Stoppage will likely exceed scheduled Amazon gate arrival",
+    "rootCauseSummary": "Adverse weather conditions hindering safe vehicle operation.",
+    "driverNotes": "I got a flat drive tire on the right side of the trailer. Roadside service estimated about 45 minutes. Yes, already called carrier dispatch for mobile tire truck.",
+    "dispatcherNotes": "[OFFICIAL RELAY MEMO] Tour ID: TOU-984210 | Tractor: VOL-8821 | Driver: Marcus Vance. Stop Category: Weather. Driver reported: \"I got a flat drive tire on the right side of the trailer. Roadside service estimated about 45 minutes. Yes, already called carrier dispatch for mobile tire truck.\". Estimated resume time: 45 minutes.",
+    "requiresRoadsideAssistance": false,
+    "confidenceScore": 0.88,
+    "transcript": [
+      {
+        "speaker": "AI",
+        "text": "Hello, this is Amazon Relay Dispatch. Notice your vehicle is stopped on route. Everything.",
+        "timestamp": "10:11:49 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "What's causing the unscheduled stop right now?",
+        "timestamp": "10:11:54 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "I got a flat drive tire on the right side of the trailer.",
+        "timestamp": "10:12:00 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Got it. About how long until you're rolling again?",
+        "timestamp": "10:12:03 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Roadside service estimated about 45 minutes.",
+        "timestamp": "10:12:08 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Do you need roadside service or a mechanic authorized?",
+        "timestamp": "10:12:11 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Yes, already called carrier dispatch for mobile tire truck.",
+        "timestamp": "10:12:17 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Got that logged with dispatch. Appreciate the update, drive safe.",
+        "timestamp": "10:12:20 AM"
+      }
+    ],
+    "status": "PENDING_APPROVAL",
+    "createdAt": "2026-09-13T07:12:21.046Z",
+    "source": "Intelligent Conversational Engine"
+  },
+  {
+    "id": "RPT-1789283496753-161",
+    "tourId": "TOU-984210",
+    "tripId": "TRP-55219",
+    "driverName": "Marcus Vance",
+    "driverPhone": "+1 (555) 349-2041",
+    "truckId": "VOL-8821",
+    "location": "I-83 NB MM 24 (York, PA)",
+    "category": "Weather",
+    "estimatedTimeToResume": "45 minutes",
+    "appointmentImpact": "⚠️ LATE RISK: Stoppage will likely exceed scheduled Amazon gate arrival",
+    "rootCauseSummary": "Adverse weather conditions hindering safe vehicle operation.",
+    "driverNotes": "I got a flat drive tire on the right side of the trailer. Roadside service estimated about 45 minutes. Yes, already called carrier dispatch for mobile tire truck.",
+    "dispatcherNotes": "[OFFICIAL RELAY MEMO] Tour ID: TOU-984210 | Tractor: VOL-8821 | Driver: Marcus Vance. Stop Category: Weather. Driver reported: \"I got a flat drive tire on the right side of the trailer. Roadside service estimated about 45 minutes. Yes, already called carrier dispatch for mobile tire truck.\". Estimated resume time: 45 minutes.",
+    "requiresRoadsideAssistance": false,
+    "confidenceScore": 0.88,
+    "transcript": [
+      {
+        "speaker": "AI",
+        "text": "Hello, this is Amazon Relay Dispatch. Notice your vehicle is stopped on route. Everything.",
+        "timestamp": "10:11:01 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "What's causing the unscheduled stop right now?",
+        "timestamp": "10:11:06 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "I got a flat drive tire on the right side of the trailer.",
+        "timestamp": "10:11:12 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Got it. About how long until you're rolling again?",
+        "timestamp": "10:11:14 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Roadside service estimated about 45 minutes.",
+        "timestamp": "10:11:20 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Do you need roadside service or a mechanic authorized?",
+        "timestamp": "10:11:23 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Yes, already called carrier dispatch for mobile tire truck.",
+        "timestamp": "10:11:29 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Got that logged with dispatch. Appreciate the update, drive safe.",
+        "timestamp": "10:11:32 AM"
+      }
+    ],
+    "status": "PENDING_APPROVAL",
+    "createdAt": "2026-09-13T07:11:36.753Z",
+    "source": "Intelligent Conversational Engine"
+  },
+  {
+    "id": "RPT-1789283278832-569",
+    "tourId": "TOU-984210",
+    "tripId": "TRP-55219",
+    "driverName": "Marcus Vance",
+    "driverPhone": "+1 (555) 349-2041",
+    "truckId": "VOL-8821",
+    "location": "I-83 NB MM 24 (York, PA)",
+    "category": "Weather",
+    "estimatedTimeToResume": "45 minutes",
+    "appointmentImpact": "⚠️ LATE RISK: Stoppage will likely exceed scheduled Amazon gate arrival",
+    "rootCauseSummary": "Adverse weather conditions hindering safe vehicle operation.",
+    "driverNotes": "I got a flat drive tire on the right side of the trailer. Roadside service estimated about 45 minutes. Yes, already called carrier dispatch for mobile tire truck.",
+    "dispatcherNotes": "[OFFICIAL RELAY MEMO] Tour ID: TOU-984210 | Tractor: VOL-8821 | Driver: Marcus Vance. Stop Category: Weather. Driver reported: \"I got a flat drive tire on the right side of the trailer. Roadside service estimated about 45 minutes. Yes, already called carrier dispatch for mobile tire truck.\". Estimated resume time: 45 minutes.",
+    "requiresRoadsideAssistance": false,
+    "confidenceScore": 0.88,
+    "transcript": [
+      {
+        "speaker": "AI",
+        "text": "Hello, this is Amazon Relay Dispatch. Notice your vehicle is stopped on route. Everything.",
+        "timestamp": "10:07:28 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "What's causing the unscheduled stop right now?",
+        "timestamp": "10:07:33 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "I got a flat drive tire on the right side of the trailer.",
+        "timestamp": "10:07:39 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Got it. About how long until you're rolling again?",
+        "timestamp": "10:07:42 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Roadside service estimated about 45 minutes.",
+        "timestamp": "10:07:47 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Do you need roadside service or a mechanic authorized?",
+        "timestamp": "10:07:50 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Yes, already called carrier dispatch for mobile tire truck.",
+        "timestamp": "10:07:56 AM"
+      }
+    ],
+    "status": "PENDING_APPROVAL",
+    "createdAt": "2026-09-13T07:07:58.832Z",
+    "source": "Intelligent Conversational Engine"
+  },
+  {
+    "id": "RPT-1789282798856-822",
+    "tourId": "TOU-984210",
+    "tripId": "TRP-55219",
+    "driverName": "Marcus Vance",
+    "driverPhone": "+1 (555) 349-2041",
+    "truckId": "VOL-8821",
+    "location": "I-83 NB MM 24 (York, PA)",
+    "category": "Unresponsive",
+    "estimatedTimeToResume": "Unknown",
+    "appointmentImpact": "⚠️ LATE RISK: Stoppage will likely exceed scheduled Amazon gate arrival",
+    "rootCauseSummary": "Driver did not respond to automated dispatch inquiry.",
+    "driverNotes": "Driver stated stop in progress.",
+    "dispatcherNotes": "[OFFICIAL RELAY MEMO] Tour ID: TOU-984210 | Tractor: VOL-8821 | Driver: Marcus Vance. Stop Category: Unresponsive. Driver reported: \"Driver stated stop in progress.\". Estimated resume time: Unknown.",
+    "requiresRoadsideAssistance": false,
+    "confidenceScore": 0.88,
+    "transcript": [
+      {
+        "speaker": "AI",
+        "text": "Hello, this is Amazon Relay Dispatch. Notice your vehicle is stopped on route. Everything.",
+        "timestamp": "09:59:49 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "What's causing the unscheduled stop right now?",
+        "timestamp": "09:59:54 AM"
+      }
+    ],
+    "status": "PENDING_APPROVAL",
+    "createdAt": "2026-09-13T06:59:58.856Z",
+    "source": "Intelligent Conversational Engine"
+  },
+  {
+    "id": "RPT-1789281904111-886",
+    "tourId": "TOU-984210",
+    "tripId": "TRP-55219",
+    "driverName": "Marcus Vance",
+    "driverPhone": "+1 (555) 349-2041",
+    "truckId": "VOL-8821",
+    "location": "I-83 NB MM 24 (York, PA)",
+    "category": "Weather",
+    "estimatedTimeToResume": "30 minutes",
+    "appointmentImpact": "⚠️ LATE RISK: Stoppage will likely exceed scheduled Amazon gate arrival",
+    "rootCauseSummary": "Adverse weather conditions hindering safe vehicle operation.",
+    "driverNotes": "Yeah boss, alternator light came on and battery died. Roadside service is 30 minutes away.",
+    "dispatcherNotes": "[OFFICIAL RELAY MEMO] Tour ID: TOU-984210 | Tractor: VOL-8821 | Driver: Marcus Vance. Stop Category: Weather. Driver reported: \"Yeah boss, alternator light came on and battery died. Roadside service is 30 minutes away.\". Estimated resume time: 30 minutes.",
+    "requiresRoadsideAssistance": false,
+    "confidenceScore": 0.88,
+    "transcript": [
+      {
+        "speaker": "AI",
+        "text": "Hello Marcus, this is Amazon Relay Dispatch. Everything okay?"
+      },
+      {
+        "speaker": "Operator",
+        "text": "Hey Marcus, dispatcher here. I see you pulled over near exit 142."
+      },
+      {
+        "speaker": "Driver",
+        "text": "Yeah boss, alternator light came on and battery died. Roadside service is 30 minutes away."
+      }
+    ],
+    "status": "PENDING_APPROVAL",
+    "createdAt": "2026-09-13T06:45:04.111Z",
+    "source": "Intelligent Conversational Engine"
+  },
+  {
+    "id": "RPT-1789281879810-357",
+    "tourId": "TOU-984210",
+    "tripId": "TRP-55219",
+    "driverName": "Marcus Vance",
+    "driverPhone": "+1 (555) 349-2041",
+    "truckId": "VOL-8821",
+    "location": "I-83 NB MM 24 (York, PA)",
+    "category": "Mechanical Breakdown",
+    "estimatedTimeToResume": "40 minutes",
+    "appointmentImpact": "⚠️ LATE RISK: Stoppage will likely exceed scheduled Amazon gate arrival",
+    "rootCauseSummary": "Mechanical issue reported with tractor/trailer.",
+    "driverNotes": "Flat tire on I-80, waiting for roadside assistance, ETA about 40 minutes.",
+    "dispatcherNotes": "[OFFICIAL RELAY MEMO] Tour ID: TOU-984210 | Tractor: VOL-8821 | Driver: Marcus Vance. Stop Category: Mechanical Breakdown. Driver reported: \"Flat tire on I-80, waiting for roadside assistance, ETA about 40 minutes.\". Estimated resume time: 40 minutes.",
+    "requiresRoadsideAssistance": false,
+    "confidenceScore": 0.88,
+    "transcript": [
+      {
+        "speaker": "AI",
+        "text": "Hello Marcus, this is Amazon Relay Dispatch. Everything okay?"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Flat tire on I-80, waiting for roadside assistance, ETA about 40 minutes."
+      }
+    ],
+    "status": "PENDING_APPROVAL",
+    "createdAt": "2026-09-13T06:44:39.810Z",
+    "source": "Intelligent Conversational Engine"
+  },
+  {
+    "id": "RPT-1789281471294-33",
+    "tourId": "TOU-984210",
+    "tripId": "TRP-55219",
+    "driverName": "Marcus Vance",
+    "driverPhone": "+1 (555) 349-2041",
+    "truckId": "VOL-8821",
+    "location": "I-83 NB MM 24 (York, PA)",
+    "category": "Mechanical Breakdown",
+    "estimatedTimeToResume": "45 minutes",
+    "appointmentImpact": "⚠️ LATE RISK: Stoppage will likely exceed scheduled Amazon gate arrival",
+    "rootCauseSummary": "Mechanical issue reported with tractor/trailer.",
+    "driverNotes": "I got a flat drive tire on the right side of the trailer.",
+    "dispatcherNotes": "[OFFICIAL RELAY MEMO] Tour ID: TOU-984210 | Tractor: VOL-8821 | Driver: Marcus Vance. Stop Category: Mechanical Breakdown. Driver reported: \"I got a flat drive tire on the right side of the trailer.\". Estimated resume time: 45 minutes.",
+    "requiresRoadsideAssistance": false,
+    "confidenceScore": 0.88,
+    "transcript": [
+      {
+        "speaker": "AI",
+        "text": "Hello, this is Amazon Relay Dispatch. Notice your vehicle is stopped on route. Everything.",
+        "timestamp": "09:37:33 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "What's causing the unscheduled stop right now?",
+        "timestamp": "09:37:37 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "I got a flat drive tire on the right side of the trailer.",
+        "timestamp": "09:37:43 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Got it. About how long until you're rolling again?",
+        "timestamp": "09:37:46 AM"
+      }
+    ],
+    "status": "PENDING_APPROVAL",
+    "createdAt": "2026-09-13T06:37:51.294Z",
+    "source": "Intelligent Conversational Engine"
+  },
+  {
+    "id": "RPT-1789281038456-714",
+    "tourId": "TOU-874577",
+    "tripId": "TRP-96798",
+    "driverName": "Robert Martinez",
+    "driverPhone": "+1 (555) 762-9011",
+    "truckId": "KEN-5520",
+    "location": "I-95 NB MM 58 (New Haven, CT)",
+    "category": "Mechanical Breakdown",
+    "estimatedTimeToResume": "45 minutes",
+    "appointmentImpact": "⚠️ LATE RISK: Stoppage will likely exceed scheduled Amazon gate arrival",
+    "rootCauseSummary": "Mechanical issue reported with tractor/trailer.",
+    "driverNotes": "Check engine light came on with coolant temperature warning.",
+    "dispatcherNotes": "[OFFICIAL RELAY MEMO] Tour ID: TOU-874577 | Tractor: KEN-5520 | Driver: Robert Martinez. Stop Category: Mechanical Breakdown. Driver reported: \"Check engine light came on with coolant temperature warning.\". Estimated resume time: 45 minutes.",
+    "requiresRoadsideAssistance": false,
+    "confidenceScore": 0.88,
+    "transcript": [
+      {
+        "speaker": "AI",
+        "text": "Hello, this is Amazon Relay Dispatch. Notice your vehicle is stopped on route. Everything.",
+        "timestamp": "09:30:21 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "What's causing the unscheduled stop right now?",
+        "timestamp": "09:30:26 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Check engine light came on with coolant temperature warning.",
+        "timestamp": "09:30:32 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Got it. About how long until you're rolling again?",
+        "timestamp": "09:30:35 AM"
+      }
+    ],
+    "status": "PENDING_APPROVAL",
+    "createdAt": "2026-09-13T06:30:38.456Z",
+    "source": "Intelligent Conversational Engine"
+  },
+  {
+    "id": "RPT-1789280887344-749",
+    "tourId": "TOU-984210",
+    "tripId": "TRP-55219",
+    "driverName": "Marcus Vance",
+    "driverPhone": "+1 (555) 349-2041",
+    "truckId": "VOL-8821",
+    "location": "I-83 NB MM 24 (York, PA)",
+    "category": "Weather",
+    "estimatedTimeToResume": "30 minutes",
+    "appointmentImpact": "⚠️ LATE RISK: Stoppage will likely exceed scheduled Amazon gate arrival",
+    "rootCauseSummary": "Adverse weather conditions hindering safe vehicle operation.",
+    "driverNotes": "flat tire and waiting for service eta 30 minutes",
+    "dispatcherNotes": "[OFFICIAL RELAY MEMO] Tour ID: TOU-984210 | Tractor: VOL-8821 | Driver: Marcus Vance. Stop Category: Weather. Driver reported: \"flat tire and waiting for service eta 30 minutes\". Estimated resume time: 30 minutes.",
+    "requiresRoadsideAssistance": false,
+    "confidenceScore": 0.88,
+    "transcript": [
+      {
+        "speaker": "AI",
+        "text": "Hello Marcus, notice your truck is stopped. Everything okay?"
+      },
+      {
+        "speaker": "Driver",
+        "text": "flat tire and waiting for service eta 30 minutes"
+      }
+    ],
+    "status": "DISCARDED",
+    "createdAt": "2026-09-13T06:28:07.344Z",
+    "source": "Intelligent Conversational Engine",
+    "discardedAt": "2026-09-13T06:29:21.888Z",
+    "discardReason": "Dismissed by dispatcher"
+  },
+  {
+    "id": "RPT-1789280849754-253",
+    "tourId": "TOU-722412",
+    "tripId": "TRP-43552",
+    "driverName": "Robert Martinez",
+    "driverPhone": "+1 (555) 762-9011",
+    "truckId": "KEN-5520",
+    "location": "I-95 NB MM 58 (New Haven, CT)",
+    "category": "Mandatory Rest",
+    "estimatedTimeToResume": "18 minutes",
+    "appointmentImpact": "⚠️ LATE RISK: Stoppage will likely exceed scheduled Amazon gate arrival",
+    "rootCauseSummary": "Driver taking mandatory DOT/ELD compliance rest break.",
+    "driverNotes": "My ELD 30-minute mandatory rest break just triggered. Resuming in exactly 18 minutes. No assistance needed.",
+    "dispatcherNotes": "[OFFICIAL RELAY MEMO] Tour ID: TOU-722412 | Tractor: KEN-5520 | Driver: Robert Martinez. Stop Category: Mandatory Rest. Driver reported: \"My ELD 30-minute mandatory rest break just triggered. Resuming in exactly 18 minutes. No assistance needed.\". Estimated resume time: 18 minutes.",
+    "requiresRoadsideAssistance": false,
+    "confidenceScore": 0.88,
+    "transcript": [
+      {
+        "speaker": "AI",
+        "text": "Relay Dispatch AI: Notice your truck is stopped on route. What's causing the delay?",
+        "timestamp": "09:27:20 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "My ELD 30-minute mandatory rest break just triggered.",
+        "timestamp": "09:27:22 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Got it. What's your estimated time to resume rolling?",
+        "timestamp": "09:27:23 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Resuming in exactly 18 minutes.",
+        "timestamp": "09:27:25 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Do you need dispatch to send emergency roadside or escort?",
+        "timestamp": "09:27:26 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "No assistance needed.",
+        "timestamp": "09:27:28 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Logged with dispatch. Stay safe out there.",
+        "timestamp": "09:27:29 AM"
+      }
+    ],
+    "status": "DISCARDED",
+    "createdAt": "2026-09-13T06:27:29.754Z",
+    "source": "Intelligent Conversational Engine",
+    "discardedAt": "2026-09-13T06:27:47.376Z",
+    "discardReason": "Dismissed by dispatcher"
+  },
+  {
+    "id": "RPT-1789280692635-47",
+    "tourId": "TOU-984210",
+    "tripId": "TRP-55219",
+    "driverName": "Marcus Vance",
+    "driverPhone": "+1 (555) 349-2041",
+    "truckId": "VOL-8821",
+    "location": "I-83 NB MM 24 (York, PA)",
+    "category": "Weather",
+    "estimatedTimeToResume": "45 minutes",
+    "appointmentImpact": "⚠️ LATE RISK: Stoppage will likely exceed scheduled Amazon gate arrival",
+    "rootCauseSummary": "Adverse weather conditions hindering safe vehicle operation.",
+    "driverNotes": "I got a flat drive tire on the right side of the trailer. Roadside service estimated about 45 minutes.",
+    "dispatcherNotes": "[OFFICIAL RELAY MEMO] Tour ID: TOU-984210 | Tractor: VOL-8821 | Driver: Marcus Vance. Stop Category: Weather. Driver reported: \"I got a flat drive tire on the right side of the trailer. Roadside service estimated about 45 minutes.\". Estimated resume time: 45 minutes.",
+    "requiresRoadsideAssistance": false,
+    "confidenceScore": 0.88,
+    "transcript": [
+      {
+        "speaker": "AI",
+        "text": "Hello, this is Amazon Relay Dispatch. Notice your vehicle is stopped on route. Everything.",
+        "timestamp": "09:24:31 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "What's causing the unscheduled stop right now?",
+        "timestamp": "09:24:36 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "I got a flat drive tire on the right side of the trailer.",
+        "timestamp": "09:24:42 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Got it. About how long until you're rolling again?",
+        "timestamp": "09:24:45 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Roadside service estimated about 45 minutes.",
+        "timestamp": "09:24:50 AM"
+      }
+    ],
+    "status": "DISCARDED",
+    "createdAt": "2026-09-13T06:24:52.635Z",
+    "source": "Intelligent Conversational Engine",
+    "discardedAt": "2026-09-13T06:26:32.609Z",
+    "discardReason": "Dismissed by dispatcher"
+  },
+  {
+    "id": "RPT-1789280157469-414",
+    "tourId": "TOU-984210",
+    "tripId": "TRP-55219",
+    "driverName": "Marcus Vance",
+    "driverPhone": "+1 (555) 349-2041",
+    "truckId": "VOL-8821",
+    "location": "I-83 NB MM 24 (York, PA)",
+    "category": "Traffic Delay",
+    "estimatedTimeToResume": "45 minutes",
+    "appointmentImpact": "⚠️ LATE RISK: Stoppage will likely exceed scheduled Amazon gate arrival",
+    "rootCauseSummary": "Heavy highway congestion / road blockage encountered.",
+    "driverNotes": "I make an accident how about 40 45 minutes yes I need",
+    "dispatcherNotes": "[OFFICIAL RELAY MEMO] Tour ID: TOU-984210 | Tractor: VOL-8821 | Driver: Marcus Vance. Stop Category: Traffic Delay. Driver reported: \"I make an accident how about 40 45 minutes yes I need\". Estimated resume time: 45 minutes.",
+    "requiresRoadsideAssistance": false,
+    "confidenceScore": 0.88,
+    "transcript": [
+      {
+        "speaker": "AI",
+        "text": "Relay Dispatch here. I see you're stopped on route. What's going on out there?"
+      },
+      {
+        "speaker": "Driver",
+        "text": "I make an accident"
+      },
+      {
+        "speaker": "AI",
+        "text": "Got it. About how long until you're rolling again?"
+      },
+      {
+        "speaker": "Driver",
+        "text": "how about 40 45 minutes"
+      },
+      {
+        "speaker": "AI",
+        "text": "Do you need roadside service or a mechanic authorized?"
+      },
+      {
+        "speaker": "Driver",
+        "text": "yes I need"
+      }
+    ],
+    "status": "DISCARDED",
+    "createdAt": "2026-09-13T06:15:57.469Z",
+    "source": "Heuristic Engine (Gemini Offline)",
+    "discardedAt": "2026-09-13T06:26:29.476Z",
+    "discardReason": "Dismissed by dispatcher"
+  },
+  {
+    "id": "RPT-1789280037018-733",
+    "tourId": "TOU-984210",
+    "tripId": "TRP-55219",
+    "driverName": "Marcus Vance",
+    "driverPhone": "+1 (555) 349-2041",
+    "truckId": "VOL-8821",
+    "location": "I-83 NB MM 24 (York, PA)",
+    "category": "Mechanical Breakdown",
+    "estimatedTimeToResume": "45 minutes",
+    "appointmentImpact": "⚠️ LATE RISK: Stoppage will likely exceed scheduled Amazon gate arrival",
+    "rootCauseSummary": "Mechanical issue reported with tractor/trailer.",
+    "driverNotes": "I got a flat tire on trailer. About 45 minutes. No, mobile tire truck is already dispatched.",
+    "dispatcherNotes": "[OFFICIAL RELAY MEMO] Tour ID: TOU-984210 | Tractor: VOL-8821 | Driver: Marcus Vance. Stop Category: Mechanical Breakdown. Driver reported: \"I got a flat tire on trailer. About 45 minutes. No, mobile tire truck is already dispatched.\". Estimated resume time: 45 minutes.",
+    "requiresRoadsideAssistance": false,
+    "confidenceScore": 0.88,
+    "transcript": [
+      {
+        "speaker": "AI",
+        "text": "Amazon Relay Dispatch AI. Notice your truck is stopped."
+      },
+      {
+        "speaker": "Driver",
+        "text": "I got a flat tire on trailer."
+      },
+      {
+        "speaker": "AI",
+        "text": "Got it. About how long until you are rolling again?"
+      },
+      {
+        "speaker": "Driver",
+        "text": "About 45 minutes."
+      },
+      {
+        "speaker": "AI",
+        "text": "Do you need dispatch to authorize roadside assistance?"
+      },
+      {
+        "speaker": "Driver",
+        "text": "No, mobile tire truck is already dispatched."
+      }
+    ],
+    "status": "DISCARDED",
+    "createdAt": "2026-09-13T06:13:57.018Z",
+    "source": "Heuristic Engine (Gemini Offline)",
+    "discardedAt": "2026-09-13T06:26:27.062Z",
+    "discardReason": "Dismissed by dispatcher"
+  },
+  {
+    "id": "RPT-1789279661195-115",
+    "tourId": "TOU-662901",
+    "tripId": "TRP-91023",
+    "driverName": "David Kowalski",
+    "driverPhone": "+1 (555) 441-9876",
+    "truckId": "FRT-3122",
+    "location": "I-85 NB Rest Area MM 112",
+    "category": "Traffic Delay",
+    "estimatedTimeToResume": "40 minutes",
+    "appointmentImpact": "⚠️ LATE RISK: Stoppage will likely exceed scheduled Amazon gate arrival",
+    "rootCauseSummary": "Heavy highway congestion / road blockage encountered.",
+    "driverNotes": "Major accident ahead on the highway. All lanes stopped. Police say about 30 to 40 minutes to clear. No roadside needed, just waiting for traffic to move.",
+    "dispatcherNotes": "[OFFICIAL RELAY MEMO] Tour ID: TOU-662901 | Tractor: FRT-3122 | Driver: David Kowalski. Stop Category: Traffic Delay. Driver reported: \"Major accident ahead on the highway. All lanes stopped. Police say about 30 to 40 minutes to clear. No roadside needed, just waiting for traffic to move.\". Estimated resume time: 40 minutes.",
+    "requiresRoadsideAssistance": false,
+    "confidenceScore": 0.88,
+    "transcript": [
+      {
+        "speaker": "AI",
+        "text": "Relay Dispatch here. I see you're stopped on route. What's going on out there?",
+        "timestamp": "09:07:04 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "What's causing the unscheduled stop right now?",
+        "timestamp": "09:07:08 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Major accident ahead on the highway. All lanes stopped.",
+        "timestamp": "09:07:15 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Got it. About how long until you're rolling again?",
+        "timestamp": "09:07:17 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Police say about 30 to 40 minutes to clear.",
+        "timestamp": "09:07:23 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Do you need roadside service or a mechanic authorized?",
+        "timestamp": "09:07:26 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "No roadside needed, just waiting for traffic to move.",
+        "timestamp": "09:07:33 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Got that logged with dispatch. Appreciate the update, drive safe.",
+        "timestamp": "09:07:36 AM"
+      }
+    ],
+    "status": "DISCARDED",
+    "createdAt": "2026-09-13T06:07:41.195Z",
+    "source": "Heuristic Engine (Gemini Offline)",
+    "discardedAt": "2026-09-13T06:26:24.611Z",
+    "discardReason": "Dismissed by dispatcher"
+  },
+  {
+    "id": "RPT-1789279609788-715",
+    "tourId": "TOU-984210",
+    "tripId": "TRP-55219",
+    "driverName": "Marcus Vance",
+    "driverPhone": "+1 (555) 349-2041",
+    "truckId": "VOL-8821",
+    "location": "I-83 NB MM 24 (York, PA)",
+    "category": "Weather",
+    "estimatedTimeToResume": "45 minutes",
+    "appointmentImpact": "⚠️ LATE RISK: Stoppage will likely exceed scheduled Amazon gate arrival",
+    "rootCauseSummary": "Adverse weather conditions hindering safe vehicle operation.",
+    "driverNotes": "I got a flat drive tire on the right side of the trailer. Roadside service estimated about 45 minutes. Yes, already called carrier dispatch for mobile tire truck.",
+    "dispatcherNotes": "[OFFICIAL RELAY MEMO] Tour ID: TOU-984210 | Tractor: VOL-8821 | Driver: Marcus Vance. Stop Category: Weather. Driver reported: \"I got a flat drive tire on the right side of the trailer. Roadside service estimated about 45 minutes. Yes, already called carrier dispatch for mobile tire truck.\". Estimated resume time: 45 minutes.",
+    "requiresRoadsideAssistance": false,
+    "confidenceScore": 0.88,
+    "transcript": [
+      {
+        "speaker": "AI",
+        "text": "Relay Dispatch here. I see you're stopped on route. What's going on out there?",
+        "timestamp": "09:06:12 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "What's causing the unscheduled stop right now?",
+        "timestamp": "09:06:16 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "I got a flat drive tire on the right side of the trailer.",
+        "timestamp": "09:06:23 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Got it. About how long until you're rolling again?",
+        "timestamp": "09:06:26 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Roadside service estimated about 45 minutes.",
+        "timestamp": "09:06:32 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Do you need roadside service or a mechanic authorized?",
+        "timestamp": "09:06:35 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Yes, already called carrier dispatch for mobile tire truck.",
+        "timestamp": "09:06:42 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Got that logged with dispatch. Appreciate the update, drive safe.",
+        "timestamp": "09:06:45 AM"
+      }
+    ],
+    "status": "DISCARDED",
+    "createdAt": "2026-09-13T06:06:49.788Z",
+    "source": "Heuristic Engine (Gemini Offline)",
+    "discardedAt": "2026-09-13T06:26:35.699Z",
+    "discardReason": "Dismissed by dispatcher"
+  },
+  {
+    "id": "RPT-1789278826879-579",
+    "tourId": "TOU-984210",
+    "tripId": "TRP-55219",
+    "driverName": "Marcus Vance",
+    "driverPhone": "+1 (555) 349-2041",
+    "truckId": "VOL-8821",
+    "location": "I-83 NB MM 24 (York, PA)",
+    "category": "Weather",
+    "estimatedTimeToResume": "45 minutes",
+    "rootCauseSummary": "Adverse weather conditions hindering safe vehicle operation.",
+    "driverNotes": "I got a flat drive tire on the right side of the trailer. Roadside service estimated about 45 minutes. Yes, already called carrier dispatch for mobile tire truck.",
+    "dispatcherNotes": "[OFFICIAL RELAY MEMO] Tour ID: TOU-984210 | Tractor: VOL-8821 | Driver: Marcus Vance. Stop Category: Weather. Driver reported: \"I got a flat drive tire on the right side of the trailer. Roadside service estimated about 45 minutes. Yes, already called carrier dispatch for mobile tire truck.\". Estimated resume time: 45 minutes.",
+    "requiresRoadsideAssistance": false,
+    "confidenceScore": 0.88,
+    "transcript": [
+      {
+        "speaker": "AI",
+        "text": "Relay Dispatch AI: Notice your truck is stopped on route. What's causing the delay?",
+        "timestamp": "08:53:38 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "I got a flat drive tire on the right side of the trailer.",
+        "timestamp": "08:53:39 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Got it. What's your estimated time to resume rolling?",
+        "timestamp": "08:53:41 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Roadside service estimated about 45 minutes.",
+        "timestamp": "08:53:42 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Do you need dispatch to send emergency roadside or escort?",
+        "timestamp": "08:53:44 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Yes, already called carrier dispatch for mobile tire truck.",
+        "timestamp": "08:53:45 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Logged with dispatch. Stay safe out there.",
+        "timestamp": "08:53:46 AM"
+      }
+    ],
+    "status": "DISCARDED",
+    "createdAt": "2026-09-13T05:53:46.879Z",
+    "source": "Heuristic Engine (Gemini Offline)",
+    "discardedAt": "2026-09-13T06:26:22.312Z",
+    "discardReason": "Dismissed by dispatcher"
+  },
+  {
+    "id": "RPT-1789278797267-474",
+    "tourId": "TOU-984210",
+    "tripId": "TRP-55219",
+    "driverName": "Marcus Vance",
+    "driverPhone": "+1 (555) 349-2041",
+    "truckId": "VOL-8821",
+    "location": "I-83 NB MM 24 (York, PA)",
+    "category": "Weather",
+    "estimatedTimeToResume": "45 minutes",
+    "rootCauseSummary": "Adverse weather conditions hindering safe vehicle operation.",
+    "driverNotes": "I got a flat drive tire on the right side of the trailer. Roadside service estimated about 45 minutes. Yes, already called carrier dispatch for mobile tire truck.",
+    "dispatcherNotes": "[OFFICIAL RELAY MEMO] Tour ID: TOU-984210 | Tractor: VOL-8821 | Driver: Marcus Vance. Stop Category: Weather. Driver reported: \"I got a flat drive tire on the right side of the trailer. Roadside service estimated about 45 minutes. Yes, already called carrier dispatch for mobile tire truck.\". Estimated resume time: 45 minutes.",
+    "requiresRoadsideAssistance": false,
+    "confidenceScore": 0.88,
+    "transcript": [
+      {
+        "speaker": "AI",
+        "text": "Relay Dispatch here. I see you're stopped on route. What's going on out there?",
+        "timestamp": "08:52:39 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "What's causing the unscheduled stop right now?",
+        "timestamp": "08:52:43 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "I got a flat drive tire on the right side of the trailer.",
+        "timestamp": "08:52:50 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Got it. About how long until you're rolling again?",
+        "timestamp": "08:52:53 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Roadside service estimated about 45 minutes.",
+        "timestamp": "08:52:59 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Do you need roadside service or a mechanic authorized?",
+        "timestamp": "08:53:02 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Yes, already called carrier dispatch for mobile tire truck.",
+        "timestamp": "08:53:09 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Got that logged with dispatch. Appreciate the update, drive safe.",
+        "timestamp": "08:53:12 AM"
+      }
+    ],
+    "status": "DISCARDED",
+    "createdAt": "2026-09-13T05:53:17.267Z",
+    "source": "Heuristic Engine (Gemini Offline)",
+    "discardedAt": "2026-09-13T06:26:19.396Z",
+    "discardReason": "Dismissed by dispatcher"
+  },
+  {
+    "id": "RPT-1789278380615-587",
+    "tourId": "TOU-675036",
+    "tripId": "TRP-15456",
+    "driverName": "Robert Martinez",
+    "driverPhone": "+1 (555) 762-9011",
+    "truckId": "KEN-5520",
+    "location": "I-95 NB MM 58",
+    "category": "Weather",
+    "estimatedTimeToResume": "45 minutes",
+    "rootCauseSummary": "Adverse weather conditions hindering safe vehicle operation.",
+    "driverNotes": "I got a flat drive tire on the right side of the trailer. Roadside service estimated about 45 minutes. Yes, already called carrier dispatch for mobile tire truck.",
+    "dispatcherNotes": "[OFFICIAL RELAY MEMO] Tour ID: TOU-675036 | Tractor: KEN-5520 | Driver: Robert Martinez. Stop Category: Weather. Driver reported: \"I got a flat drive tire on the right side of the trailer. Roadside service estimated about 45 minutes. Yes, already called carrier dispatch for mobile tire truck.\". Estimated resume time: 45 minutes.",
+    "requiresRoadsideAssistance": false,
+    "confidenceScore": 0.88,
+    "transcript": [
+      {
+        "speaker": "AI",
+        "text": "Relay Dispatch here. I see you're stopped on route. What's going on out there?",
+        "timestamp": "08:45:42 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "What's causing the unscheduled stop right now?",
+        "timestamp": "08:45:47 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "I got a flat drive tire on the right side of the trailer.",
+        "timestamp": "08:45:54 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Got it. About how long until you're rolling again?",
+        "timestamp": "08:45:56 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Roadside service estimated about 45 minutes.",
+        "timestamp": "08:46:02 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Do you need roadside service or a mechanic authorized?",
+        "timestamp": "08:46:05 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Yes, already called carrier dispatch for mobile tire truck.",
+        "timestamp": "08:46:13 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Got that logged with dispatch. Appreciate the update, drive safe.",
+        "timestamp": "08:46:16 AM"
+      }
+    ],
+    "status": "SUBMITTED_TO_RELAY",
+    "createdAt": "2026-09-13T05:46:20.615Z",
+    "source": "Heuristic Engine (Gemini Offline)",
+    "updatedAt": "2026-09-13T05:46:23.008Z",
+    "submittedAt": "2026-09-13T05:46:23.010Z",
+    "relaySubmissionResult": {
+      "success": true,
+      "submissionId": "RELAY-SUB-1789278383009",
+      "timestamp": "2026-09-13T05:46:23.009Z",
+      "message": "Successfully submitted delay report to Amazon Relay (Simulation Verified)."
+    }
+  },
+  {
+    "id": "RPT-1789278289584-547",
+    "tourId": "TOU-416792",
+    "tripId": "TRP-37154",
+    "driverName": "Robert Martinez",
+    "driverPhone": "+1 (555) 762-9011",
+    "truckId": "KEN-5520",
+    "location": "I-95 NB MM 58",
+    "category": "Weather",
+    "estimatedTimeToResume": "45 minutes",
+    "rootCauseSummary": "Adverse weather conditions hindering safe vehicle operation.",
+    "driverNotes": "I got a flat drive tire on the right side of the trailer. Roadside service estimated about 45 minutes. Yes, already called carrier dispatch for mobile tire truck.",
+    "dispatcherNotes": "[OFFICIAL RELAY MEMO] Tour ID: TOU-416792 | Tractor: KEN-5520 | Driver: Robert Martinez. Stop Category: Weather. Driver reported: \"I got a flat drive tire on the right side of the trailer. Roadside service estimated about 45 minutes. Yes, already called carrier dispatch for mobile tire truck.\". Estimated resume time: 45 minutes.",
+    "requiresRoadsideAssistance": false,
+    "confidenceScore": 0.88,
+    "transcript": [
+      {
+        "speaker": "AI",
+        "text": "Relay Dispatch here. I see you're stopped on route. What's going on out there?",
+        "timestamp": "08:44:11 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "What's causing the unscheduled stop right now?",
+        "timestamp": "08:44:16 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "I got a flat drive tire on the right side of the trailer.",
+        "timestamp": "08:44:22 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Got it. About how long until you're rolling again?",
+        "timestamp": "08:44:25 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Roadside service estimated about 45 minutes.",
+        "timestamp": "08:44:31 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Do you need roadside service or a mechanic authorized?",
+        "timestamp": "08:44:34 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Yes, already called carrier dispatch for mobile tire truck.",
+        "timestamp": "08:44:42 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Got that logged with dispatch. Appreciate the update, drive safe.",
+        "timestamp": "08:44:45 AM"
+      }
+    ],
+    "status": "DISCARDED",
+    "createdAt": "2026-09-13T05:44:49.584Z",
+    "source": "Heuristic Engine (Gemini Offline)",
+    "discardedAt": "2026-09-13T05:46:31.226Z",
+    "discardReason": "Dismissed by dispatcher"
+  },
+  {
+    "id": "RPT-1789277993451-655",
+    "tourId": "TOU-905460",
+    "tripId": "TRP-83983",
+    "driverName": "Robert Martinez",
+    "driverPhone": "+1 (555) 762-9011",
+    "truckId": "KEN-5520",
+    "location": "I-95 NB MM 58",
+    "category": "Weather",
+    "estimatedTimeToResume": "45 minutes",
+    "rootCauseSummary": "Adverse weather conditions hindering safe vehicle operation.",
+    "driverNotes": "I got a flat drive tire on the right side of the trailer. Roadside service estimated about 45 minutes.",
+    "dispatcherNotes": "[OFFICIAL RELAY MEMO] Tour ID: TOU-905460 | Tractor: KEN-5520 | Driver: Robert Martinez. Stop Category: Weather. Driver reported: \"I got a flat drive tire on the right side of the trailer. Roadside service estimated about 45 minutes.\". Estimated resume time: 45 minutes.",
+    "requiresRoadsideAssistance": false,
+    "confidenceScore": 0.88,
+    "transcript": [
+      {
+        "speaker": "AI",
+        "text": "Amazon Relay Dispatch AI. Please confirm your stoppage reason.",
+        "timestamp": "08:39:32 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "What is the reason for this unscheduled stop?",
+        "timestamp": "08:39:36 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "I got a flat drive tire on the right side of the trailer.",
+        "timestamp": "08:39:41 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "What is your estimated time to resume driving?",
+        "timestamp": "08:39:44 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Roadside service estimated about 45 minutes.",
+        "timestamp": "08:39:49 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Do you require roadside assistance or dispatch escalation?",
+        "timestamp": "08:39:51 AM"
+      }
+    ],
+    "status": "DISCARDED",
+    "createdAt": "2026-09-13T05:39:53.451Z",
+    "source": "Heuristic Engine (Gemini Offline)",
+    "discardedAt": "2026-09-13T05:41:57.907Z",
+    "discardReason": "Dismissed by dispatcher"
+  },
+  {
+    "id": "RPT-1789277746104-600",
+    "tourId": "TOU-662901",
+    "tripId": "TRP-91023",
+    "driverName": "David Kowalski",
+    "driverPhone": "+1 (555) 441-9876",
+    "truckId": "FRT-3122",
+    "location": "I-85 NB Rest Area MM 112",
+    "category": "Traffic Delay",
+    "estimatedTimeToResume": "40 minutes",
+    "rootCauseSummary": "Heavy highway congestion / road blockage encountered.",
+    "driverNotes": "Major accident ahead on the highway. All lanes stopped. Police say about 30 to 40 minutes to clear. No roadside needed, just waiting for traffic to move.",
+    "dispatcherNotes": "[OFFICIAL RELAY MEMO] Tour ID: TOU-662901 | Tractor: FRT-3122 | Driver: David Kowalski. Stop Category: Traffic Delay. Driver reported: \"Major accident ahead on the highway. All lanes stopped. Police say about 30 to 40 minutes to clear. No roadside needed, just waiting for traffic to move.\". Estimated resume time: 40 minutes.",
+    "requiresRoadsideAssistance": false,
+    "confidenceScore": 0.88,
+    "transcript": [
+      {
+        "speaker": "AI",
+        "text": "Amazon Relay Dispatch AI. Please confirm your stoppage reason.",
+        "timestamp": "08:35:14 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "What is the reason for this unscheduled stop?",
+        "timestamp": "08:35:18 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Major accident ahead on the highway. All lanes stopped.",
+        "timestamp": "08:35:24 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "What is your estimated time to resume driving?",
+        "timestamp": "08:35:26 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Police say about 30 to 40 minutes to clear.",
+        "timestamp": "08:35:31 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Do you require roadside assistance or dispatch escalation?",
+        "timestamp": "08:35:33 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "No roadside needed, just waiting for traffic to move.",
+        "timestamp": "08:35:39 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Understood, your status is logged with dispatch. Safe travels.",
+        "timestamp": "08:35:41 AM"
+      }
+    ],
+    "status": "SUBMITTED_TO_RELAY",
+    "createdAt": "2026-09-13T05:35:46.104Z",
+    "source": "Heuristic Engine (Gemini Offline)",
+    "updatedAt": "2026-09-13T05:37:25.696Z",
+    "submittedAt": "2026-09-13T05:37:25.697Z",
+    "relaySubmissionResult": {
+      "success": true,
+      "submissionId": "RELAY-SUB-1789277845697",
+      "timestamp": "2026-09-13T05:37:25.697Z",
+      "message": "Successfully submitted delay report to Amazon Relay (Simulation Verified)."
+    }
+  },
+  {
+    "id": "RPT-1789277657100-238",
+    "tourId": "TOU-984210",
+    "tripId": "TRP-55219",
+    "driverName": "Marcus Vance",
+    "driverPhone": "+1 (555) 349-2041",
+    "truckId": "VOL-8821",
+    "location": "I-83 NB MM 24 (York, PA)",
+    "category": "Weather",
+    "estimatedTimeToResume": "45 minutes",
+    "rootCauseSummary": "Adverse weather conditions hindering safe vehicle operation.",
+    "driverNotes": "I got a flat drive tire on the right side of the trailer. Roadside service estimated about 45 minutes. Yes, already called carrier dispatch for mobile tire truck.",
+    "dispatcherNotes": "[OFFICIAL RELAY MEMO] Tour ID: TOU-984210 | Tractor: VOL-8821 | Driver: Marcus Vance. Stop Category: Weather. Driver reported: \"I got a flat drive tire on the right side of the trailer. Roadside service estimated about 45 minutes. Yes, already called carrier dispatch for mobile tire truck.\". Estimated resume time: 45 minutes.",
+    "requiresRoadsideAssistance": false,
+    "confidenceScore": 0.88,
+    "transcript": [
+      {
+        "speaker": "AI",
+        "text": "Amazon Relay Dispatch AI. Please confirm your stoppage reason.",
+        "timestamp": "08:33:45 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "What is the reason for this unscheduled stop?",
+        "timestamp": "08:33:48 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "I got a flat drive tire on the right side of the trailer.",
+        "timestamp": "08:33:54 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "What is your estimated time to resume driving?",
+        "timestamp": "08:33:56 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Roadside service estimated about 45 minutes.",
+        "timestamp": "08:34:01 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Do you require roadside assistance or dispatch escalation?",
+        "timestamp": "08:34:04 AM"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Yes, already called carrier dispatch for mobile tire truck.",
+        "timestamp": "08:34:10 AM"
+      },
+      {
+        "speaker": "AI",
+        "text": "Understood, your status is logged with dispatch. Safe travels.",
+        "timestamp": "08:34:12 AM"
+      }
+    ],
+    "status": "SUBMITTED_TO_RELAY",
+    "createdAt": "2026-09-13T05:34:17.100Z",
+    "source": "Heuristic Engine (Gemini Offline)",
+    "updatedAt": "2026-09-13T05:41:59.975Z",
+    "submittedAt": "2026-09-13T05:41:59.977Z",
+    "relaySubmissionResult": {
+      "success": true,
+      "submissionId": "RELAY-SUB-1789278119977",
+      "timestamp": "2026-09-13T05:41:59.977Z",
+      "message": "Successfully submitted delay report to Amazon Relay (Simulation Verified)."
+    }
+  },
+  {
+    "id": "RPT-DISCARD-1789277508415",
+    "tourId": "TOU-DISCARD-02",
+    "driverName": "Mike Ross",
+    "category": "Unresponsive",
+    "status": "DISCARDED",
+    "transcript": [],
+    "discardedAt": "2026-09-13T05:31:48.416Z",
+    "discardReason": "Stop was brief normal break"
+  },
+  {
+    "id": "RPT-TEST-1789277508411",
+    "tourId": "TOU-APPROVAL-01",
+    "driverName": "Sarah Connor",
+    "truckId": "FRT-7701",
+    "category": "Weather",
+    "estimatedTimeToResume": "1 hour",
+    "rootCauseSummary": "Interstate blockage",
+    "driverNotes": "Severe traffic backup",
+    "dispatcherNotes": "Tour TOU-APPROVAL-01: Delay due to traffic gridlock. ETA 30 mins.",
+    "status": "SUBMITTED_TO_RELAY",
+    "transcript": [],
+    "copiedAt": "2026-09-13T05:31:48.413Z",
+    "updatedAt": "2026-09-13T05:31:48.414Z",
+    "submittedAt": "2026-09-13T05:31:48.415Z",
+    "relaySubmissionResult": {
+      "success": true,
+      "submissionId": "RELAY-SUB-1789277508415",
+      "timestamp": "2026-09-13T05:31:48.415Z",
+      "message": "Successfully submitted delay report to Amazon Relay (Simulation Verified)."
+    }
+  },
+  {
+    "id": "RPT-DISCARD-1789277467123",
+    "tourId": "TOU-DISCARD-02",
+    "driverName": "Mike Ross",
+    "category": "Unresponsive",
+    "status": "DISCARDED",
+    "transcript": [],
+    "discardedAt": "2026-09-13T05:31:07.123Z",
+    "discardReason": "Stop was brief normal break"
+  },
+  {
+    "id": "RPT-TEST-1789277467119",
+    "tourId": "TOU-APPROVAL-01",
+    "driverName": "Sarah Connor",
+    "truckId": "FRT-7701",
+    "category": "Weather",
+    "estimatedTimeToResume": "1 hour",
+    "rootCauseSummary": "Interstate blockage",
+    "driverNotes": "Severe traffic backup",
+    "dispatcherNotes": "Tour TOU-APPROVAL-01: Delay due to traffic gridlock. ETA 30 mins.",
+    "status": "SUBMITTED_TO_RELAY",
+    "transcript": [],
+    "copiedAt": "2026-09-13T05:31:07.120Z",
+    "updatedAt": "2026-09-13T05:31:07.121Z",
+    "submittedAt": "2026-09-13T05:31:07.122Z",
+    "relaySubmissionResult": {
+      "success": true,
+      "submissionId": "RELAY-SUB-1789277467122",
+      "timestamp": "2026-09-13T05:31:07.122Z",
+      "message": "Successfully submitted delay report to Amazon Relay (Simulation Verified)."
+    }
+  },
+  {
+    "id": "RPT-INIT-101",
+    "tourId": "TOU-984210",
+    "tripId": "TRP-55219",
+    "driverName": "Marcus Vance",
+    "driverPhone": "+1 (555) 349-2041",
+    "truckId": "VOL-8821",
+    "location": "I-83 NB MM 24 (York, PA)",
+    "category": "Mechanical Breakdown",
+    "estimatedTimeToResume": "45 minutes",
+    "rootCauseSummary": "Flat right trailer drive tire. Mobile roadside tire service dispatched.",
+    "driverNotes": "Driver Marcus stated: \"Got a flat drive tire on the right side of the trailer. Mobile roadside service is en route, estimated 45 mins.\"",
+    "dispatcherNotes": "[OFFICIAL RELAY DELAY MEMO]\nTour ID: TOU-984210 | Trip ID: TRP-55219 | Tractor: VOL-8821\nDriver: Marcus Vance | Location: I-83 NB MM 24\nReason: Mechanical Breakdown (Flat right trailer drive tire).\nRoadside Action: Mobile tire service unit ETA 45 minutes.\nEstimated Departure: 15:15 EST. No load temperature/security compromise.",
+    "requiresRoadsideAssistance": true,
+    "confidenceScore": 0.96,
+    "transcript": [
+      {
+        "speaker": "AI",
+        "text": "Amazon Relay Dispatch AI. Notice your truck is stopped.",
+        "timestamp": "14:02:10"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Hey, I got a flat drive tire on the right side of the trailer.",
+        "timestamp": "14:02:18"
+      },
+      {
+        "speaker": "AI",
+        "text": "What is your estimated time to resume driving?",
+        "timestamp": "14:02:22"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Mobile tire truck is on the way, they told me about 45 minutes.",
+        "timestamp": "14:02:30"
+      },
+      {
+        "speaker": "AI",
+        "text": "Do you require roadside assistance or dispatch escalation?",
+        "timestamp": "14:02:34"
+      },
+      {
+        "speaker": "Driver",
+        "text": "Carrier roadside is handling it. We are good.",
+        "timestamp": "14:02:40"
+      },
+      {
+        "speaker": "AI",
+        "text": "Understood, your status is logged with dispatch. Safe travels.",
+        "timestamp": "14:02:44"
+      }
+    ],
+    "status": "DISCARDED",
+    "createdAt": "2026-09-13T05:19:01.170Z",
+    "source": "Gemini 2.5 Flash",
+    "discardedAt": "2026-09-13T05:41:54.892Z",
+    "discardReason": "Dismissed by dispatcher"
+  }
+]
