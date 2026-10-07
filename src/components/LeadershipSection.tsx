@@ -1,162 +1,136 @@
 "use client";
 
 import React from "react";
-import {
-  UserCheck,
-  ShieldCheck,
-  Mail,
-  Phone,
-  MapPin,
-  Building2,
-  FileText,
-  BadgeCheck,
-  ExternalLink,
-  MessageSquare,
-  Award,
-} from "lucide-react";
+import { ShieldCheck, Mail, Phone, MapPin, Building2, Award, BadgeCheck } from "lucide-react";
 import { COMPANY_INFO } from "@/lib/constants";
 
 export default function LeadershipSection() {
   return (
-    <section
-      id="leadership"
-      className="py-24 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 border-t border-slate-800 relative overflow-hidden"
-    >
-      {/* Background accents */}
-      <div className="absolute top-1/2 left-0 w-96 h-96 bg-blue-600/10 blur-[140px] pointer-events-none"></div>
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-emerald-600/10 blur-[140px] pointer-events-none"></div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+    <section id="leadership" className="py-24 bg-slate-50 border-b border-slate-200">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
-        {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto space-y-4 mb-16">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold tracking-wider uppercase">
-            <BadgeCheck className="w-4 h-4 text-emerald-400" />
-            Verified Business Ownership &amp; Governance
+        {/* Header */}
+        <div className="text-center max-w-3xl mx-auto space-y-3 mb-16">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-orange-100 text-orange-700 text-xs font-black uppercase tracking-wider">
+            <BadgeCheck className="w-4 h-4 text-orange-600" />
+            Verified Business Ownership &amp; Management
           </div>
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-            Executive Leadership &amp; Ownership
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-[#0f172a] tracking-tight">
+            EXECUTIVE <span className="text-orange-600">LEADERSHIP &amp; OWNERSHIP</span>
           </h2>
-          <p className="text-slate-300 text-base">
-            Unique Dispatch is governed by transparent leadership dedicated to carrier profitability, 
-            regulatory compliance, and reliable global freight operations.
+          <p className="text-slate-600 text-base">
+            Unique Dispatch is governed by authentic management dedicated to carrier profitability, 
+            transparent accounting, and verified global business operations.
           </p>
         </div>
 
-        {/* Executive Profile Card (Payoneer Business Verification Compliant) */}
-        <div className="max-w-4xl mx-auto rounded-3xl bg-slate-900/90 border-2 border-slate-700/80 shadow-2xl p-6 sm:p-10 backdrop-blur-xl relative overflow-hidden">
+        {/* Executive Profile Card (Payoneer Verification Compliant) */}
+        <div className="max-w-4xl mx-auto bg-white rounded-2xl border border-slate-200 shadow-lg p-6 sm:p-10 relative overflow-hidden">
           
-          {/* Top Verification Ribbon */}
-          <div className="absolute top-0 right-0 bg-gradient-to-l from-emerald-500 to-teal-600 text-slate-950 font-black text-[11px] uppercase tracking-wider px-6 py-1 rounded-bl-xl shadow-md flex items-center gap-1.5">
-            <ShieldCheck className="w-3.5 h-3.5" />
-            Verified Managing Director
-          </div>
+          {/* Top Border Accent */}
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-orange-600"></div>
 
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center pt-4 md:pt-0">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center pt-2">
             
-            {/* Avatar / Executive Badge Column */}
+            {/* Avatar / Monogram Badge Column */}
             <div className="md:col-span-4 flex flex-col items-center text-center space-y-4">
-              <div className="relative group">
-                <div className="w-36 h-36 sm:w-40 sm:h-40 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-emerald-400 p-1 shadow-2xl shadow-blue-500/20">
-                  <div className="w-full h-full bg-slate-950 rounded-[14px] flex flex-col items-center justify-center p-3 text-center">
-                    {/* Stylized Executive Portrait Monogram */}
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-emerald-500/20 to-blue-500/20 border border-emerald-500/40 flex items-center justify-center text-2xl font-black text-white mb-1 shadow-inner">
-                      MA
-                    </div>
-                    <span className="text-xs font-bold text-white tracking-tight">Marven Awad</span>
-                    <span className="text-[10px] text-emerald-400 font-semibold">Managing Director</span>
+              <div className="relative">
+                <div className="w-36 h-36 rounded-2xl bg-[#0f172a] text-white flex flex-col items-center justify-center p-3 shadow-md border-2 border-orange-500">
+                  <div className="w-16 h-16 rounded-full bg-orange-600 text-white flex items-center justify-center text-2xl font-black mb-1">
+                    MA
                   </div>
+                  <span className="text-xs font-black tracking-tight">{COMPANY_INFO.founder.name}</span>
+                  <span className="text-[10px] text-orange-400 font-bold">{COMPANY_INFO.founder.title}</span>
                 </div>
-                <div className="absolute -bottom-2 -right-2 bg-emerald-500 text-slate-950 rounded-full p-1.5 border-2 border-slate-900 shadow-md">
+                <div className="absolute -bottom-2 -right-2 bg-emerald-600 text-white rounded-full p-1.5 border-2 border-white shadow">
                   <BadgeCheck className="w-4 h-4" />
                 </div>
               </div>
 
               <div>
-                <h3 className="text-xl font-extrabold text-white">{COMPANY_INFO.founder.name}</h3>
-                <p className="text-xs font-bold text-emerald-400 uppercase tracking-wide">
+                <h3 className="text-xl font-black text-[#0f172a]">{COMPANY_INFO.founder.name}</h3>
+                <p className="text-xs font-bold text-orange-600 uppercase tracking-wide">
                   {COMPANY_INFO.founder.title}
                 </p>
-                <p className="text-[11px] text-slate-400 mt-0.5">{COMPANY_INFO.name}</p>
+                <p className="text-xs text-slate-500 font-medium">{COMPANY_INFO.name}</p>
               </div>
 
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-800 text-[11px] text-slate-300 border border-slate-700">
-                <Award className="w-3.5 h-3.5 text-amber-400" />
-                <span>5+ Years Logistics Exp.</span>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-xs font-semibold text-slate-700 border border-slate-200">
+                <Award className="w-3.5 h-3.5 text-orange-600" />
+                <span>5+ Years Logistics Experience</span>
               </div>
             </div>
 
-            {/* Executive Bio & Contact Details */}
-            <div className="md:col-span-8 space-y-6">
+            {/* Bio & Direct Verified Contacts */}
+            <div className="md:col-span-8 space-y-5">
               
-              {/* Professional Bio */}
               <div>
-                <h4 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-2">
-                  Leadership Profile &amp; Freight Background
+                <h4 className="text-xs font-black uppercase tracking-wider text-slate-500 mb-2">
+                  Founder Background &amp; Operations Focus
                 </h4>
-                <p className="text-sm text-slate-300 leading-relaxed">
+                <p className="text-sm text-slate-700 leading-relaxed font-normal">
                   {COMPANY_INFO.founder.bio}
                 </p>
               </div>
 
-              {/* Verified Direct Contact Grid for Marven Awad */}
+              {/* Direct Contacts Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                 
-                {/* Primary Email */}
+                {/* Direct Owner Email */}
                 <a
                   href={`mailto:${COMPANY_INFO.founder.email}`}
-                  className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 hover:border-emerald-500/60 transition-all flex items-start gap-3 group"
+                  className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 hover:border-orange-500 transition-colors flex items-start gap-3 group"
                 >
-                  <Mail className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
+                  <Mail className="w-4 h-4 text-orange-600 shrink-0 mt-0.5" />
                   <div className="overflow-hidden">
-                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Direct Owner Email</p>
-                    <p className="text-xs font-semibold text-white truncate">{COMPANY_INFO.founder.email}</p>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Direct Owner Email</p>
+                    <p className="text-xs font-bold text-slate-900 truncate group-hover:text-orange-600">{COMPANY_INFO.founder.email}</p>
                   </div>
                 </a>
 
                 {/* Company Work Email */}
                 <a
                   href={`mailto:${COMPANY_INFO.founder.workEmail}`}
-                  className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 hover:border-blue-500/60 transition-all flex items-start gap-3 group"
+                  className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 hover:border-orange-500 transition-colors flex items-start gap-3 group"
                 >
-                  <Mail className="w-4 h-4 text-blue-400 shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
+                  <Mail className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
                   <div className="overflow-hidden">
-                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Company Dispatch Email</p>
-                    <p className="text-xs font-semibold text-white truncate">{COMPANY_INFO.founder.workEmail}</p>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Company Dispatch Email</p>
+                    <p className="text-xs font-bold text-slate-900 truncate group-hover:text-orange-600">{COMPANY_INFO.founder.workEmail}</p>
                   </div>
                 </a>
 
                 {/* Direct US Line */}
                 <a
                   href={`tel:${COMPANY_INFO.founder.phoneUS.replace(/[^0-9+]/g, "")}`}
-                  className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 hover:border-emerald-500/60 transition-all flex items-start gap-3 group"
+                  className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 hover:border-orange-500 transition-colors flex items-start gap-3 group"
                 >
-                  <Phone className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
+                  <Phone className="w-4 h-4 text-orange-600 shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">US Direct Line</p>
-                    <p className="text-xs font-semibold text-white">{COMPANY_INFO.founder.phoneUS}</p>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">US Direct Line</p>
+                    <p className="text-xs font-bold text-slate-900 group-hover:text-orange-600">{COMPANY_INFO.founder.phoneUS}</p>
                   </div>
                 </a>
 
-                {/* Support Line / WhatsApp */}
+                {/* Support Line */}
                 <a
                   href={`tel:${COMPANY_INFO.founder.phoneSupport.replace(/[^0-9+]/g, "")}`}
-                  className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 hover:border-teal-500/60 transition-all flex items-start gap-3 group"
+                  className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 hover:border-orange-500 transition-colors flex items-start gap-3 group"
                 >
-                  <Phone className="w-4 h-4 text-teal-400 shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
+                  <Phone className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Support &amp; WhatsApp</p>
-                    <p className="text-xs font-semibold text-white">{COMPANY_INFO.founder.phoneSupport}</p>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Support / WhatsApp</p>
+                    <p className="text-xs font-bold text-slate-900 group-hover:text-orange-600">{COMPANY_INFO.founder.phoneSupport}</p>
                   </div>
                 </a>
 
               </div>
 
-              {/* Registered Physical Address Badge */}
-              <div className="p-3.5 rounded-xl bg-blue-950/20 border border-blue-800/40 flex items-start gap-3">
-                <MapPin className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
-                <div className="text-xs text-slate-300">
-                  <span className="font-bold text-white">Registered Physical Address: </span>
+              {/* Registered Physical Address Box */}
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-start gap-3">
+                <MapPin className="w-4 h-4 text-orange-600 shrink-0 mt-0.5" />
+                <div className="text-xs text-slate-700">
+                  <span className="font-bold text-[#0f172a]">Registered Physical Address: </span>
                   <span>{COMPANY_INFO.address.fullFormatted}</span>
                 </div>
               </div>
@@ -165,15 +139,15 @@ export default function LeadershipSection() {
 
           </div>
 
-          {/* Compliance & Ownership Guarantee Statement */}
-          <div className="mt-8 pt-6 border-t border-slate-800/80 grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-slate-400">
+          {/* Legal Compliance Guarantee Notice */}
+          <div className="mt-8 pt-6 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-slate-500">
             <div className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Full compliance with FMCSA freight dispatch standards &amp; transparent billing.</span>
+              <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>Full compliance with FMCSA freight standards &amp; non-forced dispatch.</span>
             </div>
             <div className="flex items-center gap-2">
-              <Building2 className="w-4 h-4 text-blue-400 shrink-0" />
-              <span>Official business entity registered for international merchant operations.</span>
+              <Building2 className="w-4 h-4 text-blue-600 shrink-0" />
+              <span>Registered commercial entity for international logistics &amp; Payoneer settlement.</span>
             </div>
           </div>
 

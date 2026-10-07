@@ -8,63 +8,52 @@ export default function HowItWorks() {
   const stepIcons = [FileCheck, FileSignature, Settings, Truck];
 
   return (
-    <section className="py-24 bg-slate-900/40 border-t border-slate-800 relative">
+    <section className="py-24 bg-slate-50 border-b border-slate-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Header */}
-        <div className="text-center max-w-3xl mx-auto space-y-4 mb-16">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 text-xs font-bold tracking-wider uppercase">
-            Simple 4-Step Process
+        <div className="text-center max-w-3xl mx-auto space-y-3 mb-16">
+          <div className="text-orange-600 font-extrabold text-sm uppercase tracking-widest">
+            Easy 4-Step Process
           </div>
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-            How Onboarding Works
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-[#0f172a] tracking-tight">
+            HOW <span className="text-orange-600">ONBOARDING WORKS</span>
           </h2>
-          <p className="text-slate-300 text-base">
-            Get your truck dispatched and booking top-dollar loads in less than 24 hours.
+          <p className="text-slate-600 text-base">
+            Get your truck dispatched and booking top-paying loads in less than 24 hours.
           </p>
         </div>
 
         {/* Steps Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {ONBOARDING_STEPS.map((item, idx) => {
+          {ONBOARDING_STEPS.map((item: { step: string; title: string; description: string }, idx: number) => {
             const Icon = stepIcons[idx] || Truck;
 
             return (
               <div
                 key={idx}
-                className="relative rounded-2xl bg-slate-950/80 border border-slate-800 p-6 flex flex-col justify-between hover:border-slate-700 transition-all group"
+                className="bg-white rounded-2xl border border-slate-200 p-6 flex flex-col justify-between shadow-sm hover:shadow-md transition-all group"
               >
                 <div>
                   <div className="flex items-center justify-between mb-6">
-                    <span className="text-3xl font-black text-slate-700 group-hover:text-emerald-400 transition-colors">
+                    <span className="text-4xl font-black text-slate-300 group-hover:text-orange-600 transition-colors">
                       {item.step}
                     </span>
-                    <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-emerald-400 group-hover:bg-emerald-500/10 transition-colors">
-                      <Icon className="w-5 h-5" />
+                    <div className="w-12 h-12 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center group-hover:bg-orange-600 group-hover:text-white transition-colors shadow-sm">
+                      <Icon className="w-6 h-6" />
                     </div>
                   </div>
 
-                  <h3 className="text-lg font-bold text-white mb-2">{item.title}</h3>
-                  <p className="text-xs text-slate-300 leading-relaxed">{item.description}</p>
+                  <h3 className="text-lg font-bold text-[#0f172a] mb-2">{item.title}</h3>
+                  <p className="text-xs text-slate-600 leading-relaxed">{item.description}</p>
                 </div>
 
-                <div className="pt-6 mt-4 border-t border-slate-900 flex items-center gap-1 text-[11px] font-semibold text-emerald-400">
-                  <span>Fast Turnaround</span>
+                <div className="pt-6 mt-4 border-t border-slate-100 flex items-center gap-1 text-[11px] font-bold text-orange-600">
+                  <span>Fast 24H Turnaround</span>
                 </div>
               </div>
             );
           })}
-        </div>
-
-        {/* Rapid Start Banner */}
-        <div className="mt-12 text-center">
-          <a
-            href="#contact"
-            className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-blue-600 hover:from-emerald-400 hover:to-blue-500 text-white font-bold text-sm shadow-xl shadow-emerald-500/20 transition-all"
-          >
-            <span>Start Your 24-Hour Onboarding</span>
-            <ArrowRight className="w-4 h-4" />
-          </a>
         </div>
 
       </div>

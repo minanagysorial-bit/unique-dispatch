@@ -1,261 +1,201 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
-import {
-  ShieldCheck,
-  TrendingUp,
-  Clock,
-  PhoneCall,
-  DollarSign,
-  Truck,
-  ArrowRight,
-  CheckCircle2,
-  Zap,
-  MapPin,
-} from "lucide-react";
+import { ArrowRight, Phone, ShieldCheck, TrendingUp, Clock, CheckCircle2 } from "lucide-react";
 import { COMPANY_INFO } from "@/lib/constants";
 
 export default function Hero() {
   return (
     <section
       id="home"
-      className="relative min-h-screen pt-32 pb-20 md:pt-40 md:pb-28 overflow-hidden bg-slate-950 flex items-center"
+      className="relative min-h-[90vh] pt-36 pb-20 md:pt-48 md:pb-28 bg-[#0b132b] flex items-center overflow-hidden"
     >
-      {/* Dynamic Background Glows and Grid */}
-      <div className="absolute inset-0 bg-grid-pattern opacity-40"></div>
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] bg-gradient-to-tr from-blue-600/20 via-indigo-600/15 to-emerald-500/10 blur-[130px] rounded-full pointer-events-none"></div>
-      <div className="absolute bottom-10 left-10 w-80 h-80 bg-emerald-500/10 blur-[100px] rounded-full pointer-events-none"></div>
+      {/* Real High-Resolution American Logistics Highway Backdrop with Dark Overlay */}
+      <div
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-30 mix-blend-luminosity scale-105 transition-transform duration-1000"
+        style={{
+          backgroundImage:
+            "url('https://images.unsplash.com/photo-1506015391300-4802dc74de2e?auto=format&fit=crop&w=2000&q=80')",
+        }}
+      ></div>
+      <div className="absolute inset-0 bg-gradient-to-r from-[#070d1e] via-[#0b132b]/95 to-[#0b132b]/70"></div>
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
           
-          {/* Left Column: Core Value Proposition */}
-          <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
-            {/* Live Status Pill */}
-            <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-slate-900/90 border border-slate-700/80 shadow-inner">
-              <span className="flex h-2 w-2 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              <span className="text-xs font-semibold text-slate-200 tracking-wide">
-                Premier US Freight & Amazon Relay Dispatching
+          {/* Main Left Content */}
+          <div className="lg:col-span-8 space-y-6 text-left">
+            
+            {/* Tagline matching uniquedispatcher.com */}
+            <div className="inline-block">
+              <span className="text-orange-400 font-extrabold text-sm sm:text-base tracking-widest uppercase border-b-2 border-orange-500 pb-1">
+                For Owner Operators and Truckers
               </span>
             </div>
 
             {/* Main Headline */}
-            <h1 className="text-3xl sm:text-4xl md:text-5xl xl:text-6xl font-extrabold text-white tracking-tight leading-[1.15]">
-              Reliable Truck Dispatching &{" "}
-              <span className="bg-gradient-to-r from-blue-400 via-emerald-400 to-teal-300 bg-clip-text text-transparent">
-                Amazon Relay
-              </span>{" "}
-              Management
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-[1.15]">
+              Freight Dispatch Service <br />
+              <span className="text-orange-500">&amp; Amazon Relay</span> Management
             </h1>
 
-            {/* Subheading */}
-            <p className="text-base sm:text-lg text-slate-300 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
-              We maximize your weekly gross revenue with aggressive rate-per-mile negotiation, 
-              24/7 dedicated dispatchers, and complete end-to-end paperwork management. 
-              Zero forced dispatch — you drive, we handle the rest.
+            {/* Subtitle matching uniquedispatcher.com */}
+            <p className="text-base sm:text-xl text-slate-200 max-w-2xl leading-relaxed font-normal">
+              Unique Dispatch arranges professional dispatch services for owner-operators and truckers 
+              who are tired of wasting their time and energy on cheap freight.
             </p>
 
             {/* Value Checkpoints */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2 text-sm text-slate-300 max-w-xl mx-auto lg:mx-0">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-sm text-slate-200">
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Top Spot Rates & Amazon Relay Blocks</span>
+                <CheckCircle2 className="w-5 h-5 text-orange-400 shrink-0" />
+                <span>100% No Forced Dispatch — You Choose Lanes</span>
               </div>
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>100% No Forced Dispatch Guarantee</span>
+                <CheckCircle2 className="w-5 h-5 text-orange-400 shrink-0" />
+                <span>Aggressive Spot Rate &amp; Fuel Surcharge Negotiation</span>
               </div>
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Factoring Setup & Detention Collection</span>
+                <CheckCircle2 className="w-5 h-5 text-orange-400 shrink-0" />
+                <span>Amazon Relay Middle-Mile &amp; Block Booking</span>
               </div>
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Direct Access to Dedicated Dispatcher</span>
+                <CheckCircle2 className="w-5 h-5 text-orange-400 shrink-0" />
+                <span>Complete Factoring &amp; Packet Paperwork Support</span>
               </div>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-4">
+            {/* CTA Buttons matching uniquedispatcher.com */}
+            <div className="flex flex-wrap items-center gap-4 pt-4">
               <a
-                href="#contact"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-7 py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-blue-600 hover:from-emerald-400 hover:to-blue-500 text-white font-bold text-sm tracking-wide shadow-xl shadow-emerald-500/20 hover:shadow-emerald-500/30 active:scale-98 transition-all"
+                href="#contact-us"
+                className="inline-flex items-center gap-3 px-8 py-4 rounded-md bg-orange-600 hover:bg-orange-700 text-white font-extrabold text-base shadow-xl hover:shadow-orange-600/30 transition-all"
               >
-                <span>Get Dispatched Now</span>
-                <ArrowRight className="w-4 h-4" />
+                <span>Request A Callback</span>
+                <ArrowRight className="w-5 h-5" />
               </a>
 
               <a
-                href="#pricing"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-slate-200 hover:text-white font-semibold text-sm border border-slate-700/80 hover:border-slate-600 transition-all"
+                href="#services"
+                className="inline-flex items-center gap-2 px-8 py-4 rounded-md bg-white/10 hover:bg-white/20 text-white font-bold text-base border border-white/20 backdrop-blur-sm transition-all"
               >
-                <DollarSign className="w-4 h-4 text-emerald-400" />
-                <span>View Pricing Plans</span>
+                <span>Our Services</span>
               </a>
             </div>
 
-            {/* Rapid Direct Call Banner */}
-            <div className="pt-2 flex items-center justify-center lg:justify-start gap-3 text-xs text-slate-400">
-              <span>Ready to book loads today?</span>
-              <a
-                href={`tel:${COMPANY_INFO.contacts.phoneUS.replace(/[^0-9+]/g, "")}`}
-                className="inline-flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 font-semibold underline underline-offset-4"
-              >
-                <PhoneCall className="w-3.5 h-3.5" />
-                Call {COMPANY_INFO.contacts.phoneUSDisplay}
-              </a>
-            </div>
           </div>
 
-          {/* Right Column: Interactive Dispatch Operations Card */}
-          <div className="lg:col-span-5">
-            <div className="relative mx-auto max-w-md lg:max-w-none">
-              {/* Outer Glow effect */}
-              <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-500 opacity-20 blur-xl"></div>
-
-              {/* Operations Live Card */}
-              <div className="relative rounded-2xl bg-slate-900/90 border border-slate-800/90 p-6 backdrop-blur-xl shadow-2xl space-y-5">
-                
-                {/* Card Header */}
-                <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center">
-                      <Truck className="w-5 h-5 text-emerald-400" />
-                    </div>
-                    <div>
-                      <h2 className="text-sm font-bold text-white">Live Dispatch Console</h2>
-                      <p className="text-[11px] text-slate-400">Active Load Matching & Rate Desk</p>
-                    </div>
-                  </div>
-                  <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-                    Live
-                  </span>
-                </div>
-
-                {/* Sample Live Loads Dispatched */}
-                <div className="space-y-3">
-                  <div className="rounded-xl bg-slate-950/80 border border-slate-800 p-3.5 hover:border-slate-700 transition-colors">
-                    <div className="flex items-center justify-between text-xs font-semibold text-slate-300 mb-1.5">
-                      <span className="text-emerald-400 flex items-center gap-1 font-bold">
-                        <Zap className="w-3.5 h-3.5" /> Amazon Relay Spot
-                      </span>
-                      <span className="text-emerald-400 text-sm font-extrabold">$3.42 / mi</span>
-                    </div>
-                    <div className="flex items-center justify-between text-xs text-white font-medium">
-                      <span>Chicago, IL (ORD9)</span>
-                      <span className="text-slate-500">➜</span>
-                      <span>Columbus, OH (CMH1)</span>
-                    </div>
-                    <div className="flex items-center justify-between text-[11px] text-slate-400 mt-2 pt-2 border-t border-slate-800/60">
-                      <span>354 mi • Dry Van 53&apos;</span>
-                      <span className="text-slate-200 font-semibold">Gross: $1,210.00</span>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl bg-slate-950/80 border border-slate-800 p-3.5 hover:border-slate-700 transition-colors">
-                    <div className="flex items-center justify-between text-xs font-semibold text-slate-300 mb-1.5">
-                      <span className="text-blue-400 flex items-center gap-1 font-bold">
-                        <TrendingUp className="w-3.5 h-3.5" /> Dedicated Spot Haul
-                      </span>
-                      <span className="text-emerald-400 text-sm font-extrabold">$3.18 / mi</span>
-                    </div>
-                    <div className="flex items-center justify-between text-xs text-white font-medium">
-                      <span>Dallas, TX</span>
-                      <span className="text-slate-500">➜</span>
-                      <span>Atlanta, GA</span>
-                    </div>
-                    <div className="flex items-center justify-between text-[11px] text-slate-400 mt-2 pt-2 border-t border-slate-800/60">
-                      <span>782 mi • Reefer 53&apos;</span>
-                      <span className="text-slate-200 font-semibold">Gross: $2,486.00</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Performance Summary Metrics */}
-                <div className="grid grid-cols-3 gap-2 pt-1">
-                  <div className="rounded-lg bg-slate-950/50 border border-slate-800 p-2 text-center">
-                    <span className="block text-xs font-extrabold text-emerald-400">99.4%</span>
-                    <span className="block text-[10px] text-slate-400">On-Time</span>
-                  </div>
-                  <div className="rounded-lg bg-slate-950/50 border border-slate-800 p-2 text-center">
-                    <span className="block text-xs font-extrabold text-blue-400">$8,500+</span>
-                    <span className="block text-[10px] text-slate-400">Avg Weekly</span>
-                  </div>
-                  <div className="rounded-lg bg-slate-950/50 border border-slate-800 p-2 text-center">
-                    <span className="block text-xs font-extrabold text-indigo-400">0%</span>
-                    <span className="block text-[10px] text-slate-400">Forced</span>
-                  </div>
-                </div>
-
-                {/* Direct Dispatcher Contact Assurance */}
-                <div className="p-3 rounded-xl bg-gradient-to-r from-blue-950/40 to-slate-950 border border-blue-900/40 flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-full bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-xs font-bold text-blue-400">
-                      MA
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-white">{COMPANY_INFO.founder.name}</p>
-                      <p className="text-[10px] text-slate-400">{COMPANY_INFO.founder.title}</p>
-                    </div>
-                  </div>
-                  <a
-                    href="#leadership"
-                    className="text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 underline underline-offset-2"
-                  >
-                    Verified Owner ➜
-                  </a>
-                </div>
-
+          {/* Right Direct Call & Trust Card */}
+          <div className="lg:col-span-4">
+            <div className="rounded-2xl bg-white p-7 shadow-2xl space-y-6 text-slate-800 border-t-4 border-orange-600">
+              
+              <div>
+                <span className="text-xs font-black text-orange-600 uppercase tracking-widest block mb-1">
+                  Ready To Roll?
+                </span>
+                <h2 className="text-2xl font-black text-[#0f172a]">Direct Dispatch Desk</h2>
+                <p className="text-xs text-slate-500 mt-1">
+                  Speak directly with our senior dispatchers right now.
+                </p>
               </div>
+
+              {/* Direct Call Box */}
+              <a
+                href={`tel:${COMPANY_INFO.contacts.phoneUS.replace(/[^0-9+]/g, "")}`}
+                className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-4 hover:border-orange-500 transition-colors group"
+              >
+                <div className="w-12 h-12 rounded-full bg-orange-600 text-white flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform">
+                  <Phone className="w-6 h-6" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">US Direct Line</p>
+                  <p className="text-lg font-black text-[#0f172a] group-hover:text-orange-600 transition-colors">
+                    {COMPANY_INFO.contacts.phoneUSDisplay}
+                  </p>
+                </div>
+              </a>
+
+              {/* Verified Owner Card Link */}
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
+                <div>
+                  <p className="font-bold text-slate-800">{COMPANY_INFO.founder.name}</p>
+                  <p className="text-[11px] text-slate-500">{COMPANY_INFO.founder.title}</p>
+                </div>
+                <a
+                  href="#leadership"
+                  className="font-bold text-orange-600 hover:text-orange-700 underline underline-offset-2"
+                >
+                  View Profile ➜
+                </a>
+              </div>
+
+              {/* Quick Checklist */}
+              <div className="space-y-2 pt-2 border-t border-slate-100 text-xs text-slate-600">
+                <div className="flex items-center justify-between font-semibold">
+                  <span>Average Rate Per Mile:</span>
+                  <span className="text-emerald-600 font-bold">$2.85+ / mi</span>
+                </div>
+                <div className="flex items-center justify-between font-semibold">
+                  <span>Weekly Avg Gross / Semi:</span>
+                  <span className="text-[#0f172a] font-bold">$8,500+</span>
+                </div>
+                <div className="flex items-center justify-between font-semibold">
+                  <span>Hidden Fees:</span>
+                  <span className="text-orange-600 font-bold">0% None</span>
+                </div>
+              </div>
+
+              <a
+                href="#contact-us"
+                className="block text-center py-3.5 rounded-lg bg-[#0f172a] hover:bg-[#1e293b] text-white font-bold text-sm transition-colors shadow"
+              >
+                Start Onboarding Today
+              </a>
+
             </div>
           </div>
 
         </div>
 
-        {/* Bottom Trust Stat Bar */}
-        <div className="mt-16 pt-8 border-t border-slate-800/80 grid grid-cols-2 md:grid-cols-4 gap-6">
-          <div className="flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center shrink-0">
-              <Clock className="w-5 h-5 text-emerald-400" />
+        {/* Bottom Feature Badges */}
+        <div className="mt-16 pt-8 border-t border-white/10 grid grid-cols-2 md:grid-cols-4 gap-6 text-white">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-orange-600/20 border border-orange-500/40 flex items-center justify-center text-orange-400 shrink-0">
+              <Clock className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-lg font-bold text-white">24/7/365</p>
-              <p className="text-xs text-slate-400">Live US Dispatch Support</p>
+              <p className="font-bold text-base">24/7 Support</p>
+              <p className="text-xs text-slate-400">Live US Dispatch Desk</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center shrink-0">
-              <TrendingUp className="w-5 h-5 text-blue-400" />
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-orange-600/20 border border-orange-500/40 flex items-center justify-center text-orange-400 shrink-0">
+              <TrendingUp className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-lg font-bold text-white">$2.85+ / mi</p>
-              <p className="text-xs text-slate-400">Target Rate Per Mile</p>
+              <p className="font-bold text-base">Top Gross</p>
+              <p className="text-xs text-slate-400">Aggressive Negotiation</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center shrink-0">
-              <ShieldCheck className="w-5 h-5 text-indigo-400" />
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-orange-600/20 border border-orange-500/40 flex items-center justify-center text-orange-400 shrink-0">
+              <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-lg font-bold text-white">100% Freedom</p>
-              <p className="text-xs text-slate-400">Zero Forced Dispatch</p>
+              <p className="font-bold text-base">No Forced Dispatch</p>
+              <p className="text-xs text-slate-400">You Control Your Routes</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-teal-500/10 border border-teal-500/30 flex items-center justify-center shrink-0">
-              <DollarSign className="w-5 h-5 text-teal-400" />
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-orange-600/20 border border-orange-500/40 flex items-center justify-center text-orange-400 shrink-0">
+              <Phone className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-lg font-bold text-white">0% Hidden Fees</p>
-              <p className="text-xs text-slate-400">Transparent Weekly Invoicing</p>
+              <p className="font-bold text-base">Dedicated Agent</p>
+              <p className="text-xs text-slate-400">Single Point of Contact</p>
             </div>
           </div>
         </div>
