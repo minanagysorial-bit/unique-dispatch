@@ -171,10 +171,22 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   fetchActiveRelayTours();
 
-  // Manual Sync Now with safe script injection and lastError checks
+  // Manual Sync Now with foolproof safety timeout and lastError checks
   btnSyncNow.addEventListener("click", async () => {
     btnSyncNow.disabled = true;
     btnSyncNow.innerText = "Extracting...";
+
+    // Safety watchdog: Guarantee button resets even if messaging times out
+    const watchdogTimer = setTimeout(() => {
+      btnSyncNow.disabled = false;
+      btnSyncNow.innerText = "⚡ Sync Active Relay Screen";
+    }, 2800);
+
+    const finishButton = () => {
+      clearTimeout(watchdogTimer);
+      btnSyncNow.disabled = false;
+      btnSyncNow.innerText = "⚡ Sync Active Relay Screen";
+    };
 
     try {
       let targetTab = null;
@@ -196,9 +208,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
 
       if (!targetTab) {
+        finishButton();
         showAlert("⚠️ No open Amazon Relay tab found. Please open https://relay.amazon.com/tours first.", false);
-        btnSyncNow.disabled = false;
-        btnSyncNow.innerText = "⚡ Sync Active Relay Screen";
         return;
       }
 
@@ -217,27 +228,30 @@ document.addEventListener("DOMContentLoaded", async () => {
               setTimeout(() => {
                 chrome.tabs.sendMessage(targetTab.id, { type: "EXTRACT_NOW" }, (res2) => {
                   const subErr = chrome.runtime.lastError;
+                  finishButton();
                   if (!subErr && res2 && Array.isArray(res2.tours)) {
                     renderDetectedTours(res2.tours);
+                    showAlert(`✓ Attached & synced ${res2.count || 0} tours from Amazon Relay!`);
+                  } else {
+                    showAlert("⚠️ Please refresh (F5) the Amazon Relay tab once to attach sync.", false);
                   }
-                  showAlert("✓ Sync attached & extracted from Amazon Relay!");
                 });
               }, 400);
             } catch (injErr) {
+              finishButton();
               showAlert("⚠️ Please refresh (F5) the Amazon Relay tab once to attach sync.", false);
             }
           } else {
+            finishButton();
             showAlert("⚠️ Please refresh (F5) the Amazon Relay tab once to attach sync.", false);
           }
         } else {
+          finishButton();
           if (res && Array.isArray(res.tours)) {
             renderDetectedTours(res.tours);
           }
           showAlert(`✓ Synced ${res?.count || 0} tours from Amazon Relay!`);
         }
-
-        btnSyncNow.disabled = false;
-        btnSyncNow.innerText = "⚡ Sync Active Relay Screen";
 
         setTimeout(async () => {
           const updated = await chrome.storage.local.get(["lastSyncRecord"]);
@@ -245,11 +259,10 @@ document.addEventListener("DOMContentLoaded", async () => {
             const d = new Date(updated.lastSyncRecord.lastSyncedAt);
             lastSyncTimeEl.innerText = `${d.toLocaleTimeString()} (${updated.lastSyncRecord.totalLoads || 0} loads)`;
           }
-        }, 1200);
+        }, 800);
       });
     } catch (e) {
-      btnSyncNow.disabled = false;
-      btnSyncNow.innerText = "⚡ Sync Active Relay Screen";
+      finishButton();
       showAlert("⚠️ Please refresh (F5) the Amazon Relay tab once.", false);
     }
   });

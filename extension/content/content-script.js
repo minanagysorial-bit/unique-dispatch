@@ -1,7 +1,7 @@
 /**
  * Unique Dispatch - Amazon Relay Passive Content Ingestion Script
  * Runs safely on https://relay.amazon.com/ to read active, scheduled, and future tour schedules.
- * Multi-Strategy Extractor: Intercepts Network API + Scans Dynamic DOM + Preserves Real Dates.
+ * High-performance non-blocking scanner with debounced DOM inspection and API interception.
  */
 
 (function () {
@@ -12,6 +12,7 @@
   // In-memory pool of captured tours (from API interception & DOM scanning)
   const capturedToursMap = new Map();
   let isSyncing = false;
+  let debounceScanTimer = null;
 
   // 1. Inject Main-World API Interceptor
   function injectMainWorldInterceptor() {
@@ -59,9 +60,7 @@
     const lower = text.toLowerCase();
 
     // Check for "Tomorrow"
-    if (lower.includes("tomorrow")) {
-      targetDate.setDate(targetDate.getDate() + 1);
-    } else if (lower.includes("in 1 day") || lower.includes("in 24 hours")) {
+    if (lower.includes("tomorrow") || lower.includes("in 1 day") || lower.includes("in 24 hours")) {
       targetDate.setDate(targetDate.getDate() + 1);
     } else if (lower.includes("in 2 days") || lower.includes("in 48 hours")) {
       targetDate.setDate(targetDate.getDate() + 2);
@@ -104,7 +103,6 @@
 
       targetDate.setHours(hours, minutes, 0, 0);
     } else {
-      // Default hour
       if (isDelivery) {
         targetDate.setHours(targetDate.getHours() + 16);
       } else {
@@ -119,7 +117,7 @@
   function extractExactTripIdFromNode(node, cardText) {
     if (!node) return null;
 
-    // 1. Check anchor links (e.g. /tours/11A8B9C or /trips/108920194 or /work-opportunities/...)
+    // 1. Check anchor links
     if (node.querySelector) {
       const linkEl = node.querySelector('a[href*="/tours/"], a[href*="/trips/"], a[href*="/loads/"], a[href*="/work-opportunities/"], a[href*="/execution/"]');
       if (linkEl && linkEl.href) {
@@ -134,7 +132,7 @@
         '[data-testid*="tour-id"], [data-testid*="trip-id"], [data-testid*="vrid"], [data-testid*="load-id"], [class*="tourId"], [class*="tripId"], [class*="tour-id"], [class*="trip-id"], [class*="tripNumber"], [class*="tourNumber"]'
       );
       if (idEl) {
-        const textVal = (idEl.innerText || idEl.textContent || "").trim();
+        const textVal = (idEl.textContent || "").trim();
         const cleaned = textVal.replace(/^(?:Trip\s*(?:ID|#)?|Tour\s*(?:ID|#)?|Load\s*(?:ID|#)?|VRID\s*[:#\-]?)[\s:#\-]*/i, "").trim();
         if (cleaned && cleaned.length >= 3) {
           return cleaned;
@@ -169,24 +167,25 @@
     return null;
   }
 
-  // 5. Universal DOM Tour Scanner
+  // 5. Targeted Fast DOM Tour Scanner (Zero layout thrashing)
   function scanDomForTours() {
     const foundTours = [];
     const seenIds = new Set();
 
-    // Select all potential card/row containers
+    // Target specific tour containers only
     const candidateNodes = Array.from(
       document.querySelectorAll(
-        '[data-testid*="tour"], [data-testid*="trip"], [data-testid*="work-opportunity"], [data-testid*="schedule"], [data-testid*="row"], [class*="Tour"], [class*="Trip"], [class*="WorkOpportunity"], [class*="Execution"], [class*="card"], [class*="Card"], [class*="row"], [class*="Row"], tr, div[role="row"], div[role="article"]'
+        'table tbody tr, div[role="row"], [data-testid*="tour"], [data-testid*="trip"], [data-testid*="work-opportunity"], [class*="TourCard"], [class*="TripCard"], [class*="tour-card"], [class*="trip-card"], [class*="WorkOpportunityCard"], [class*="ExecutionCard"]'
       )
     );
 
-    candidateNodes.forEach((node) => {
+    for (let i = 0; i < candidateNodes.length; i++) {
+      const node = candidateNodes[i];
       try {
-        const text = (node.innerText || "").trim();
-        if (!text || text.length < 15 || text.length > 2000) return;
+        const text = (node.textContent || "").trim();
+        if (!text || text.length < 15 || text.length > 2500) continue;
 
-        // Must have at least one Amazon facility code or a Dollar amount to be a real tour card
+        // Check facility codes
         const facilityMatches = text.match(/\b([A-Z]{3}[0-9]|[A-Z]{4})\b/g) || [];
         const cleanFacilities = facilityMatches.filter((f) => {
           const upper = f.toUpperCase();
@@ -197,12 +196,11 @@
         const hasRate = /\$[0-9]/.test(text);
         const hasTime = /\b\d{1,2}:\d{2}\b|today|tomorrow|scheduled/i.test(text);
 
-        if (cleanFacilities.length === 0 && !hasRate && !hasTime) return;
+        if (cleanFacilities.length === 0 && !hasRate && !hasTime) continue;
 
         // Extract Real Trip ID
         let tripId = extractExactTripIdFromNode(node, text);
 
-        // If no Trip ID found yet, look for any standalone alphanumeric code in the card
         if (!tripId) {
           const anyTokenMatch = text.match(/\b([A-Z0-9]{2,4}-[A-Z0-9]{4,12}|[A-Z0-9]{6,16}|\b\d{6,12}\b)\b/);
           if (anyTokenMatch && anyTokenMatch[1]) {
@@ -214,7 +212,7 @@
           }
         }
 
-        if (!tripId || seenIds.has(tripId)) return;
+        if (!tripId || seenIds.has(tripId)) continue;
 
         // Extract Cities / States
         const cityStateMatches = Array.from(text.matchAll(/([A-Za-z\s]{3,20}),\s*([A-Z]{2})\b/g));
@@ -248,18 +246,18 @@
           destCity = destFacility || "Destination Facility";
         }
 
-        // Extract Rate USD
+        // Rate
         const rateMatch = text.match(/\$([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})?|\b[0-9]{3,5}\b)/);
         let rateUSD = 0;
         if (rateMatch) {
           rateUSD = parseFloat(rateMatch[1].replace(/,/g, ""));
         }
 
-        // Extract Weight
+        // Weight
         const weightMatch = text.match(/([0-9,]+)\s*(?:lbs|lb|k\s*lbs)/i);
         const weightLbs = weightMatch ? parseInt(weightMatch[1].replace(/,/g, ""), 10) : 38000;
 
-        // Extract Equipment
+        // Equipment
         let equipment = "Dry Van (53')";
         if (/reefer/i.test(text)) equipment = "Reefer (53')";
         else if (/flatbed/i.test(text)) equipment = "Flatbed";
@@ -267,14 +265,13 @@
         else if (/box\s*truck|26(?:ft|'|\s*ft)/i.test(text)) equipment = "26ft Box Truck";
         else if (/step\s*deck/i.test(text)) equipment = "Step Deck";
 
-        // Extract Status
+        // Status
         let status = "upcoming";
         if (/in\s*transit|en\s*route|on\s*road/i.test(text)) status = "in_transit";
         else if (/delivered|completed/i.test(text)) status = "delivered";
         else if (/delayed|at\s*risk/i.test(text)) status = "delayed";
         else if (/cancelled/i.test(text)) status = "cancelled";
 
-        // Extract Real Dates & Times (handles Today, Tomorrow, and Scheduled dates)
         const pickupTime = parseDateFromText(text, false);
         const deliveryTime = parseDateFromText(text, true);
 
@@ -306,7 +303,7 @@
         foundTours.push(tourObj);
         capturedToursMap.set(tripId, tourObj);
       } catch (err) {}
-    });
+    }
 
     return foundTours;
   }
@@ -446,7 +443,7 @@
     if (isSyncing) return;
     isSyncing = true;
 
-    // Scan DOM to merge with API-captured tours
+    // Fast non-blocking DOM scan
     scanDomForTours();
     updateFloatingPillUI();
 
@@ -455,7 +452,7 @@
     if (allTours.length === 0) {
       isSyncing = false;
       if (isManual) {
-        showToast("ℹ️ No active Relay tours detected on this screen. Make sure you are on https://relay.amazon.com/tours");
+        showToast("ℹ️ No active Relay tours found on screen. Open https://relay.amazon.com/tours");
       }
       return;
     }
@@ -464,22 +461,27 @@
   }
 
   function dispatchToursToBackground(tours, isManual) {
-    chrome.runtime.sendMessage(
-      {
-        type: "RELAY_TOURS_DETECTED",
-        payload: tours,
-      },
-      (response) => {
-        isSyncing = false;
-        if (response && response.success) {
-          if (isManual) {
-            showToast(`✓ Synced ${tours.length} exact Relay tours to Unique Dispatch!`);
+    try {
+      chrome.runtime.sendMessage(
+        {
+          type: "RELAY_TOURS_DETECTED",
+          payload: tours,
+        },
+        (response) => {
+          const err = chrome.runtime.lastError;
+          isSyncing = false;
+          if (!err && response && response.success) {
+            if (isManual) {
+              showToast(`✓ Synced ${tours.length} exact Relay tours to Unique Dispatch!`);
+            }
+          } else if (isManual) {
+            showToast(`⚠️ Sync notice: ${response?.error || "Check portal connection."}`);
           }
-        } else if (isManual) {
-          showToast(`⚠️ Sync notice: ${response?.error || "Check portal connection."}`);
         }
-      }
-    );
+      );
+    } catch (e) {
+      isSyncing = false;
+    }
   }
 
   // Toast
@@ -515,22 +517,32 @@
     if (request.type === "EXTRACT_NOW") {
       extractAndSyncAll(true);
       sendResponse({ status: "done", count: capturedToursMap.size, tours: Array.from(capturedToursMap.values()) });
+      return false;
     } else if (request.type === "GET_DETECTED_TOURS") {
       scanDomForTours();
       sendResponse({ count: capturedToursMap.size, tours: Array.from(capturedToursMap.values()) });
+      return false;
     }
   });
 
-  // 9. Startup & Observers
+  // 9. Startup & Debounced Observers
   setTimeout(() => {
     injectFloatingPill();
     extractAndSyncAll(false);
   }, 1000);
 
-  // MutationObserver for dynamic React SPA loads
-  const observer = new MutationObserver(() => {
-    scanDomForTours();
-    updateFloatingPillUI();
+  // Debounced MutationObserver (ignores floating pill and prevents thread locks)
+  const observer = new MutationObserver((mutations) => {
+    const isOurPill = mutations.every(
+      (m) => m.target && (m.target.id?.includes?.("ud-") || m.target.closest?.("#ud-relay-sync-pill"))
+    );
+    if (isOurPill) return;
+
+    if (debounceScanTimer) clearTimeout(debounceScanTimer);
+    debounceScanTimer = setTimeout(() => {
+      scanDomForTours();
+      updateFloatingPillUI();
+    }, 1500);
   });
 
   observer.observe(document.body || document.documentElement, {
