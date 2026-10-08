@@ -134,6 +134,7 @@ export default function SuperAdminDashboardPage() {
         currentUser={currentUser}
         currentShift={currentShift}
         onShiftChange={(s) => setCurrentShift(s)}
+        onRefresh={fetchDashboardData}
         onOpenTemplatesModal={() => setIsTemplatesOpen(true)}
       />
 
@@ -190,10 +191,11 @@ export default function SuperAdminDashboardPage() {
 
             <button
               onClick={fetchDashboardData}
-              className="p-2 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold border border-slate-300 transition-colors shadow-xs active:scale-95"
               title="Refresh Analytics"
             >
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className="w-4 h-4 text-orange-600" />
+              <span>Refresh Data</span>
             </button>
           </div>
 

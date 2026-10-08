@@ -331,6 +331,7 @@ export default function DispatcherOperationsBoardPage() {
         currentUser={currentUser}
         currentShift={currentShift}
         onShiftChange={(s) => setCurrentShift(s)}
+        onRefresh={fetchLoads}
         onOpenHandoverModal={() => setIsHandoverOpen(true)}
         onOpenImportModal={() => setIsImportOpen(true)}
         onOpenTemplatesModal={() => setIsTemplatesOpen(true)}
@@ -615,10 +616,11 @@ export default function DispatcherOperationsBoardPage() {
 
             <button
               onClick={fetchLoads}
-              className="p-2 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow border border-slate-700 active:scale-95"
               title="Refresh Live Operations"
             >
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className="w-3.5 h-3.5 text-orange-400" />
+              <span>Refresh Board</span>
             </button>
           </div>
 

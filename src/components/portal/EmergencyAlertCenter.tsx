@@ -19,6 +19,8 @@ import {
   MapPin,
   Clock,
   Zap,
+  Copy,
+  Check,
 } from "lucide-react";
 import { Load } from "@/lib/portal-types";
 import { playEmergencySiren, playUrgentAlert, isAudioEnabled, setAudioEnabled } from "@/lib/audio-alerts";
@@ -40,6 +42,7 @@ export default function EmergencyAlertCenter({
   const [activeLoadIndex, setActiveLoadIndex] = useState(0);
   const [hasAcknowledgedCurrent, setHasAcknowledgedCurrent] = useState(false);
   const [isSirenActive, setIsSirenActive] = useState(false);
+  const [copiedVrid, setCopiedVrid] = useState(false);
 
   const count = criticalLoads.length;
   const currentLoad = criticalLoads[activeLoadIndex] || criticalLoads[0];
@@ -197,14 +200,35 @@ export default function EmergencyAlertCenter({
               
               {/* VRID & Equipment & Status Badge */}
               <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
-                <div className="space-y-1">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Target Load / VRID</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl font-black font-mono text-white">{currentLoad.vrid}</span>
-                    <span className="px-2.5 py-0.5 rounded-lg bg-orange-500/20 text-orange-400 border border-orange-500/30 font-bold text-xs">
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Target Trip / VRID</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-black text-white border border-red-500/60 shadow-md">
+                      <span className="text-[10px] font-black uppercase text-red-400 tracking-wider bg-red-950 px-1.5 py-0.5 rounded border border-red-600/40">
+                        TRIP VRID
+                      </span>
+                      <span className="text-lg sm:text-xl font-black font-mono text-white tracking-wide select-all">
+                        {currentLoad.vrid}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(currentLoad.vrid);
+                        setCopiedVrid(true);
+                        setTimeout(() => setCopiedVrid(false), 2000);
+                      }}
+                      className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors border border-white/10"
+                      title="Copy VRID"
+                    >
+                      {copiedVrid ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-slate-300" />}
+                    </button>
+
+                    <span className="px-2.5 py-1 rounded-lg bg-orange-500/20 text-orange-400 border border-orange-500/30 font-bold text-xs">
                       {currentLoad.equipment}
                     </span>
-                    <span className="px-2.5 py-0.5 rounded-lg bg-red-600 text-white font-black text-xs uppercase tracking-wider">
+                    <span className="px-2.5 py-1 rounded-lg bg-red-600 text-white font-black text-xs uppercase tracking-wider shadow">
                       {currentLoad.status}
                     </span>
                   </div>

@@ -125,9 +125,14 @@ export default function MilestoneMessageModal({
                 <h3 className="text-base font-black tracking-tight">
                   {currentTemplate?.name || "Driver Milestone Dispatch"}
                 </h3>
-                <p className="text-xs text-slate-400">
-                  Load: <strong className="text-orange-400 font-mono">{load.vrid}</strong> | Driver: {load.driverName}
-                </p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-[10px] font-black uppercase text-orange-400 tracking-wider bg-orange-950/80 px-1.5 py-0.5 rounded border border-orange-600/40">
+                    TRIP ID
+                  </span>
+                  <strong className="text-white font-mono text-xs sm:text-sm tracking-wider select-all">{load.vrid}</strong>
+                  <span className="text-slate-500">•</span>
+                  <span className="text-xs text-slate-300 font-bold">Driver: {load.driverName}</span>
+                </div>
               </div>
             </div>
 

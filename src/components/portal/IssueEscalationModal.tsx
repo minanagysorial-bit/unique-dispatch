@@ -100,9 +100,14 @@ export default function IssueEscalationModal({
             </div>
             <div>
               <h3 className="text-base font-black tracking-tight">Report Incident &amp; Escalate Load</h3>
-              <p className="text-xs text-red-300">
-                Load: <strong>{load.vrid}</strong> | Driver: {load.driverName} ({load.driverPhone})
-              </p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-[10px] font-black uppercase text-red-300 tracking-wider bg-red-900 px-1.5 py-0.5 rounded border border-red-700">
+                  TRIP ID
+                </span>
+                <strong className="text-white font-mono text-xs sm:text-sm tracking-wider select-all">{load.vrid}</strong>
+                <span className="text-red-400">•</span>
+                <span className="text-xs text-red-200">Driver: {load.driverName} ({load.driverPhone})</span>
+              </div>
             </div>
           </div>
 

@@ -21,6 +21,7 @@ import {
   FileText,
   Volume2,
   VolumeX,
+  RefreshCw,
 } from "lucide-react";
 import Logo from "@/components/Logo";
 import { User, ShiftType } from "@/lib/portal-types";
@@ -30,6 +31,7 @@ interface PortalNavbarProps {
   currentUser: User | null;
   currentShift: ShiftType;
   onShiftChange: (shift: ShiftType) => void;
+  onRefresh?: () => void;
   onOpenHandoverModal?: () => void;
   onOpenImportModal?: () => void;
   onOpenNewLoadModal?: () => void;
@@ -41,6 +43,7 @@ export default function PortalNavbar({
   currentUser,
   currentShift,
   onShiftChange,
+  onRefresh,
   onOpenHandoverModal,
   onOpenImportModal,
   onOpenNewLoadModal,
@@ -52,6 +55,15 @@ export default function PortalNavbar({
   const [estTime, setEstTime] = useState("");
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [audioActive, setAudioActive] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleManualRefresh = () => {
+    if (onRefresh) {
+      setIsRefreshing(true);
+      onRefresh();
+      setTimeout(() => setIsRefreshing(false), 800);
+    }
+  };
 
   useEffect(() => {
     setAudioActive(isAudioEnabled());
@@ -237,6 +249,19 @@ export default function PortalNavbar({
         {/* Right User & Actions Menu */}
         <div className="flex items-center gap-2 sm:gap-3">
           
+          {/* Global Refresh Button */}
+          {onRefresh && (
+            <button
+              onClick={handleManualRefresh}
+              disabled={isRefreshing}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-black uppercase tracking-wider transition-all shadow-md active:scale-95"
+              title="Refresh Live Operations Data"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline">Refresh</span>
+            </button>
+          )}
+
           {/* Audio Alert Chime Toggle */}
           <button
             onClick={handleToggleAudio}

@@ -35,6 +35,7 @@ export default function LoadGridCard({
   const [activeMilestone, setActiveMilestone] = useState<MilestoneType | null>(null);
   const [isEscalateOpen, setIsEscalateOpen] = useState(false);
   const [copiedQuickMsg, setCopiedQuickMsg] = useState(false);
+  const [copiedVrid, setCopiedVrid] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
   // Time calculations
@@ -183,18 +184,37 @@ export default function LoadGridCard({
       {/* Card Content */}
       <div className="p-4 space-y-3.5 flex-1">
         
-        {/* Top Meta Line: VRID & Status Badge */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="font-mono font-black text-sm text-slate-900 tracking-tight">
-              {load.vrid}
-            </span>
-            <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-bold uppercase">
+        {/* Top Meta Line: Prominent Trip VRID & Status Badge */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-[#0a1128] text-white border border-slate-700 shadow-xs">
+              <span className="text-[10px] font-black uppercase text-orange-400 tracking-wider bg-orange-950/80 px-1.5 py-0.5 rounded border border-orange-600/40">
+                TRIP ID
+              </span>
+              <span className="font-mono font-black text-sm sm:text-base text-white tracking-wide select-all">
+                {load.vrid}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard.writeText(load.vrid);
+                setCopiedVrid(true);
+                setTimeout(() => setCopiedVrid(false), 2000);
+              }}
+              className="p-1.5 rounded-lg bg-slate-100 hover:bg-orange-50 hover:text-orange-600 text-slate-600 transition-colors border border-slate-200"
+              title="Copy Trip VRID"
+            >
+              {copiedVrid ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+            </button>
+
+            <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[10px] font-black uppercase border border-slate-200">
               {load.source.replace("_", " ")}
             </span>
           </div>
 
-          <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase border tracking-wider ${statusBadge}`}>
+          <span className={`px-2.5 py-1 rounded-full text-[11px] font-black uppercase border tracking-wider ${statusBadge}`}>
             {load.status.replace("_", " ")}
           </span>
         </div>
