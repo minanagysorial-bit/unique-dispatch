@@ -187,6 +187,9 @@ export interface Load {
   hasActiveIncident: boolean;
   incidentCount: number;
 
+  // Ordering and visual screen position
+  screenIndex?: number;
+
   notes?: string;
   updatedAt: string;
   createdAt: string;
@@ -266,6 +269,7 @@ export interface BatchSyncPayload {
     carrierName?: string;
     carrierMcDot?: string;
     status?: LoadStatus;
+    screenIndex?: number;
     notes?: string;
   }>;
 }

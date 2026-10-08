@@ -11,6 +11,7 @@ export async function GET(req: Request) {
     const dispatcherId = searchParams.get("dispatcherId") || undefined;
     const search = searchParams.get("search") || undefined;
     const criticalOnly = searchParams.get("critical") === "true";
+    const sort = searchParams.get("sort") || "screen";
 
     const loads = portalDb.getLoads({
       status,
@@ -18,6 +19,7 @@ export async function GET(req: Request) {
       dispatcherId,
       search,
       criticalOnly,
+      sort,
     });
 
     const syncHealth = portalDb.getSyncHealth();

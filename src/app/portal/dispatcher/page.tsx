@@ -66,7 +66,8 @@ export default function DispatcherOperationsBoardPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [criticalOnly, setCriticalOnly] = useState(false);
   const [actionFilter, setActionFilter] = useState<ActionFilterType>("all");
-  const [scheduleScope, setScheduleScope] = useState<ScheduleScopeType>("today_live");
+  const [scheduleScope, setScheduleScope] = useState<ScheduleScopeType>("all");
+  const [sortBy, setSortBy] = useState<"screen" | "pickup" | "rate" | "status">("screen");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [syncHealth, setSyncHealth] = useState<SyncHealth | null>(null);
 
@@ -309,6 +310,7 @@ export default function DispatcherOperationsBoardPage() {
       if (statusFilter !== "all") params.set("status", statusFilter);
       if (searchQuery) params.set("search", searchQuery);
       if (criticalOnly) params.set("critical", "true");
+      if (sortBy) params.set("sort", sortBy);
 
       const res = await fetch(`/api/loads?${params.toString()}`);
       if (res.ok) {
@@ -353,7 +355,7 @@ export default function DispatcherOperationsBoardPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentShift, statusFilter, searchQuery, criticalOnly]);
+  }, [currentShift, statusFilter, searchQuery, criticalOnly, sortBy]);
 
   useEffect(() => {
     fetchUser();
@@ -473,49 +475,69 @@ export default function DispatcherOperationsBoardPage() {
     return !l.deliveryCheckinSent && minsToDelivery <= 30 && minsToDelivery >= -60 && l.status !== "delivered";
   }).length;
 
-  // Filtered loads by Schedule Scope & Smart Action Pills
-  const displayedLoads = loads.filter((l) => {
-    // 1. Schedule Scope filtering
-    if (scheduleScope === "today_live") {
-      const isLiveActive =
-        l.status === "in_transit" ||
-        l.status === "at_pickup" ||
-        l.status === "at_delivery" ||
-        l.status === "delayed" ||
-        l.status === "critical_alert";
-      if (!isDateToday(l.pickupTime) && !isLiveActive && l.status !== "delivered") {
-        return false;
+  // Filtered and Sorted loads by Schedule Scope & Sort Order
+  const displayedLoads = loads
+    .filter((l) => {
+      // 1. Schedule Scope filtering
+      if (scheduleScope === "today_live") {
+        const isLiveActive =
+          l.status === "in_transit" ||
+          l.status === "at_pickup" ||
+          l.status === "at_delivery" ||
+          l.status === "delayed" ||
+          l.status === "critical_alert";
+        if (!isDateToday(l.pickupTime) && !isLiveActive && l.status !== "delivered") {
+          return false;
+        }
+      } else if (scheduleScope === "tomorrow") {
+        if (!isDateTomorrow(l.pickupTime)) {
+          return false;
+        }
+      } else if (scheduleScope === "all_scheduled") {
+        if (!isDateFuture(l.pickupTime)) {
+          return false;
+        }
       }
-    } else if (scheduleScope === "tomorrow") {
-      if (!isDateTomorrow(l.pickupTime)) {
-        return false;
-      }
-    } else if (scheduleScope === "all_scheduled") {
-      if (!isDateFuture(l.pickupTime)) {
-        return false;
-      }
-    }
 
-    // 2. Action Filter
-    if (actionFilter === "critical") {
-      return l.isCriticalAlert || l.hasActiveIncident || l.status === "delayed" || l.status === "critical_alert";
-    }
-    if (actionFilter === "needs_pickup_3_5h") {
-      const hoursToPickup = (new Date(l.pickupTime).getTime() - Date.now()) / (3600 * 1000);
-      return !l.pickupCheckinSent && hoursToPickup <= 3.5 && hoursToPickup >= -4 && l.status !== "delivered";
-    }
-    if (actionFilter === "needs_delivery_30m") {
-      const minsToDelivery = (new Date(l.deliveryTime).getTime() - Date.now()) / (60 * 1000);
-      return !l.deliveryCheckinSent && minsToDelivery <= 30 && minsToDelivery >= -60 && l.status !== "delivered";
-    }
-    if (actionFilter === "amazon_relay") {
-      return l.source === "amazon_relay";
-    }
-    if (actionFilter === "dat_spot") {
-      return l.source !== "amazon_relay";
-    }
-    return true;
-  });
+      // 2. Action Filter
+      if (actionFilter === "critical") {
+        return l.isCriticalAlert || l.hasActiveIncident || l.status === "delayed" || l.status === "critical_alert";
+      }
+      if (actionFilter === "needs_pickup_3_5h") {
+        const hoursToPickup = (new Date(l.pickupTime).getTime() - Date.now()) / (3600 * 1000);
+        return !l.pickupCheckinSent && hoursToPickup <= 3.5 && hoursToPickup >= -4 && l.status !== "delivered";
+      }
+      if (actionFilter === "needs_delivery_30m") {
+        const minsToDelivery = (new Date(l.deliveryTime).getTime() - Date.now()) / (60 * 1000);
+        return !l.deliveryCheckinSent && minsToDelivery <= 30 && minsToDelivery >= -60 && l.status !== "delivered";
+      }
+      if (actionFilter === "amazon_relay") {
+        return l.source === "amazon_relay";
+      }
+      if (actionFilter === "dat_spot") {
+        return l.source !== "amazon_relay";
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      if (a.isCriticalAlert && !b.isCriticalAlert) return -1;
+      if (!a.isCriticalAlert && b.isCriticalAlert) return 1;
+
+      if (sortBy === "screen") {
+        if (a.screenIndex !== undefined && b.screenIndex !== undefined) {
+          return a.screenIndex - b.screenIndex;
+        }
+        if (a.screenIndex !== undefined) return -1;
+        if (b.screenIndex !== undefined) return 1;
+        return new Date(a.pickupTime).getTime() - new Date(b.pickupTime).getTime();
+      } else if (sortBy === "rate") {
+        return (b.rateUSD || 0) - (a.rateUSD || 0);
+      } else if (sortBy === "status") {
+        return a.status.localeCompare(b.status);
+      } else {
+        return new Date(a.pickupTime).getTime() - new Date(b.pickupTime).getTime();
+      }
+    });
 
   // Kanban categorized loads based on displayedLoads
   const kanbanUpcoming = displayedLoads.filter(
@@ -882,6 +904,21 @@ export default function DispatcherOperationsBoardPage() {
               <option value="at_delivery">At Delivery</option>
               <option value="delayed">Delayed / Breakdown</option>
               <option value="delivered">Delivered</option>
+            </select>
+          </div>
+
+          {/* Sort Order Selector */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider hidden sm:inline">Sort:</span>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="px-3 py-2 rounded-xl border border-orange-200 bg-orange-50/60 text-xs font-black text-orange-950 focus:ring-2 focus:ring-orange-500 focus:outline-none"
+            >
+              <option value="screen">📺 Relay Screen Order (Default)</option>
+              <option value="pickup">⏰ Earliest Pickup</option>
+              <option value="rate">💰 Highest Rate ($)</option>
+              <option value="status">🚦 Status</option>
             </select>
           </div>
 

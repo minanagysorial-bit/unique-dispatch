@@ -455,6 +455,7 @@
       const tour = normalizeApiTour(raw);
       if (tour && tour.vrid && !seenIds.has(tour.vrid)) {
         seenIds.add(tour.vrid);
+        tour.screenIndex = normalized.length;
         normalized.push(tour);
       }
     });

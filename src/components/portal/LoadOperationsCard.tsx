@@ -173,6 +173,15 @@ export default function LoadOperationsCard({
         
         {/* Left VRID & Equipment */}
         <div className="flex flex-wrap items-center gap-2">
+          {load.screenIndex !== undefined && (
+            <span
+              className="px-2 py-1 rounded-lg bg-orange-600 text-white text-xs font-black shadow-xs"
+              title="Position on Amazon Relay screen"
+            >
+              #{load.screenIndex + 1}
+            </span>
+          )}
+
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#0a1128] text-white border border-slate-700 shadow-xs">
             <span className="text-[10px] font-black uppercase text-orange-400 tracking-wider bg-orange-950/80 px-1.5 py-0.5 rounded border border-orange-600/40">
               TRIP ID

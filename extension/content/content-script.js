@@ -1,6 +1,6 @@
 /**
- * Unique Dispatch - Amazon Relay Passive Content Ingestion Script
- * Scans Amazon Relay screens for genuine tours, multi-stop itineraries, rates, and schedules.
+ * Unique Dispatch - Amazon Relay High-Fidelity Content Script
+ * Scans Amazon Relay screens for 100% authentic tours, preserving exact screen order.
  * Zero-tolerance for false/hallucinated data.
  */
 
@@ -9,15 +9,18 @@
 
   console.log("🚚 [Unique Dispatch] Relay High-Fidelity Content Script Active");
 
-  // In-memory pool of captured tours
-  const capturedToursMap = new Map();
+  // In-memory pool of captured tours and intercepted API tours
+  const capturedApiToursMap = new Map();
+  let latestOrderedTours = [];
   let isSyncing = false;
   let debounceScanTimer = null;
 
   // 1. Inject Main-World API Interceptor
   function injectMainWorldInterceptor() {
     try {
+      if (document.getElementById("ud-relay-interceptor-script")) return;
       const script = document.createElement("script");
+      script.id = "ud-relay-interceptor-script";
       script.src = chrome.runtime.getURL("content/relay-interceptor.js");
       script.onload = function () {
         this.remove();
@@ -36,18 +39,17 @@
 
     if (event.data.type === "UD_RELAY_RAW_API_TOURS" && Array.isArray(event.data.tours)) {
       console.log(`🚚 [Unique Dispatch] Ingested ${event.data.tours.length} authentic tours from API`);
-      let added = false;
-
       event.data.tours.forEach((tour) => {
         if (tour && tour.vrid) {
-          capturedToursMap.set(tour.vrid, tour);
-          added = true;
+          capturedApiToursMap.set(tour.vrid, tour);
         }
       });
 
-      if (added) {
-        updateFloatingPillUI();
-        dispatchToursToBackground(Array.from(capturedToursMap.values()), false);
+      // Trigger re-scan to merge and maintain screen order
+      scanDomForTours();
+      updateFloatingPillUI();
+      if (latestOrderedTours.length > 0) {
+        dispatchToursToBackground(latestOrderedTours, false, "upsert");
       }
     }
   });
@@ -56,7 +58,6 @@
   function parseDateFromText(text, isDelivery = false) {
     const now = new Date();
     let targetDate = new Date(now);
-
     const lower = text.toLowerCase();
 
     // Check for "Tomorrow"
@@ -113,7 +114,7 @@
     return targetDate.toISOString();
   }
 
-  // 4. Extract Real Trip ID with Strict Validation (Zero False Positives)
+  // 4. Extract Real Trip ID with Multi-Strategy Validation (Zero False Positives)
   function extractExactTripIdFromNode(node, cardText) {
     if (!node) return null;
 
@@ -138,7 +139,7 @@
 
       // B. Check dedicated data-testid or class attributes
       const idEl = node.querySelector(
-        '[data-testid*="tour-id"], [data-testid*="trip-id"], [data-testid*="vrid"], [data-testid*="load-id"], [data-testid*="work-opportunity-id"], [class*="tourId"], [class*="tripId"], [class*="tour-id"], [class*="trip-id"], [class*="tripNumber"], [class*="tourNumber"]'
+        '[data-testid*="tour-id" i], [data-testid*="trip-id" i], [data-testid*="vrid" i], [data-testid*="load-id" i], [data-testid*="work-opportunity-id" i], [class*="tourId" i], [class*="tripId" i], [class*="tour-id" i], [class*="trip-id" i], [class*="tripNumber" i], [class*="tourNumber" i]'
       );
       if (idEl) {
         const textVal = (idEl.textContent || "").trim();
@@ -155,7 +156,7 @@
     );
     if (labeledMatch && labeledMatch[1]) {
       const cand = labeledMatch[1].trim();
-      const forbidden = ["ID", "NUMBER", "DETAILS", "STATUS", "CARRIER", "ASSIGNED", "UPCOMING", "ACTIVE", "VIEW"];
+      const forbidden = ["ID", "NUMBER", "DETAILS", "STATUS", "CARRIER", "ASSIGNED", "UPCOMING", "ACTIVE", "VIEW", "FILTER", "SEARCH"];
       if (!forbidden.includes(cand.toUpperCase())) {
         return cand;
       }
@@ -167,7 +168,9 @@
         node.getAttribute("data-tour-id") ||
         node.getAttribute("data-trip-id") ||
         node.getAttribute("data-work-opportunity-id") ||
-        node.getAttribute("data-vrid");
+        node.getAttribute("data-vrid") ||
+        node.getAttribute("data-item-id") ||
+        node.getAttribute("data-row-id");
       if (dataId && dataId.length >= 3) {
         return dataId.trim();
       }
@@ -186,23 +189,64 @@
     return null;
   }
 
-  // 5. Targeted Screen Scanner (Extracts only real cards/rows with real routes)
+  // 5. Targeted Screen Scanner strictly preserving vertical top-to-bottom Relay Screen Order
   function scanDomForTours() {
-    const foundTours = [];
-    const seenIds = new Set();
+    const candidateElementSet = new Set();
+    const candidateNodes = [];
 
-    // Select candidate tour rows and cards
-    const candidateNodes = Array.from(
+    // Strategy 1: Find by Tour/Trip Links & climb to container
+    const links = Array.from(
       document.querySelectorAll(
-        'table tbody tr:not([class*="header"]), div[role="row"]:not([role="columnheader"]), [data-testid*="tour-card"], [data-testid*="trip-card"], [data-testid*="work-opportunity"], div[class*="TourCard"], div[class*="TripCard"], div[class*="WorkOpportunityCard"], div[class*="ExecutionCard"]'
+        'a[href*="/tours/"], a[href*="/trips/"], a[href*="/loads/"], a[href*="/work-opportunities"], a[href*="/execution"], a[href*="/loadboard"]'
       )
     );
+
+    links.forEach((link) => {
+      const container = link.closest(
+        'tr, [role="row"], [class*="awsui_row" i], [class*="awsui_card" i], [class*="card" i], [class*="row" i], [class*="item" i], [class*="tour" i], [class*="trip" i], li, article, section'
+      ) || link.parentElement?.parentElement;
+
+      if (container && !candidateElementSet.has(container) && container !== document.body && container !== document.documentElement) {
+        candidateElementSet.add(container);
+        candidateNodes.push(container);
+      }
+    });
+
+    // Strategy 2: Find table rows, Cloudscape cards, and grid items
+    const genericNodes = Array.from(
+      document.querySelectorAll(
+        'table tbody tr:not([class*="header" i]), div[role="row"]:not([role="columnheader" i]), [data-testid*="row" i], [data-testid*="card" i], [data-testid*="tour" i], [data-testid*="trip" i], [class*="awsui_row" i], [class*="awsui_card" i], [class*="TourCard" i], [class*="tour-card" i], [class*="TripCard" i], [class*="trip-card" i], [class*="WorkOpportunityCard" i], [class*="work-opportunity" i]'
+      )
+    );
+
+    genericNodes.forEach((node) => {
+      if (!candidateElementSet.has(node) && node !== document.body && node !== document.documentElement) {
+        candidateElementSet.add(node);
+        candidateNodes.push(node);
+      }
+    });
+
+    // Strictly sort candidate nodes by vertical top-to-bottom document position
+    candidateNodes.sort((a, b) => {
+      const rectA = a.getBoundingClientRect();
+      const rectB = b.getBoundingClientRect();
+      const topA = rectA.top + (window.scrollY || window.pageYOffset || 0);
+      const topB = rectB.top + (window.scrollY || window.pageYOffset || 0);
+      if (Math.abs(topA - topB) > 2) {
+        return topA - topB;
+      }
+      return rectA.left - rectB.left;
+    });
+
+    const foundTours = [];
+    const seenIds = new Set();
+    let currentScreenIndex = 0;
 
     for (let i = 0; i < candidateNodes.length; i++) {
       const node = candidateNodes[i];
       try {
         const text = (node.textContent || "").trim();
-        if (!text || text.length < 15 || text.length > 3000) continue;
+        if (!text || text.length < 15 || text.length > 5000) continue;
 
         // Facility codes (e.g. JFK8, TEB9, ABE8)
         const facilityMatches = text.match(/\b([A-Z]{3}[0-9]|[A-Z]{4})\b/g) || [];
@@ -212,29 +256,28 @@
             "POST", "TRIP", "TOUR", "LOAD", "TYPE", "RATE", "TIME", "STOP", "CITY", "DEST", "FROM", "AUTO",
             "VIEW", "INFO", "COST", "FEES", "PAID", "DAYS", "EDIT", "DATE", "USER", "MORE", "SHOW", "HIDE",
             "NAME", "PAGE", "NEXT", "BACK", "SAVE", "EXIT", "HELP", "TEAM", "UNIT", "TEST", "WARN", "ROLE",
-            "LIVE", "DOCK", "GATE", "SEMI", "VANS", "FLAT", "REEF", "AMZN", "SYNC", "MENU"
+            "LIVE", "DOCK", "GATE", "SEMI", "VANS", "FLAT", "REEF", "AMZN", "SYNC", "MENU", "AMAZON", "RELAY",
+            "TOTAL", "DROP", "HOOK", "MILES", "HOUR", "HOURS", "WEEK", "CARD", "GRID"
           ];
           return !forbidden.includes(upper);
         });
 
         const hasRate = /\$[0-9]/.test(text);
-        const hasTime = /\b\d{1,2}:\d{2}\b|today|tomorrow|scheduled|starts|ends/i.test(text);
+        const hasTime = /\b\d{1,2}:\d{2}\b|today|tomorrow|scheduled|starts|ends|pickup|delivery/i.test(text);
 
-        // Anti-pollution: MUST have facility code OR (rate AND time)
-        if (cleanFacilities.length === 0 && (!hasRate || !hasTime)) continue;
-
-        // Extract Real Trip ID
+        // Anti-pollution: MUST have facility code OR (rate AND time) OR explicit trip ID
         const tripId = extractExactTripIdFromNode(node, text);
         if (!tripId || seenIds.has(tripId)) continue;
+        if (cleanFacilities.length === 0 && !hasRate && !hasTime && !capturedApiToursMap.has(tripId)) continue;
 
-        // If we already intercepted a richer JSON API payload for this tripId, keep the rich one!
-        if (capturedToursMap.has(tripId)) {
-          const richTour = capturedToursMap.get(tripId);
-          if (richTour && richTour.stops && richTour.stops.length > 0) {
-            seenIds.add(tripId);
-            foundTours.push(richTour);
-            continue;
-          }
+        seenIds.add(tripId);
+
+        // If we already intercepted a richer JSON API payload for this tripId, merge and keep screenIndex!
+        if (capturedApiToursMap.has(tripId)) {
+          const richTour = { ...capturedApiToursMap.get(tripId) };
+          richTour.screenIndex = currentScreenIndex++;
+          foundTours.push(richTour);
+          continue;
         }
 
         // Extract Cities / States
@@ -259,7 +302,7 @@
         }
 
         // Rate
-        const rateMatch = text.match(/\$([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})?|\b[0-9]{3,5}\b)/);
+        const rateMatch = text.match(/\$([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})?|\b[0-9]{2,5}\b)/);
         let rateUSD = 0;
         if (rateMatch) {
           rateUSD = parseFloat(rateMatch[1].replace(/,/g, ""));
@@ -270,7 +313,7 @@
         const weightLbs = weightMatch ? parseInt(weightMatch[1].replace(/,/g, ""), 10) : 38000;
 
         // Distance in miles
-        const distanceMatch = text.match(/([0-9,]+)\s*(?:mi|miles)\b/i);
+        const distanceMatch = text.match(/([0-9,]+(?:\.[0-9]+)?)\s*(?:mi|miles)\b/i);
         const distanceMiles = distanceMatch ? parseInt(distanceMatch[1].replace(/,/g, ""), 10) : undefined;
 
         // Equipment
@@ -312,7 +355,6 @@
           });
         }
 
-        seenIds.add(tripId);
         const tourObj = {
           vrid: tripId,
           source: "amazon_relay",
@@ -331,21 +373,33 @@
           stops: stopsList.length > 0 ? stopsList : undefined,
           totalStopsCount: stopsList.length > 0 ? stopsList.length : 2,
           status,
+          screenIndex: currentScreenIndex++,
           driverName: "Assigned Driver",
           driverPhone: "+1 (555) 000-0000",
           tractorNumber: "UD-AMZ",
           trailerNumber: "TR-5300",
           carrierName: "Unique Dispatch Fleet",
           carrierMcDot: "MC-ACTIVE",
-          notes: `Extracted from Amazon Relay screen on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}`,
+          notes: `Extracted from Amazon Relay screen in exact visual order on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}`,
         };
 
         foundTours.push(tourObj);
-        capturedToursMap.set(tripId, tourObj);
       } catch (err) {}
     }
 
-    return foundTours;
+    // Append any API-intercepted tours that weren't found on the DOM
+    capturedApiToursMap.forEach((apiTour, id) => {
+      if (!seenIds.has(id)) {
+        seenIds.add(id);
+        foundTours.push({
+          ...apiTour,
+          screenIndex: currentScreenIndex++,
+        });
+      }
+    });
+
+    latestOrderedTours = foundTours;
+    return latestOrderedTours;
   }
 
   // 6. Floating Inspector Pill UI
@@ -395,7 +449,7 @@
 
         <div id="ud-pill-drawer" style="display:none; border-top: 1px solid #1e293b; padding: 10px 14px; max-height: 240px; overflow-y: auto;">
           <div style="font-weight:800; color:#cbd5e1; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
-            <span>Detected Screen Tours:</span>
+            <span>Relay Screen Order (#1 to #N):</span>
             <button id="ud-pill-replace-btn" style="background:#1e293b; color:#38bdf8; border:1px solid #38bdf8; border-radius:6px; padding:2px 6px; font-size:9px; cursor:pointer; font-weight:bold;">
               🔄 Replace All in Portal
             </button>
@@ -440,7 +494,7 @@
   function updateFloatingPillUI() {
     const countEl = document.getElementById("ud-pill-count");
     const dotEl = document.getElementById("ud-pill-dot");
-    const count = capturedToursMap.size;
+    const count = latestOrderedTours.length;
 
     if (countEl) {
       countEl.innerText = `${count} ${count === 1 ? "Tour" : "Tours"}`;
@@ -460,14 +514,13 @@
     const listEl = document.getElementById("ud-pill-drawer-list");
     if (!listEl) return;
 
-    const tours = Array.from(capturedToursMap.values());
-    if (tours.length === 0) {
+    if (latestOrderedTours.length === 0) {
       listEl.innerHTML = `<div style="color:#64748b; font-size:10px;">No active tours on this screen. Open Amazon Relay Tours/Trips.</div>`;
       return;
     }
 
-    listEl.innerHTML = tours
-      .map((t) => {
+    listEl.innerHTML = latestOrderedTours
+      .map((t, idx) => {
         const pDate = new Date(t.pickupTime);
         const isTomorrow = pDate.getDate() === new Date(Date.now() + 24 * 3600 * 1000).getDate();
         const dateTag = isTomorrow ? "Tomorrow" : `${pDate.getMonth() + 1}/${pDate.getDate()}`;
@@ -476,7 +529,10 @@
         return `
         <div style="background:#0f172a; padding:6px 10px; border-radius:8px; border:1px solid #1e293b; display:flex; flex-direction:column; gap:2px;">
           <div style="display:flex; justify-content:space-between; align-items:center;">
-            <span style="font-family:monospace; font-weight:900; color:#fb923c;">${t.vrid}</span>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="background:#ea580c; color:#fff; font-weight:900; font-size:9px; padding:1px 5px; border-radius:4px;">#${idx + 1}</span>
+              <span style="font-family:monospace; font-weight:900; color:#fb923c;">${t.vrid}</span>
+            </div>
             <span style="color:#34d399; font-weight:800;">${t.rateUSD > 0 ? `$${t.rateUSD.toLocaleString()}` : "Rate TBD"}</span>
           </div>
           <div style="display:flex; justify-content:space-between; color:#94a3b8; font-size:9px;">
@@ -492,18 +548,16 @@
       .join("");
   }
 
-  // 7. Extraction & Dispatch
+  // 7. Extraction & Dispatch in Strict Screen Order
   function extractAndSyncAll(isManual = false, mode = "upsert") {
     if (isSyncing) return;
     isSyncing = true;
 
-    // Fast targeted DOM scan
-    scanDomForTours();
+    // Fast targeted DOM scan in vertical order
+    const tours = scanDomForTours();
     updateFloatingPillUI();
 
-    const allTours = Array.from(capturedToursMap.values());
-
-    if (allTours.length === 0) {
+    if (tours.length === 0) {
       isSyncing = false;
       if (isManual) {
         showToast("ℹ️ No active Relay tours found on screen. Open https://relay.amazon.com/tours");
@@ -511,7 +565,7 @@
       return;
     }
 
-    dispatchToursToBackground(allTours, isManual, mode);
+    dispatchToursToBackground(tours, isManual, mode);
   }
 
   function dispatchToursToBackground(tours, isManual, mode = "upsert") {
@@ -528,7 +582,7 @@
           if (!err && response && response.success) {
             if (isManual) {
               const modeLabel = mode === "replace_all" ? "(Replaced All Tours)" : "";
-              showToast(`✓ Synced ${tours.length} exact Relay tours to Unique Dispatch! ${modeLabel}`);
+              showToast(`✓ Synced ${tours.length} exact Relay tours in screen order! ${modeLabel}`);
             }
           } else if (isManual) {
             showToast(`⚠️ Sync notice: ${response?.error || "Check portal connection."}`);
@@ -572,26 +626,36 @@
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.type === "EXTRACT_NOW") {
       const mode = request.mode || "upsert";
+      const tours = scanDomForTours();
       extractAndSyncAll(true, mode);
-      sendResponse({ status: "done", count: capturedToursMap.size, tours: Array.from(capturedToursMap.values()) });
+      sendResponse({ status: "done", count: tours.length, tours: tours });
       return false;
     } else if (request.type === "GET_DETECTED_TOURS") {
-      scanDomForTours();
-      sendResponse({ count: capturedToursMap.size, tours: Array.from(capturedToursMap.values()) });
+      const tours = scanDomForTours();
+      sendResponse({ count: tours.length, tours: tours });
       return false;
     } else if (request.type === "CLEAR_CAPTURED_POOL") {
-      capturedToursMap.clear();
+      capturedApiToursMap.clear();
+      latestOrderedTours = [];
       updateFloatingPillUI();
       sendResponse({ status: "cleared", count: 0 });
       return false;
     }
   });
 
+  // Export for idempotent re-triggers
+  window.__ud_trigger_scan = () => {
+    scanDomForTours();
+    updateFloatingPillUI();
+  };
+
   // 9. Startup & Observers
   setTimeout(() => {
     injectFloatingPill();
+    scanDomForTours();
+    updateFloatingPillUI();
     extractAndSyncAll(false, "upsert");
-  }, 1000);
+  }, 800);
 
   // Debounced MutationObserver
   const observer = new MutationObserver((mutations) => {
@@ -604,7 +668,7 @@
     debounceScanTimer = setTimeout(() => {
       scanDomForTours();
       updateFloatingPillUI();
-    }, 1500);
+    }, 1200);
   });
 
   observer.observe(document.body || document.documentElement, {

@@ -133,20 +133,27 @@ document.addEventListener("DOMContentLoaded", async () => {
     countBadge.style.color = "#38bdf8";
 
     listEl.innerHTML = tours
-      .map((t) => {
+      .map((t, idx) => {
         const pDate = new Date(t.pickupTime);
         const isTomorrow = pDate.getDate() === new Date(Date.now() + 24 * 3600 * 1000).getDate();
         const dateTag = isTomorrow ? "Tomorrow" : `${pDate.getMonth() + 1}/${pDate.getDate()}`;
+        const stopsBadge = t.stops && t.stops.length > 2 ? `<span style="color:#fb923c; font-weight:800; font-size:8px;">⚡ ${t.stops.length} Stops</span>` : "";
 
         return `
         <div style="background:#050914; padding:6px 8px; border-radius:6px; border:1px solid #1e293b; display:flex; justify-content:space-between; align-items:center;">
-          <div>
-            <div style="font-family:monospace; font-weight:800; color:#fb923c;">${t.vrid}</div>
-            <div style="font-size:9px; color:#94a3b8;">${t.originFacilityCode || t.originCity} ➔ ${t.destFacilityCode || t.destCity}</div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="background:#ea580c; color:#fff; font-weight:900; font-size:9px; padding:1px 5px; border-radius:4px;">#${idx + 1}</span>
+            <div>
+              <div style="font-family:monospace; font-weight:800; color:#fb923c;">${t.vrid}</div>
+              <div style="font-size:9px; color:#94a3b8;">${t.originFacilityCode || t.originCity} ➔ ${t.destFacilityCode || t.destCity}</div>
+            </div>
           </div>
           <div style="text-align:right;">
             <div style="color:#34d399; font-weight:800;">${t.rateUSD > 0 ? `$${t.rateUSD.toLocaleString()}` : "TBD"}</div>
-            <div style="font-size:8px; color:#38bdf8; font-weight:700;">📅 ${dateTag}</div>
+            <div style="display:flex; gap:4px; justify-content:flex-end; align-items:center;">
+              ${stopsBadge}
+              <span style="font-size:8px; color:#38bdf8; font-weight:700;">📅 ${dateTag}</span>
+            </div>
           </div>
         </div>
       `;
@@ -158,7 +165,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   async function fetchActiveRelayTours() {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (tab && tab.id && tab.url && tab.url.includes("relay.amazon.com")) {
+      if (tab && tab.id && tab.url && (tab.url.includes("relay.amazon") || tab.url.includes("amazon.com/relay") || tab.url.includes("amazon.com/carrier"))) {
         chrome.tabs.sendMessage(tab.id, { type: "GET_DETECTED_TOURS" }, (res) => {
           const err = chrome.runtime.lastError; // Read and suppress unhandled connection error
           if (!err && res && Array.isArray(res.tours)) {
@@ -199,15 +206,18 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       try {
         const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        if (activeTab && activeTab.url && activeTab.url.includes("relay.amazon.com")) {
+        if (activeTab && activeTab.url && (activeTab.url.includes("relay.amazon") || activeTab.url.includes("amazon.com/relay") || activeTab.url.includes("amazon.com/carrier"))) {
           targetTab = activeTab;
         }
       } catch (tabErr) {}
 
       if (!targetTab) {
         try {
-          const relayTabs = await chrome.tabs.query({ url: ["https://relay.amazon.com/*", "https://*.relay.amazon.com/*"] });
-          if (relayTabs && relayTabs.length > 0) {
+          const relayTabs = await chrome.tabs.query({ url: ["https://relay.amazon.com/*", "https://*.relay.amazon.com/*", "https://*.amazon.com/*"] });
+          const match = relayTabs.find((t) => t.url && (t.url.includes("relay.amazon") || t.url.includes("/tours") || t.url.includes("/trips") || t.url.includes("/loadboard") || t.url.includes("/carrier")));
+          if (match) {
+            targetTab = match;
+          } else if (relayTabs.length > 0) {
             targetTab = relayTabs[0];
           }
         } catch (tabErr2) {}

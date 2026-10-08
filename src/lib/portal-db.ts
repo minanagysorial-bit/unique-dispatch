@@ -418,6 +418,7 @@ export const portalDb = {
     dispatcherId?: string;
     search?: string;
     criticalOnly?: boolean;
+    sort?: "screen" | "pickup" | "rate" | "status" | string;
   }): Load[] => {
     let result = [...loads];
 
@@ -452,11 +453,27 @@ export const portalDb = {
       );
     }
 
-    // Sort: Critical & Alerts first, then by earliest pickup/delivery
+    const sort = filters?.sort || "screen";
+
     return result.sort((a, b) => {
       if (a.isCriticalAlert && !b.isCriticalAlert) return -1;
       if (!a.isCriticalAlert && b.isCriticalAlert) return 1;
-      return new Date(a.pickupTime).getTime() - new Date(b.pickupTime).getTime();
+
+      if (sort === "screen") {
+        if (a.screenIndex !== undefined && b.screenIndex !== undefined) {
+          return a.screenIndex - b.screenIndex;
+        }
+        if (a.screenIndex !== undefined) return -1;
+        if (b.screenIndex !== undefined) return 1;
+        return new Date(a.pickupTime).getTime() - new Date(b.pickupTime).getTime();
+      } else if (sort === "rate") {
+        return (b.rateUSD || 0) - (a.rateUSD || 0);
+      } else if (sort === "status") {
+        return a.status.localeCompare(b.status);
+      } else {
+        // "pickup"
+        return new Date(a.pickupTime).getTime() - new Date(b.pickupTime).getTime();
+      }
     });
   },
 
@@ -515,7 +532,7 @@ export const portalDb = {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    loads.unshift(newLoad);
+    loads.push(newLoad);
 
     if (actor) {
       portalDb.addAuditLog({
@@ -618,11 +635,13 @@ export const portalDb = {
       }
     }
 
-    for (const item of payload.loads) {
+    payload.loads.forEach((item, index) => {
+      const screenIndex = item.screenIndex !== undefined ? item.screenIndex : index;
       const existing = loads.find((l) => l.vrid === item.vrid);
       if (existing) {
         portalDb.updateLoad(existing.id, {
           ...item,
+          screenIndex,
           stops: item.stops && item.stops.length > 0 ? item.stops : existing.stops,
           distanceMiles: item.distanceMiles || existing.distanceMiles,
           totalStopsCount: item.totalStopsCount || item.stops?.length || existing.totalStopsCount,
@@ -635,7 +654,7 @@ export const portalDb = {
           vrid: item.vrid,
           source: item.source || "amazon_relay",
           equipment: item.equipment || "Dry Van (53')",
-          rateUSD: item.rateUSD || 2800.0,
+          rateUSD: typeof item.rateUSD === "number" ? item.rateUSD : 0,
           weightLbs: item.weightLbs || 36000,
           distanceMiles: item.distanceMiles,
           totalStopsCount: item.totalStopsCount || item.stops?.length,
@@ -652,8 +671,8 @@ export const portalDb = {
           stops: item.stops,
           driverName: item.driverName || "Assigned Driver",
           driverPhone: item.driverPhone || "+1 (555) 000-0000",
-          tractorNumber: item.tractorNumber || "UD-TBD",
-          trailerNumber: item.trailerNumber || "TR-TBD",
+          tractorNumber: item.tractorNumber || "UD-AMZ",
+          trailerNumber: item.trailerNumber || "TR-5300",
           carrierName: item.carrierName || "Unique Dispatch Fleet",
           carrierMcDot: item.carrierMcDot || "MC-ACTIVE",
           status: item.status || "upcoming",
@@ -665,11 +684,12 @@ export const portalDb = {
           isCriticalAlert: false,
           hasActiveIncident: false,
           incidentCount: 0,
+          screenIndex,
           notes: item.notes || `Ingested via ${payload.source} on ${new Date().toLocaleTimeString()}`,
         });
         added++;
       }
-    }
+    });
 
     syncMeta = {
       lastSyncAt: new Date().toISOString(),

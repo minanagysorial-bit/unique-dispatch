@@ -23,6 +23,10 @@
   "host_permissions": [
     "https://relay.amazon.com/*",
     "https://*.relay.amazon.com/*",
+    "https://*.amazon.com/*",
+    "https://*.amazon.co.uk/*",
+    "https://*.amazon.de/*",
+    "https://*.amazon.ca/*",
     "http://localhost:*/*",
     "http://127.0.0.1:*/*",
     "https://*/*"
@@ -35,7 +39,11 @@
     {
       "matches": [
         "https://relay.amazon.com/*",
-        "https://*.relay.amazon.com/*"
+        "https://*.relay.amazon.com/*",
+        "https://*.amazon.com/*",
+        "https://*.amazon.co.uk/*",
+        "https://*.amazon.de/*",
+        "https://*.amazon.ca/*"
       ],
       "js": [
         "content/content-script.js"
@@ -51,7 +59,11 @@
       ],
       "matches": [
         "https://relay.amazon.com/*",
-        "https://*.relay.amazon.com/*"
+        "https://*.relay.amazon.com/*",
+        "https://*.amazon.com/*",
+        "https://*.amazon.co.uk/*",
+        "https://*.amazon.de/*",
+        "https://*.amazon.ca/*"
       ]
     }
   ]
