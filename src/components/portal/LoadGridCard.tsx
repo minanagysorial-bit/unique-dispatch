@@ -242,8 +242,21 @@ export default function LoadGridCard({
                   {load.originFacilityCode && <strong className="text-orange-600 font-mono">[{load.originFacilityCode}] </strong>}
                   {load.originCity}, {load.originState}
                 </p>
-                <p className="text-[10px] text-slate-400 font-medium">
-                  {new Date(load.pickupTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true })} EST
+                <p className="text-[10px] text-slate-500 font-bold flex items-center gap-1">
+                  <span>
+                    {(() => {
+                      const d = new Date(load.pickupTime);
+                      const now = new Date();
+                      const isToday = d.toDateString() === now.toDateString();
+                      const tomorrow = new Date();
+                      tomorrow.setDate(tomorrow.getDate() + 1);
+                      const isTom = d.toDateString() === tomorrow.toDateString();
+                      const tStr = d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+                      if (isToday) return `Today • ${tStr} EST`;
+                      if (isTom) return `Tomorrow • ${tStr} EST`;
+                      return `${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })} • ${tStr} EST`;
+                    })()}
+                  </span>
                 </p>
               </div>
             </div>
@@ -263,8 +276,21 @@ export default function LoadGridCard({
                   {load.destFacilityCode && <strong className="text-blue-600 font-mono">[{load.destFacilityCode}] </strong>}
                   {load.destCity}, {load.destState}
                 </p>
-                <p className="text-[10px] text-slate-400 font-medium">
-                  {new Date(load.deliveryTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true })} EST
+                <p className="text-[10px] text-slate-500 font-bold flex items-center gap-1">
+                  <span>
+                    {(() => {
+                      const d = new Date(load.deliveryTime);
+                      const now = new Date();
+                      const isToday = d.toDateString() === now.toDateString();
+                      const tomorrow = new Date();
+                      tomorrow.setDate(tomorrow.getDate() + 1);
+                      const isTom = d.toDateString() === tomorrow.toDateString();
+                      const tStr = d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+                      if (isToday) return `Today • ${tStr} EST`;
+                      if (isTom) return `Tomorrow • ${tStr} EST`;
+                      return `${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })} • ${tStr} EST`;
+                    })()}
+                  </span>
                 </p>
               </div>
             </div>

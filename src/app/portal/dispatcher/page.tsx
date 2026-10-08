@@ -35,12 +35,16 @@ import {
   Package,
   BellRing,
   ClipboardList,
+  Calendar,
+  CalendarDays,
+  CalendarClock,
 } from "lucide-react";
 import { Load, User, ShiftType, EquipmentType, MilestoneType } from "@/lib/portal-types";
 import { playMilestoneChime, playUrgentAlert, playEmergencySiren } from "@/lib/audio-alerts";
 
 type ViewMode = "grid" | "list" | "kanban";
 type ActionFilterType = "all" | "critical" | "needs_pickup_3_5h" | "needs_delivery_30m" | "amazon_relay" | "dat_spot";
+export type ScheduleScopeType = "today_live" | "tomorrow" | "all_scheduled" | "all";
 
 interface SyncHealth {
   status: string;
@@ -59,6 +63,7 @@ export default function DispatcherOperationsBoardPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [criticalOnly, setCriticalOnly] = useState(false);
   const [actionFilter, setActionFilter] = useState<ActionFilterType>("all");
+  const [scheduleScope, setScheduleScope] = useState<ScheduleScopeType>("today_live");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [syncHealth, setSyncHealth] = useState<SyncHealth | null>(null);
 
@@ -386,9 +391,52 @@ export default function DispatcherOperationsBoardPage() {
     }
   };
 
+  // Helper date matchers
+  const isDateToday = (isoStr: string) => {
+    const d = new Date(isoStr);
+    const now = new Date();
+    return (
+      d.getFullYear() === now.getFullYear() &&
+      d.getMonth() === now.getMonth() &&
+      d.getDate() === now.getDate()
+    );
+  };
+
+  const isDateTomorrow = (isoStr: string) => {
+    const d = new Date(isoStr);
+    const tom = new Date();
+    tom.setDate(tom.getDate() + 1);
+    return (
+      d.getFullYear() === tom.getFullYear() &&
+      d.getMonth() === tom.getMonth() &&
+      d.getDate() === tom.getDate()
+    );
+  };
+
+  const isDateFuture = (isoStr: string) => {
+    const d = new Date(isoStr);
+    const tom = new Date();
+    tom.setDate(tom.getDate() + 1);
+    tom.setHours(0, 0, 0, 0);
+    return d.getTime() >= tom.getTime();
+  };
+
   // Metrics summary
   const totalActiveLoads = loads.filter((l) => l.status !== "delivered" && l.status !== "cancelled").length;
   const criticalCount = loads.filter((l) => l.isCriticalAlert || l.hasActiveIncident).length;
+  const tomorrowScheduledCount = loads.filter((l) => isDateTomorrow(l.pickupTime) && l.status !== "delivered").length;
+  const futureScheduledCount = loads.filter((l) => isDateFuture(l.pickupTime) && l.status !== "delivered").length;
+  const todayLiveCount = loads.filter(
+    (l) =>
+      (isDateToday(l.pickupTime) ||
+        l.status === "in_transit" ||
+        l.status === "at_pickup" ||
+        l.status === "at_delivery" ||
+        l.status === "delayed" ||
+        l.status === "critical_alert") &&
+      l.status !== "delivered"
+  ).length;
+
   const pendingPickup3_5h = loads.filter((l) => {
     const hoursToPickup = (new Date(l.pickupTime).getTime() - Date.now()) / (3600 * 1000);
     return !l.pickupCheckinSent && hoursToPickup <= 3.5 && hoursToPickup >= -4 && l.status !== "delivered";
@@ -398,8 +446,30 @@ export default function DispatcherOperationsBoardPage() {
     return !l.deliveryCheckinSent && minsToDelivery <= 30 && minsToDelivery >= -60 && l.status !== "delivered";
   }).length;
 
-  // Filtered loads by Smart Action Pills
+  // Filtered loads by Schedule Scope & Smart Action Pills
   const displayedLoads = loads.filter((l) => {
+    // 1. Schedule Scope filtering
+    if (scheduleScope === "today_live") {
+      const isLiveActive =
+        l.status === "in_transit" ||
+        l.status === "at_pickup" ||
+        l.status === "at_delivery" ||
+        l.status === "delayed" ||
+        l.status === "critical_alert";
+      if (!isDateToday(l.pickupTime) && !isLiveActive && l.status !== "delivered") {
+        return false;
+      }
+    } else if (scheduleScope === "tomorrow") {
+      if (!isDateTomorrow(l.pickupTime)) {
+        return false;
+      }
+    } else if (scheduleScope === "all_scheduled") {
+      if (!isDateFuture(l.pickupTime)) {
+        return false;
+      }
+    }
+
+    // 2. Action Filter
     if (actionFilter === "critical") {
       return l.isCriticalAlert || l.hasActiveIncident || l.status === "delayed" || l.status === "critical_alert";
     }
@@ -566,18 +636,55 @@ export default function DispatcherOperationsBoardPage() {
         </div>
 
         {/* Operations Desk Top Banner & Metrics */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
           
-          {/* Active Dispatched Loads */}
-          <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between">
+          {/* Today Live Operations */}
+          <button
+            onClick={() => {
+              setScheduleScope("today_live");
+              setActionFilter("all");
+            }}
+            className={`p-4 rounded-2xl border text-left shadow-sm flex items-center justify-between transition-all ${
+              scheduleScope === "today_live"
+                ? "bg-blue-50/80 border-blue-400 ring-2 ring-blue-500/20"
+                : "bg-white border-slate-200 hover:border-slate-300"
+            }`}
+          >
             <div>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Active Dispatched</p>
-              <p className="text-2xl font-black text-slate-950 mt-0.5">{totalActiveLoads} Loads</p>
+              <p className="text-xs font-bold text-blue-600 uppercase tracking-wider flex items-center gap-1">
+                <Activity className="w-3.5 h-3.5" />
+                <span>Today's Live</span>
+              </p>
+              <p className="text-2xl font-black text-slate-950 mt-0.5">{todayLiveCount} Active</p>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+            <div className="w-10 h-10 rounded-xl bg-blue-100/70 text-blue-700 flex items-center justify-center font-bold">
               <Truck className="w-5 h-5" />
             </div>
-          </div>
+          </button>
+
+          {/* Tomorrow's Scheduled Planning */}
+          <button
+            onClick={() => {
+              setScheduleScope("tomorrow");
+              setActionFilter("all");
+            }}
+            className={`p-4 rounded-2xl border text-left shadow-sm flex items-center justify-between transition-all ${
+              scheduleScope === "tomorrow"
+                ? "bg-amber-50 border-amber-400 ring-2 ring-amber-500/30"
+                : "bg-white border-slate-200 hover:border-slate-300"
+            }`}
+          >
+            <div>
+              <p className="text-xs font-bold text-amber-600 uppercase tracking-wider flex items-center gap-1">
+                <CalendarDays className="w-3.5 h-3.5" />
+                <span>Scheduled Tomorrow</span>
+              </p>
+              <p className="text-2xl font-black text-amber-900 mt-0.5">{tomorrowScheduledCount} Tours</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold">
+              <CalendarClock className="w-5 h-5" />
+            </div>
+          </button>
 
           {/* Critical Alerts / Breakdowns */}
           <button
@@ -638,8 +745,87 @@ export default function DispatcherOperationsBoardPage() {
 
         </div>
 
+        {/* Planning Mode Banner (when viewing Tomorrow or Future Scheduled) */}
+        {(scheduleScope === "tomorrow" || scheduleScope === "all_scheduled") && (
+          <div className="bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-transparent p-4 rounded-2xl border border-amber-300 text-amber-950 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold shadow-xs">
+                <CalendarDays className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-xs font-black uppercase tracking-wide text-amber-900">
+                  {scheduleScope === "tomorrow" ? "🗓️ Tomorrow's Pre-Dispatch & Schedule Planning Board" : "📅 Future Scheduled Planning Board"}
+                </h4>
+                <p className="text-[11px] text-amber-800 font-medium">
+                  Showing {displayedLoads.length} scheduled tours. Review equipment, verify routes, and pre-assign drivers before execution.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setScheduleScope("today_live")}
+              className="px-3.5 py-1.5 rounded-xl bg-white hover:bg-amber-50 text-amber-900 text-xs font-black border border-amber-300 shadow-xs transition-colors"
+            >
+              ⚡ Return to Today's Live Board
+            </button>
+          </div>
+        )}
+
         {/* Action Controls & Filtering Bar */}
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
+          
+          {/* Day vs Scheduled Scope Switcher */}
+          <div className="flex items-center p-1 rounded-xl bg-slate-100 border border-slate-200 overflow-x-auto">
+            <button
+              type="button"
+              onClick={() => setScheduleScope("today_live")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                scheduleScope === "today_live"
+                  ? "bg-white text-blue-600 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <Activity className="w-3.5 h-3.5" />
+              <span>Today Live ({todayLiveCount})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setScheduleScope("tomorrow")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                scheduleScope === "tomorrow"
+                  ? "bg-amber-500 text-white shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <CalendarDays className="w-3.5 h-3.5" />
+              <span>Tomorrow ({tomorrowScheduledCount})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setScheduleScope("all_scheduled")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                scheduleScope === "all_scheduled"
+                  ? "bg-slate-900 text-orange-400 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <CalendarClock className="w-3.5 h-3.5" />
+              <span>All Future ({futureScheduledCount})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setScheduleScope("all")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                scheduleScope === "all"
+                  ? "bg-white text-slate-900 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <span>All ({loads.length})</span>
+            </button>
+          </div>
           
           {/* Search Box */}
           <div className="relative flex-1 min-w-[220px] max-w-sm">

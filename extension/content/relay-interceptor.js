@@ -1,6 +1,7 @@
 /**
  * Unique Dispatch - Amazon Relay Main-World Network Interceptor
  * Runs in the webpage context to passively intercept Amazon Relay's internal JSON API requests.
+ * Captures all live, scheduled, and future tour schedules.
  */
 
 (function () {
@@ -17,6 +18,20 @@
     }
   }
 
+  function normalizeDate(rawDate, fallbackHoursAhead = 2) {
+    if (!rawDate) {
+      return new Date(Date.now() + fallbackHoursAhead * 3600 * 1000).toISOString();
+    }
+    if (typeof rawDate === "number") {
+      return new Date(rawDate).toISOString();
+    }
+    const d = new Date(rawDate);
+    if (!isNaN(d.getTime())) {
+      return d.toISOString();
+    }
+    return new Date(Date.now() + fallbackHoursAhead * 3600 * 1000).toISOString();
+  }
+
   function normalizeApiTour(item) {
     if (!item || typeof item !== "object") return null;
 
@@ -27,10 +42,12 @@
       item.workOpportunityId ||
       item.loadId ||
       item.tourExecutionId ||
+      item.executionId ||
       item.vrid ||
       item.id ||
       item.tripNumber ||
       item.tourNumber ||
+      item.workOpportunityNumber ||
       "";
 
     const tripId = String(rawId).trim();
@@ -42,12 +59,16 @@
       rateUSD = item.totalPayout;
     } else if (item.payout && typeof item.payout.value === "number") {
       rateUSD = item.payout.value;
+    } else if (item.payout && typeof item.payout.amount === "number") {
+      rateUSD = item.payout.amount;
     } else if (item.rate && typeof item.rate.amount === "number") {
       rateUSD = item.rate.amount;
     } else if (typeof item.rateUSD === "number") {
       rateUSD = item.rateUSD;
     } else if (typeof item.payoutAmount === "number") {
       rateUSD = item.payoutAmount;
+    } else if (typeof item.estimatedCost === "number") {
+      rateUSD = item.estimatedCost;
     }
 
     // 3. Extract Stops / Legs
@@ -57,17 +78,19 @@
       ? item.legs
       : Array.isArray(item.workOpportunityLegs)
       ? item.workOpportunityLegs
+      : Array.isArray(item.tourLegs)
+      ? item.tourLegs
       : [];
 
     let originFacility = item.originFacilityCode || item.originFacility || "";
     let originCity = item.originCity || "";
     let originState = item.originState || "US";
-    let pickupTime = item.pickupTime || item.startTime || "";
+    let pickupTime = item.pickupTime || item.startTime || item.startDate || "";
 
     let destFacility = item.destFacilityCode || item.destinationFacility || "";
     let destCity = item.destCity || "";
     let destState = item.destState || "US";
-    let deliveryTime = item.deliveryTime || item.endTime || "";
+    let deliveryTime = item.deliveryTime || item.endTime || item.endDate || "";
 
     if (stops.length > 0) {
       const firstStop = stops[0];
@@ -78,20 +101,23 @@
         firstStop.facilityId ||
         firstStop.originFacilityCode ||
         firstStop.locationCode ||
+        firstStop.originCode ||
         originFacility;
 
       originCity =
         firstStop.city ||
         firstStop.address?.city ||
         firstStop.location?.city ||
+        firstStop.originCity ||
         originCity ||
         originFacility ||
-        "ORIGIN";
+        "Amazon Origin";
 
       originState =
         firstStop.state ||
         firstStop.address?.state ||
         firstStop.location?.state ||
+        firstStop.originState ||
         originState;
 
       pickupTime =
@@ -100,6 +126,7 @@
         firstStop.departureEarliest ||
         firstStop.arrivalEarliest ||
         firstStop.windowStart ||
+        firstStop.startTime ||
         pickupTime;
 
       destFacility =
@@ -107,20 +134,23 @@
         lastStop.facilityId ||
         lastStop.destFacilityCode ||
         lastStop.locationCode ||
+        lastStop.destCode ||
         destFacility;
 
       destCity =
         lastStop.city ||
         lastStop.address?.city ||
         lastStop.location?.city ||
+        lastStop.destCity ||
         destCity ||
         destFacility ||
-        "DEST";
+        "Amazon Destination";
 
       destState =
         lastStop.state ||
         lastStop.address?.state ||
         lastStop.location?.state ||
+        lastStop.destState ||
         destState;
 
       deliveryTime =
@@ -129,13 +159,12 @@
         lastStop.arrivalLatest ||
         lastStop.departureLatest ||
         lastStop.windowEnd ||
+        lastStop.endTime ||
         deliveryTime;
     }
 
-    // Default timestamps if missing from API
-    const now = Date.now();
-    if (!pickupTime) pickupTime = new Date(now + 2 * 3600 * 1000).toISOString();
-    if (!deliveryTime) deliveryTime = new Date(now + 16 * 3600 * 1000).toISOString();
+    pickupTime = normalizeDate(pickupTime, 2);
+    deliveryTime = normalizeDate(deliveryTime, 16);
 
     // 4. Equipment
     const rawEquipment =
@@ -160,14 +189,14 @@
 
     // 6. Status
     let status = "upcoming";
-    const rawStatus = String(item.status || item.executionStatus || "").toUpperCase();
-    if (rawStatus.includes("TRANSIT") || rawStatus.includes("EN_ROUTE") || rawStatus.includes("ACTIVE")) {
+    const rawStatus = String(item.status || item.executionStatus || item.state || "").toUpperCase();
+    if (rawStatus.includes("TRANSIT") || rawStatus.includes("EN_ROUTE") || rawStatus.includes("ACTIVE") || rawStatus.includes("ON_ROAD")) {
       status = "in_transit";
-    } else if (rawStatus.includes("COMPLET") || rawStatus.includes("DELIVER")) {
+    } else if (rawStatus.includes("COMPLET") || rawStatus.includes("DELIVER") || rawStatus.includes("FINISHED")) {
       status = "delivered";
-    } else if (rawStatus.includes("DELAY")) {
+    } else if (rawStatus.includes("DELAY") || rawStatus.includes("AT_RISK")) {
       status = "delayed";
-    } else if (rawStatus.includes("CANCEL")) {
+    } else if (rawStatus.includes("CANCEL") || rawStatus.includes("VOID")) {
       status = "cancelled";
     }
 
@@ -188,11 +217,11 @@
       status,
       driverName: item.driverName || item.assignedDriver?.name || "Assigned Driver",
       driverPhone: item.driverPhone || item.assignedDriver?.phone || "+1 (555) 000-0000",
-      tractorNumber: item.tractorNumber || item.vehicleId || "UD-TBD",
-      trailerNumber: item.trailerNumber || "TR-TBD",
+      tractorNumber: item.tractorNumber || item.vehicleId || "UD-AMZ",
+      trailerNumber: item.trailerNumber || "TR-5300",
       carrierName: item.carrierName || "Unique Dispatch Fleet",
       carrierMcDot: item.carrierMcDot || "MC-ACTIVE",
-      notes: `Captured via Amazon Relay API Interceptor at ${new Date().toLocaleTimeString()}`,
+      notes: `Captured via Amazon Relay API Interceptor on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}`,
     };
   }
 
@@ -201,30 +230,45 @@
 
     let candidateList = [];
 
-    if (Array.isArray(data)) {
-      candidateList = data;
-    } else if (typeof data === "object") {
-      if (Array.isArray(data.tours)) candidateList = data.tours;
-      else if (Array.isArray(data.trips)) candidateList = data.trips;
-      else if (Array.isArray(data.workOpportunities)) candidateList = data.workOpportunities;
-      else if (Array.isArray(data.loads)) candidateList = data.loads;
-      else if (Array.isArray(data.items)) candidateList = data.items;
-      else if (Array.isArray(data.content)) candidateList = data.content;
-      else if (data.data && typeof data.data === "object") {
-        // GraphQL response
-        for (const k of Object.keys(data.data)) {
-          const val = data.data[k];
-          if (Array.isArray(val)) {
-            candidateList = val;
-            break;
-          } else if (val && typeof val === "object") {
-            if (Array.isArray(val.tours || val.trips || val.workOpportunities || val.items || val.edges)) {
-              candidateList = val.tours || val.trips || val.workOpportunities || val.items || val.edges;
-              break;
+    function findArrays(obj, depth = 0) {
+      if (!obj || depth > 4) return;
+      if (Array.isArray(obj)) {
+        if (obj.length > 0 && typeof obj[0] === "object") {
+          candidateList.push(...obj);
+        }
+        return;
+      }
+      if (typeof obj === "object") {
+        for (const key of Object.keys(obj)) {
+          const val = obj[key];
+          if (
+            key.toLowerCase().includes("tour") ||
+            key.toLowerCase().includes("trip") ||
+            key.toLowerCase().includes("workopportunit") ||
+            key.toLowerCase().includes("load") ||
+            key.toLowerCase().includes("schedule") ||
+            key.toLowerCase().includes("item") ||
+            key.toLowerCase().includes("edge") ||
+            key.toLowerCase().includes("node") ||
+            key.toLowerCase().includes("content") ||
+            key.toLowerCase().includes("result")
+          ) {
+            if (Array.isArray(val)) {
+              candidateList.push(...val);
+            } else if (val && typeof val === "object") {
+              findArrays(val, depth + 1);
             }
+          } else if (val && typeof val === "object") {
+            findArrays(val, depth + 1);
           }
         }
       }
+    }
+
+    findArrays(data);
+
+    if (candidateList.length === 0 && Array.isArray(data)) {
+      candidateList = data;
     }
 
     if (candidateList.length === 0) return;
@@ -233,8 +277,7 @@
     const seenIds = new Set();
 
     candidateList.forEach((raw) => {
-      // If edges format (GraphQL)
-      const item = raw.node ? raw.node : raw;
+      const item = raw && raw.node ? raw.node : raw;
       const tour = normalizeApiTour(item);
       if (tour && tour.vrid && !seenIds.has(tour.vrid)) {
         seenIds.add(tour.vrid);
@@ -243,7 +286,7 @@
     });
 
     if (normalized.length > 0) {
-      console.log(`🚚 [Unique Dispatch] Intercepted ${normalized.length} active tours from Relay API (${sourceUrl})`);
+      console.log(`🚚 [Unique Dispatch] Intercepted ${normalized.length} tours from Relay API (${sourceUrl})`);
       window.postMessage(
         {
           type: "UD_RELAY_RAW_API_TOURS",
@@ -261,26 +304,18 @@
     const response = await originalFetch.apply(this, args);
     try {
       const url = typeof args[0] === "string" ? args[0] : (args[0] && args[0].url) || "";
-      if (
-        url.includes("relay.amazon.com") ||
-        url.includes("/api/") ||
-        url.includes("graphql") ||
-        url.includes("tour") ||
-        url.includes("trip") ||
-        url.includes("work-opportunities") ||
-        url.includes("loadboard")
-      ) {
-        const clone = response.clone();
-        clone
-          .text()
-          .then((text) => {
+      const clone = response.clone();
+      clone
+        .text()
+        .then((text) => {
+          if (text && (text.startsWith("{") || text.startsWith("["))) {
             const parsed = safeParseJson(text);
             if (parsed) {
               handlePossibleRelayData(parsed, url);
             }
-          })
-          .catch(() => {});
-      }
+          }
+        })
+        .catch(() => {});
     } catch (e) {}
     return response;
   };
@@ -298,21 +333,11 @@
     this.addEventListener("load", function () {
       try {
         const url = this._ud_url || "";
-        if (
-          url.includes("relay.amazon.com") ||
-          url.includes("/api/") ||
-          url.includes("graphql") ||
-          url.includes("tour") ||
-          url.includes("trip") ||
-          url.includes("work-opportunities") ||
-          url.includes("loadboard")
-        ) {
-          const text = this.responseText;
-          if (text && (text.startsWith("{") || text.startsWith("["))) {
-            const parsed = safeParseJson(text);
-            if (parsed) {
-              handlePossibleRelayData(parsed, url);
-            }
+        const text = this.responseText;
+        if (text && (text.startsWith("{") || text.startsWith("["))) {
+          const parsed = safeParseJson(text);
+          if (parsed) {
+            handlePossibleRelayData(parsed, url);
           }
         }
       } catch (e) {}
