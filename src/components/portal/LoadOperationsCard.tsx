@@ -382,6 +382,34 @@ export default function LoadOperationsCard({
         <div className="flex items-center gap-2">
           <button
             type="button"
+            onClick={async () => {
+              try {
+                const { getSavedTemplates, renderTemplateWithLoad } = await import("@/lib/custom-templates");
+                const templates = getSavedTemplates();
+                const targetKey = is30mDeliveryAlert
+                  ? "delivery_checkin_30m"
+                  : is3_5hPickupAlert
+                  ? "pickup_checkin_3_5h"
+                  : "pickup_checkin_3_5h";
+                const matched = templates.find((t) => t.milestoneKey === targetKey) || templates[0];
+                if (matched) {
+                  const txt = renderTemplateWithLoad(matched.templateText, load);
+                  await navigator.clipboard.writeText(txt);
+                  alert("✓ تم نسخ رسالة الشحنة بنجاح إلى الحافظة!");
+                }
+              } catch (e) {
+                console.error(e);
+              }
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-50 hover:bg-orange-100 text-orange-800 font-bold text-xs border border-orange-200 transition-colors"
+            title="نسخ الرسالة الجاهزة للشحنة فوراً"
+          >
+            <Send className="w-3.5 h-3.5 text-orange-600" />
+            <span>نسخ الرسالة</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setIsEscalateOpen(true)}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-100 hover:bg-red-200 text-red-800 font-bold text-xs transition-colors"
           >

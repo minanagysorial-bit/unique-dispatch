@@ -7,6 +7,7 @@ import IncidentFeedTable from "@/components/portal/IncidentFeedTable";
 import AuditTrailViewer from "@/components/portal/AuditTrailViewer";
 import UserManagementModal from "@/components/portal/UserManagementModal";
 import ChromeExtensionGuide from "@/components/portal/ChromeExtensionGuide";
+import TemplateEditorModal from "@/components/portal/TemplateEditorModal";
 import {
   LayoutDashboard,
   ShieldAlert,
@@ -44,6 +45,7 @@ export default function SuperAdminDashboardPage() {
   // Modals
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
+  const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
 
   const fetchDashboardData = async () => {
     try {
@@ -113,6 +115,7 @@ export default function SuperAdminDashboardPage() {
         currentUser={currentUser}
         currentShift={currentShift}
         onShiftChange={(s) => setCurrentShift(s)}
+        onOpenTemplatesModal={() => setIsTemplatesOpen(true)}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
@@ -141,6 +144,15 @@ export default function SuperAdminDashboardPage() {
 
           {/* Action CTAs */}
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsTemplatesOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 text-xs font-bold border border-orange-200 transition-colors shadow-xs"
+              title="تعديل وتثبيت قوالب الرسائل الجاهزة"
+            >
+              <FileText className="w-4 h-4 text-orange-600" />
+              <span>قوالب الرسائل</span>
+            </button>
+
             <button
               onClick={() => setIsUserModalOpen(true)}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-black uppercase tracking-wider shadow transition-colors"
@@ -252,6 +264,14 @@ export default function SuperAdminDashboardPage() {
         <ChromeExtensionGuide
           isOpen={isGuideOpen}
           onClose={() => setIsGuideOpen(false)}
+        />
+      )}
+
+      {/* Message Templates Manager Modal */}
+      {isTemplatesOpen && (
+        <TemplateEditorModal
+          isOpen={isTemplatesOpen}
+          onClose={() => setIsTemplatesOpen(false)}
         />
       )}
 

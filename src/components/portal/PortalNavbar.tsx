@@ -18,6 +18,7 @@ import {
   FileSpreadsheet,
   Layers,
   ChevronDown,
+  FileText,
 } from "lucide-react";
 import Logo from "@/components/Logo";
 import { User, ShiftType } from "@/lib/portal-types";
@@ -29,6 +30,7 @@ interface PortalNavbarProps {
   onOpenHandoverModal?: () => void;
   onOpenImportModal?: () => void;
   onOpenNewLoadModal?: () => void;
+  onOpenTemplatesModal?: () => void;
 }
 
 export default function PortalNavbar({
@@ -38,6 +40,7 @@ export default function PortalNavbar({
   onOpenHandoverModal,
   onOpenImportModal,
   onOpenNewLoadModal,
+  onOpenTemplatesModal,
 }: PortalNavbarProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -187,7 +190,18 @@ export default function PortalNavbar({
         {/* Right User & Actions Menu */}
         <div className="flex items-center gap-2 sm:gap-3">
           
-          {/* Quick Actions (Handover & Import) */}
+          {/* Quick Actions (Templates, Handover & Import) */}
+          {onOpenTemplatesModal && (
+            <button
+              onClick={onOpenTemplatesModal}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-600/20 hover:bg-orange-600/30 text-orange-400 text-xs font-bold border border-orange-500/40 transition-colors shadow"
+              title="Message Templates Manager (قوالب الرسائل)"
+            >
+              <FileText className="w-3.5 h-3.5 text-orange-400" />
+              <span>قوالب الرسائل</span>
+            </button>
+          )}
+
           {onOpenHandoverModal && (
             <button
               onClick={onOpenHandoverModal}
@@ -243,6 +257,19 @@ export default function PortalNavbar({
                   <Truck className="w-4 h-4 text-orange-400" />
                   <span>Operations Board</span>
                 </Link>
+
+                {onOpenTemplatesModal && (
+                  <button
+                    onClick={() => {
+                      setUserDropdownOpen(false);
+                      onOpenTemplatesModal();
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white text-left"
+                  >
+                    <FileText className="w-4 h-4 text-orange-400" />
+                    <span>مدير قوالب الرسائل</span>
+                  </button>
+                )}
 
                 {isSuperAdmin && (
                   <Link

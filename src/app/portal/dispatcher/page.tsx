@@ -3,9 +3,11 @@
 import React, { useState, useEffect, useCallback } from "react";
 import PortalNavbar from "@/components/portal/PortalNavbar";
 import LoadOperationsCard from "@/components/portal/LoadOperationsCard";
+import LoadGridCard from "@/components/portal/LoadGridCard";
 import ShiftHandoverModal from "@/components/portal/ShiftHandoverModal";
 import CsvImportModal from "@/components/portal/CsvImportModal";
 import ChromeExtensionGuide from "@/components/portal/ChromeExtensionGuide";
+import TemplateEditorModal from "@/components/portal/TemplateEditorModal";
 import {
   Truck,
   AlertTriangle,
@@ -21,8 +23,14 @@ import {
   Upload,
   Layers,
   Sparkles,
+  LayoutGrid,
+  List,
+  Columns3,
+  FileText,
 } from "lucide-react";
 import { Load, User, ShiftType, EquipmentType } from "@/lib/portal-types";
+
+type ViewMode = "grid" | "list" | "kanban";
 
 export default function DispatcherOperationsBoardPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -32,12 +40,14 @@ export default function DispatcherOperationsBoardPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [criticalOnly, setCriticalOnly] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
 
   // Modals
   const [isHandoverOpen, setIsHandoverOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [isCreateLoadOpen, setIsCreateLoadOpen] = useState(false);
+  const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
 
   // New Load Form State
   const [newVrid, setNewVrid] = useState("");
@@ -53,6 +63,27 @@ export default function DispatcherOperationsBoardPage() {
   const [newRate, setNewRate] = useState("3200");
   const [isCreating, setIsCreating] = useState(false);
 
+  // Load preferred view mode from localStorage
+  useEffect(() => {
+    try {
+      const savedMode = localStorage.getItem("unique_dispatch_view_mode") as ViewMode;
+      if (savedMode && ["grid", "list", "kanban"].includes(savedMode)) {
+        setViewMode(savedMode);
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, []);
+
+  const handleViewModeChange = (mode: ViewMode) => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem("unique_dispatch_view_mode", mode);
+    } catch (e) {
+      // ignore
+    }
+  };
+
   // Fetch Current User
   const fetchUser = async () => {
     try {
@@ -64,7 +95,7 @@ export default function DispatcherOperationsBoardPage() {
           setCurrentShift(data.user.assignedShift);
         }
       } else {
-        // Default fallback mock user if no cookie
+        // Fallback user
         setCurrentUser({
           id: "usr-disp-01",
           name: "Alex Reed",
@@ -176,6 +207,20 @@ export default function DispatcherOperationsBoardPage() {
     return !l.deliveryCheckinSent && minsToDelivery <= 30 && minsToDelivery >= -60 && l.status !== "delivered";
   }).length;
 
+  // Kanban categorized loads
+  const kanbanUpcoming = loads.filter(
+    (l) => (l.status === "upcoming" || l.status === "en_route_pickup") && !l.isCriticalAlert && !l.hasActiveIncident
+  );
+  const kanbanActive = loads.filter(
+    (l) => (l.status === "at_pickup" || l.status === "in_transit" || l.status === "at_delivery") && !l.isCriticalAlert && !l.hasActiveIncident
+  );
+  const kanbanCritical = loads.filter(
+    (l) => l.isCriticalAlert || l.hasActiveIncident || l.status === "delayed" || l.status === "critical_alert"
+  );
+  const kanbanDelivered = loads.filter(
+    (l) => l.status === "delivered"
+  );
+
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col">
       
@@ -186,6 +231,7 @@ export default function DispatcherOperationsBoardPage() {
         onShiftChange={(s) => setCurrentShift(s)}
         onOpenHandoverModal={() => setIsHandoverOpen(true)}
         onOpenImportModal={() => setIsImportOpen(true)}
+        onOpenTemplatesModal={() => setIsTemplatesOpen(true)}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
@@ -253,7 +299,7 @@ export default function DispatcherOperationsBoardPage() {
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
           
           {/* Search Box */}
-          <div className="relative flex-1 min-w-[240px] max-w-md">
+          <div className="relative flex-1 min-w-[220px] max-w-sm">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
             <input
               type="text"
@@ -283,8 +329,63 @@ export default function DispatcherOperationsBoardPage() {
             </select>
           </div>
 
+          {/* View Mode Switcher (Grid vs List vs Kanban) */}
+          <div className="flex items-center p-1 rounded-xl bg-slate-100 border border-slate-200">
+            <button
+              type="button"
+              onClick={() => handleViewModeChange("grid")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                viewMode === "grid"
+                  ? "bg-white text-orange-600 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+              title="عرض الكروت المتجاورة (Grid Cards)"
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">كروت جنب بعض</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleViewModeChange("list")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                viewMode === "list"
+                  ? "bg-white text-orange-600 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+              title="عرض القائمة المفصل (Detailed Rows)"
+            >
+              <List className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">قائمة مفصلة</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleViewModeChange("kanban")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                viewMode === "kanban"
+                  ? "bg-white text-orange-600 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+              title="عرض الأعمدة (Kanban Columns)"
+            >
+              <Columns3 className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">أعمدة</span>
+            </button>
+          </div>
+
           {/* Action Buttons */}
           <div className="flex items-center gap-2">
+            {/* Open Templates Manager */}
+            <button
+              onClick={() => setIsTemplatesOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 text-xs font-bold border border-orange-200 transition-colors shadow-xs"
+              title="تعديل وتثبيت قوالب الرسائل الجاهزة"
+            >
+              <FileText className="w-4 h-4 text-orange-600" />
+              <span>قوالب الرسائل</span>
+            </button>
+
             <button
               onClick={() => setIsCreateLoadOpen(true)}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-black uppercase tracking-wider shadow transition-colors"
@@ -295,11 +396,11 @@ export default function DispatcherOperationsBoardPage() {
 
             <button
               onClick={() => setIsGuideOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-colors"
+              className="hidden lg:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-colors"
               title="Amazon Relay Extension Setup Guide"
             >
               <Layers className="w-3.5 h-3.5 text-orange-400" />
-              <span>Relay Sync Script</span>
+              <span>Relay Sync</span>
             </button>
 
             <button
@@ -313,7 +414,7 @@ export default function DispatcherOperationsBoardPage() {
 
         </div>
 
-        {/* Load Cards Stream */}
+        {/* Load Display Views */}
         {loading ? (
           <div className="py-20 text-center space-y-3">
             <RefreshCw className="w-8 h-8 text-orange-600 animate-spin mx-auto" />
@@ -343,8 +444,109 @@ export default function DispatcherOperationsBoardPage() {
               </button>
             </div>
           </div>
+        ) : viewMode === "grid" ? (
+          /* View 1: Grid Cards View (كروت كدة جنب بعض) */
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-in fade-in duration-200">
+            {loads.map((load) => (
+              <LoadGridCard
+                key={load.id}
+                load={load}
+                onLoadUpdated={handleLoadUpdated}
+              />
+            ))}
+          </div>
+        ) : viewMode === "kanban" ? (
+          /* View 2: Kanban Columns Swimlane View */
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-in fade-in duration-200">
+            
+            {/* Column 1: Upcoming & Pre-Trip */}
+            <div className="space-y-3 bg-slate-200/50 p-3 rounded-3xl border border-slate-200/80">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-amber-600" />
+                  <span>قبل التحميل ({kanbanUpcoming.length})</span>
+                </span>
+                <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full">
+                  Upcoming
+                </span>
+              </div>
+              <div className="space-y-3">
+                {kanbanUpcoming.map((l) => (
+                  <LoadGridCard key={l.id} load={l} onLoadUpdated={handleLoadUpdated} />
+                ))}
+                {kanbanUpcoming.length === 0 && (
+                  <p className="text-center text-slate-400 text-xs py-8 font-medium">لا توجد رحلات قادمة</p>
+                )}
+              </div>
+            </div>
+
+            {/* Column 2: Active / In-Transit */}
+            <div className="space-y-3 bg-slate-200/50 p-3 rounded-3xl border border-slate-200/80">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <Truck className="w-3.5 h-3.5 text-blue-600" />
+                  <span>في الطريق ({kanbanActive.length})</span>
+                </span>
+                <span className="text-[10px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full">
+                  In Transit
+                </span>
+              </div>
+              <div className="space-y-3">
+                {kanbanActive.map((l) => (
+                  <LoadGridCard key={l.id} load={l} onLoadUpdated={handleLoadUpdated} />
+                ))}
+                {kanbanActive.length === 0 && (
+                  <p className="text-center text-slate-400 text-xs py-8 font-medium">لا توجد رحلات في الطريق</p>
+                )}
+              </div>
+            </div>
+
+            {/* Column 3: Critical & Delayed */}
+            <div className="space-y-3 bg-red-50/70 p-3 rounded-3xl border border-red-200/80">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-xs font-black text-red-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
+                  <span>أعطال وتأخير ({kanbanCritical.length})</span>
+                </span>
+                <span className="text-[10px] bg-red-600 text-white font-bold px-2 py-0.5 rounded-full">
+                  Urgent
+                </span>
+              </div>
+              <div className="space-y-3">
+                {kanbanCritical.map((l) => (
+                  <LoadGridCard key={l.id} load={l} onLoadUpdated={handleLoadUpdated} />
+                ))}
+                {kanbanCritical.length === 0 && (
+                  <p className="text-center text-slate-400 text-xs py-8 font-medium">لا توجد بلاغات أعطال حرجة</p>
+                )}
+              </div>
+            </div>
+
+            {/* Column 4: Delivered */}
+            <div className="space-y-3 bg-slate-200/50 p-3 rounded-3xl border border-slate-200/80">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>تم التسليم ({kanbanDelivered.length})</span>
+                </span>
+                <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
+                  Delivered
+                </span>
+              </div>
+              <div className="space-y-3">
+                {kanbanDelivered.map((l) => (
+                  <LoadGridCard key={l.id} load={l} onLoadUpdated={handleLoadUpdated} />
+                ))}
+                {kanbanDelivered.length === 0 && (
+                  <p className="text-center text-slate-400 text-xs py-8 font-medium">لا توجد رحلات منتهية</p>
+                )}
+              </div>
+            </div>
+
+          </div>
         ) : (
-          <div className="space-y-4">
+          /* View 3: Detailed List Rows View */
+          <div className="space-y-4 animate-in fade-in duration-200">
             {loads.map((load) => (
               <LoadOperationsCard
                 key={load.id}
@@ -356,6 +558,14 @@ export default function DispatcherOperationsBoardPage() {
         )}
 
       </main>
+
+      {/* Message Templates Manager Modal */}
+      {isTemplatesOpen && (
+        <TemplateEditorModal
+          isOpen={isTemplatesOpen}
+          onClose={() => setIsTemplatesOpen(false)}
+        />
+      )}
 
       {/* Shift Handover Modal */}
       {isHandoverOpen && (
@@ -388,7 +598,7 @@ export default function DispatcherOperationsBoardPage() {
       {/* Create Manual Load Drawer */}
       {isCreateLoadOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
             
             <div className="bg-[#0f172a] text-white px-6 py-4 flex items-center justify-between border-b border-slate-800">
               <h3 className="text-base font-black tracking-tight">Create / Dispatch New Load</h3>
@@ -450,7 +660,7 @@ export default function DispatcherOperationsBoardPage() {
                     value={newOriginState}
                     onChange={(e) => setNewOriginState(e.target.value)}
                     placeholder="NY"
-                    className="w-full px-3 py-1.5 rounded-lg border border-slate-300"
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-bold uppercase"
                   />
                 </div>
                 <div className="space-y-1">
@@ -460,7 +670,7 @@ export default function DispatcherOperationsBoardPage() {
                     value={newOriginCode}
                     onChange={(e) => setNewOriginCode(e.target.value)}
                     placeholder="JFK8"
-                    className="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-bold"
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-mono font-bold uppercase"
                   />
                 </div>
               </div>
@@ -486,7 +696,7 @@ export default function DispatcherOperationsBoardPage() {
                     value={newDestState}
                     onChange={(e) => setNewDestState(e.target.value)}
                     placeholder="IL"
-                    className="w-full px-3 py-1.5 rounded-lg border border-slate-300"
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-bold uppercase"
                   />
                 </div>
                 <div className="space-y-1">
@@ -496,43 +706,50 @@ export default function DispatcherOperationsBoardPage() {
                     value={newDestCode}
                     onChange={(e) => setNewDestCode(e.target.value)}
                     placeholder="MDW2"
-                    className="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-bold"
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-mono font-bold uppercase"
                   />
                 </div>
               </div>
 
-              {/* Driver Details */}
-              <div className="grid grid-cols-2 gap-3">
+              {/* Driver & Rate */}
+              <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1">
                   <label className="font-bold text-slate-700">Driver Name *</label>
                   <input
-                    required
                     type="text"
                     value={newDriverName}
                     onChange={(e) => setNewDriverName(e.target.value)}
-                    placeholder="e.g. Marcus Holloway"
+                    placeholder="Marcus Holloway"
                     className="w-full px-3 py-2 rounded-lg border border-slate-300"
                   />
                 </div>
-
                 <div className="space-y-1">
                   <label className="font-bold text-slate-700">Driver Phone *</label>
                   <input
-                    required
                     type="text"
                     value={newDriverPhone}
                     onChange={(e) => setNewDriverPhone(e.target.value)}
                     placeholder="+1 (312) 555-0192"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-700">Rate USD ($)</label>
+                  <input
+                    type="number"
+                    value={newRate}
+                    onChange={(e) => setNewRate(e.target.value)}
+                    placeholder="3200"
                     className="w-full px-3 py-2 rounded-lg border border-slate-300 font-bold"
                   />
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t">
+              <div className="flex justify-end gap-2 pt-2 border-t">
                 <button
                   type="button"
                   onClick={() => setIsCreateLoadOpen(false)}
-                  className="px-4 py-2 rounded-lg border border-slate-300 font-bold"
+                  className="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 font-bold"
                 >
                   Cancel
                 </button>
@@ -541,7 +758,7 @@ export default function DispatcherOperationsBoardPage() {
                   disabled={isCreating}
                   className="px-5 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-black uppercase tracking-wider shadow"
                 >
-                  {isCreating ? "Saving..." : "Create & Dispatch"}
+                  {isCreating ? "Creating..." : "Confirm & Dispatch Load"}
                 </button>
               </div>
 
