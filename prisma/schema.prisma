@@ -1,0 +1,249 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  super_admin
+  dispatcher
+}
+
+enum ShiftType {
+  morning
+  night
+}
+
+enum LoadStatus {
+  upcoming
+  en_route_pickup
+  at_pickup
+  in_transit
+  at_delivery
+  delivered
+  delayed
+  critical_alert
+  cancelled
+}
+
+enum EquipmentType {
+  DRY_VAN_53
+  REEFER_53
+  FLATBED
+  STEP_DECK
+  BOX_TRUCK_26FT
+  POWER_ONLY
+}
+
+enum IncidentCategory {
+  breakdown
+  layover
+  detention
+  weather
+  facility_delay
+  roc_delay
+  driver_emergency
+  refused_load
+}
+
+enum IncidentSeverity {
+  low
+  medium
+  high
+  critical
+}
+
+enum IncidentStatus {
+  open
+  under_investigation
+  resolved
+  claim_filed
+}
+
+enum MilestoneType {
+  pickup_checkin_3_5h
+  at_pickup_verify
+  in_transit_checkin
+  delivery_checkin_30m
+  at_delivery_verify
+  pod_bol_collection
+}
+
+model User {
+  id             String          @id @default(uuid())
+  name           String
+  email          String          @unique
+  passwordHash   String
+  role           UserRole        @default(dispatcher)
+  assignedShift  ShiftType?      @default(morning)
+  phone          String?
+  avatar         String?
+  isActive       Boolean         @default(true)
+  lastLoginAt    DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  assignedLoads   Load[]          @relation("AssignedDispatcher")
+  messageLogs     MessageLog[]
+  incidentReports IncidentReport[]
+  auditLogs       AuditLog[]
+  handoversSent   ShiftHandover[] @relation("HandoverSender")
+
+  @@map("users")
+}
+
+model Load {
+  id                  String          @id @default(uuid())
+  vrid                String          @unique
+  source              String          @default("amazon_relay")
+  equipment           String          @default("Dry Van (53')")
+  rateUSD             Decimal?        @db.Decimal(10, 2)
+  weightLbs           Int?
+
+  // Origin Details
+  originCity          String
+  originState         String
+  originAddress       String?
+  originFacilityCode  String?
+  pickupTime          DateTime
+
+  // Destination Details
+  destCity            String
+  destState           String
+  destAddress         String?
+  destFacilityCode    String?
+  deliveryTime        DateTime
+
+  // Driver & Equipment
+  driverName          String
+  driverPhone         String
+  tractorNumber       String
+  trailerNumber       String
+  carrierName         String?
+  carrierMcDot        String?
+
+  // Operations
+  status              LoadStatus      @default(upcoming)
+  currentShift        ShiftType       @default(morning)
+  pickupCheckinSent   Boolean         @default(false)
+  pickupCheckinSentAt DateTime?
+  deliveryCheckinSent Boolean         @default(false)
+  deliveryCheckinSentAt DateTime?
+  
+  isCriticalAlert     Boolean         @default(false)
+  alertReason         String?
+  hasActiveIncident   Boolean         @default(false)
+  notes               String?
+
+  assignedDispatcherId String?
+  assignedDispatcher   User?          @relation("AssignedDispatcher", fields: [assignedDispatcherId], references: [id])
+
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  messageLogs         MessageLog[]
+  incidents           IncidentReport[]
+
+  @@index([status])
+  @@index([currentShift])
+  @@index([pickupTime])
+  @@index([deliveryTime])
+  @@map("loads")
+}
+
+model MessageLog {
+  id              String        @id @default(uuid())
+  loadId          String
+  load            Load          @relation(fields: [loadId], references: [id], onDelete: Cascade)
+  
+  dispatcherId    String
+  dispatcher      User          @relation(fields: [dispatcherId], references: [id])
+  
+  driverName      String
+  driverPhone     String
+  milestone       MilestoneType
+  messageContent  String
+  channel         String        @default("sms")
+  status          String        @default("sent")
+  responseTimeMin Int?
+  sentAt          DateTime      @default(now())
+
+  @@index([loadId])
+  @@index([dispatcherId])
+  @@index([sentAt])
+  @@map("message_logs")
+}
+
+model IncidentReport {
+  id              String            @id @default(uuid())
+  loadId          String
+  load            Load              @relation(fields: [loadId], references: [id], onDelete: Cascade)
+  
+  reportedById    String
+  reportedBy      User              @relation(fields: [reportedById], references: [id])
+  
+  category        IncidentCategory
+  severity        IncidentSeverity  @default(medium)
+  status          IncidentStatus    @default(open)
+  location        String?
+  description     String
+  actionsTaken    String?
+  detentionHours  Decimal?          @db.Decimal(5, 2)
+  claimAmountUSD  Decimal?          @db.Decimal(10, 2)
+  
+  reportedAt      DateTime          @default(now())
+  resolvedAt      DateTime?
+  resolvedBy      String?
+  resolutionNotes String?
+
+  @@index([status])
+  @@index([category])
+  @@index([reportedAt])
+  @@map("incident_reports")
+}
+
+model ShiftHandover {
+  id                  String      @id @default(uuid())
+  fromDispatcherId    String
+  fromDispatcher      User        @relation("HandoverSender", fields: [fromDispatcherId], references: [id])
+  
+  fromShift           ShiftType
+  toShift             ShiftType
+  date                String
+  activeLoadsCount    Int         @default(0)
+  criticalLoadsCount  Int         @default(0)
+  watchItems          String[]
+  generalNotes        String
+  submittedAt         DateTime    @default(now())
+  acknowledgedBy      String?
+  acknowledgedAt      DateTime?
+
+  @@index([date])
+  @@map("shift_handovers")
+}
+
+model AuditLog {
+  id          String      @id @default(uuid())
+  timestamp   DateTime    @default(now())
+  actorId     String
+  actor       User        @relation(fields: [actorId], references: [id])
+  actorName   String
+  actorRole   UserRole
+  action      String
+  targetType  String
+  targetId    String?
+  details     String
+  ipAddress   String?
+
+  @@index([timestamp])
+  @@index([actorId])
+  @@index([action])
+  @@map("audit_logs")
+}

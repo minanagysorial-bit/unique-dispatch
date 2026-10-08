@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Phone, Mail, Clock, Menu, X, ArrowRight, MessageSquare, ShieldCheck } from "lucide-react";
+import { Phone, Mail, Clock, Menu, X, ArrowRight, MessageSquare, ShieldCheck, Truck } from "lucide-react";
 import Logo from "@/components/Logo";
 import { COMPANY_INFO } from "@/lib/constants";
 
@@ -111,10 +111,19 @@ export default function Navbar() {
           </nav>
 
           {/* Right Action CTA Button */}
-          <div className="hidden sm:flex items-center">
+          <div className="hidden sm:flex items-center gap-2">
+            <Link
+              href="/portal/login"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-colors shadow-sm"
+              title="Dispatcher & Admin Operations Portal"
+            >
+              <Truck className="w-3.5 h-3.5 text-orange-400" />
+              <span>Dispatcher Portal</span>
+            </Link>
+
             <a
-              href="#contact-us"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md bg-orange-600 hover:bg-orange-700 text-white font-black text-xs uppercase tracking-wider shadow-md hover:shadow-lg transition-all active:scale-95"
+              href="/#contact-us"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-orange-600 hover:bg-orange-700 text-white font-black text-xs uppercase tracking-wider shadow-md hover:shadow-lg transition-all active:scale-95"
             >
               <span>Get A Quote</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -155,14 +164,14 @@ export default function Navbar() {
                 <Phone className="w-4 h-4 text-orange-400" />
                 Call US Dispatch: {COMPANY_INFO.contacts.phoneUSDisplay}
               </a>
-              <a
-                href="#contact-us"
+              <Link
+                href="/portal/login"
                 onClick={() => setMobileMenuOpen(false)}
                 className="flex items-center justify-center gap-2 bg-orange-600 text-white py-3 rounded-lg text-sm font-black uppercase tracking-wider shadow active:scale-98 transition-transform"
               >
-                <span>Request A Callback</span>
-                <ArrowRight className="w-4 h-4" />
-              </a>
+                <Truck className="w-4 h-4" />
+                <span>Dispatcher Operations Portal</span>
+              </Link>
             </div>
           </div>
         </div>

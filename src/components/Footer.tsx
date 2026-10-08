@@ -93,6 +93,11 @@ export default function Footer() {
                   <ChevronRight className="w-3 h-3 text-orange-500" /> Contact Us
                 </Link>
               </li>
+              <li>
+                <Link href="/portal/login" className="hover:text-orange-400 transition-colors flex items-center gap-1 text-orange-400 font-bold">
+                  <ChevronRight className="w-3 h-3 text-orange-500" /> Dispatcher Portal
+                </Link>
+              </li>
               <li className="pt-2 border-t border-slate-800/80">
                 <Link href="/privacy" className="hover:text-orange-400 transition-colors flex items-center gap-1 text-slate-400 font-medium">
                   <ChevronRight className="w-3 h-3 text-orange-500" /> Privacy Policy
