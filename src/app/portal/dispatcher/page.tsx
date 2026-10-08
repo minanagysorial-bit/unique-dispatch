@@ -34,6 +34,7 @@ import {
   Activity,
   Package,
   BellRing,
+  ClipboardList,
 } from "lucide-react";
 import { Load, User, ShiftType, EquipmentType, MilestoneType } from "@/lib/portal-types";
 import { playMilestoneChime, playUrgentAlert, playEmergencySiren } from "@/lib/audio-alerts";
@@ -88,6 +89,137 @@ export default function DispatcherOperationsBoardPage() {
   const [newEquipment, setNewEquipment] = useState<EquipmentType>("Dry Van (53')");
   const [newRate, setNewRate] = useState("3200");
   const [isCreating, setIsCreating] = useState(false);
+
+  // Quick Paste Tour Modal State
+  const [isPasteRelayOpen, setIsPasteRelayOpen] = useState(false);
+  const [pasteRawText, setPasteRawText] = useState("");
+  const [pasteDraft, setPasteDraft] = useState({
+    vrid: "",
+    originCity: "Staten Island",
+    originState: "NY",
+    originFacilityCode: "JFK8",
+    destCity: "Joliet",
+    destState: "IL",
+    destFacilityCode: "MDW2",
+    rateUSD: 2850,
+    equipment: "Dry Van (53')" as EquipmentType,
+    weightLbs: 38000,
+    driverName: "Assigned Driver",
+    driverPhone: "+1 (555) 019-2834",
+  });
+
+  // Smart Parser for pasted Amazon Relay text
+  const parsePasteInput = (raw: string) => {
+    setPasteRawText(raw);
+    const trimmed = raw.trim();
+    if (!trimmed) return;
+
+    // 1. Extract Trip ID
+    let extractedId = "";
+    const labeledIdMatch = trimmed.match(/(?:Tour|Trip|Load|VRID|Work Opportunity)\s*(?:ID|#|Number)?[:\s#]+([A-Za-z0-9\-_]{3,24})/i);
+    if (labeledIdMatch && labeledIdMatch[1]) {
+      extractedId = labeledIdMatch[1].trim();
+    } else {
+      const tokenMatch = trimmed.match(/\b([A-Z0-9]{3,18})\b/i);
+      if (tokenMatch && tokenMatch[1]) {
+        extractedId = tokenMatch[1].trim();
+      }
+    }
+
+    // 2. Extract Facility Codes
+    const facilityMatches = trimmed.match(/\b([A-Z]{3}[0-9]|[A-Z]{4})\b/g) || [];
+    const forbidden = ["POST", "TRIP", "TOUR", "LOAD", "TYPE", "RATE", "TIME", "STOP", "CITY", "DEST", "FROM", "AUTO", "VIEW", "INFO", "COST", "FEES", "PAID", "DAYS", "EDIT"];
+    const cleanFacilities = facilityMatches.filter((f) => !forbidden.includes(f.toUpperCase()));
+
+    // 3. Extract City/States
+    const cityStateMatches = Array.from(trimmed.matchAll(/([A-Za-z\s]{3,20}),\s*([A-Z]{2})\b/g));
+
+    let oCity = pasteDraft.originCity;
+    let oState = pasteDraft.originState;
+    let oCode = cleanFacilities[0] || pasteDraft.originFacilityCode;
+
+    let dCity = pasteDraft.destCity;
+    let dState = pasteDraft.destState;
+    let dCode = (cleanFacilities.length > 1 ? cleanFacilities[cleanFacilities.length - 1] : cleanFacilities[0]) || pasteDraft.destFacilityCode;
+
+    if (cityStateMatches.length >= 2) {
+      oCity = cityStateMatches[0][1].trim();
+      oState = cityStateMatches[0][2].trim();
+      dCity = cityStateMatches[cityStateMatches.length - 1][1].trim();
+      dState = cityStateMatches[cityStateMatches.length - 1][2].trim();
+    } else if (cleanFacilities.length >= 2) {
+      oCity = cleanFacilities[0];
+      dCity = cleanFacilities[cleanFacilities.length - 1];
+    }
+
+    // 4. Rate
+    const rateMatch = trimmed.match(/\$([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})?|\b[0-9]{3,5}\b)/);
+    const rateVal = rateMatch ? parseFloat(rateMatch[1].replace(/,/g, "")) : pasteDraft.rateUSD;
+
+    // 5. Equipment
+    let eq: EquipmentType = "Dry Van (53')";
+    if (/reefer/i.test(trimmed)) eq = "Reefer (53')";
+    else if (/flatbed/i.test(trimmed)) eq = "Flatbed";
+    else if (/power\s*only/i.test(trimmed)) eq = "Power Only";
+    else if (/box\s*truck/i.test(trimmed)) eq = "26ft Box Truck";
+
+    setPasteDraft((prev) => ({
+      ...prev,
+      vrid: extractedId || prev.vrid,
+      originCity: oCity,
+      originState: oState,
+      originFacilityCode: oCode,
+      destCity: dCity,
+      destState: dState,
+      destFacilityCode: dCode,
+      rateUSD: rateVal,
+      equipment: eq,
+    }));
+  };
+
+  const handlePasteRelaySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pasteDraft.vrid) return;
+    setIsCreating(true);
+
+    try {
+      const res = await fetch("/api/loads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          vrid: pasteDraft.vrid,
+          source: "amazon_relay",
+          equipment: pasteDraft.equipment,
+          rateUSD: Number(pasteDraft.rateUSD) || 2850,
+          weightLbs: Number(pasteDraft.weightLbs) || 38000,
+          originCity: pasteDraft.originCity,
+          originState: pasteDraft.originState,
+          originFacilityCode: pasteDraft.originFacilityCode || undefined,
+          pickupTime: new Date(Date.now() + 2 * 3600 * 1000).toISOString(),
+          destCity: pasteDraft.destCity,
+          destState: pasteDraft.destState,
+          destFacilityCode: pasteDraft.destFacilityCode || undefined,
+          deliveryTime: new Date(Date.now() + 18 * 3600 * 1000).toISOString(),
+          driverName: pasteDraft.driverName || "Assigned Driver",
+          driverPhone: pasteDraft.driverPhone || "+1 (555) 019-2834",
+          tractorNumber: "UD-AMZ",
+          trailerNumber: "TR-5300",
+          currentShift,
+          notes: "Imported via Quick Paste Relay Tool",
+        }),
+      });
+
+      if (res.ok) {
+        setIsPasteRelayOpen(false);
+        setPasteRawText("");
+        fetchLoads();
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   // Load preferred view mode from localStorage
   useEffect(() => {
@@ -606,6 +738,15 @@ export default function DispatcherOperationsBoardPage() {
             </button>
 
             <button
+              onClick={() => setIsPasteRelayOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-orange-400 text-xs font-bold border border-orange-500/30 transition-colors shadow-xs"
+              title="Quick Paste Relay Tour or Text"
+            >
+              <ClipboardList className="w-4 h-4 text-orange-400" />
+              <span>Paste Tour</span>
+            </button>
+
+            <button
               onClick={() => setIsGuideOpen(true)}
               className="hidden lg:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-colors"
               title="Amazon Relay Extension Setup Guide"
@@ -1091,6 +1232,185 @@ export default function DispatcherOperationsBoardPage() {
                   className="px-5 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-black uppercase tracking-wider shadow"
                 >
                   {isCreating ? "Creating..." : "Confirm & Dispatch Load"}
+                </button>
+              </div>
+
+            </form>
+
+          </div>
+        </div>
+      )}
+
+      {/* Quick Paste Relay Tour Modal */}
+      {isPasteRelayOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="bg-[#0f172a] text-white px-6 py-4 flex items-center justify-between border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-orange-600/20 border border-orange-500/40 text-orange-400 flex items-center justify-center font-black">
+                  <ClipboardList className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black tracking-tight">Quick Paste Amazon Relay Tour</h3>
+                  <p className="text-xs text-slate-400 font-medium">Paste raw copied text or Trip ID from Amazon Relay</p>
+                </div>
+              </div>
+              <button onClick={() => setIsPasteRelayOpen(false)} className="text-slate-400 hover:text-white">
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handlePasteRelaySubmit} className="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
+              
+              {/* Textarea for raw paste */}
+              <div className="space-y-1.5">
+                <label className="font-bold text-slate-800 flex justify-between items-center">
+                  <span>Paste Tour Raw Text or Trip ID *</span>
+                  <span className="text-[10px] text-orange-600 font-bold uppercase">Auto-Parsed Live</span>
+                </label>
+                <textarea
+                  rows={4}
+                  value={pasteRawText}
+                  onChange={(e) => parsePasteInput(e.target.value)}
+                  placeholder="Paste here e.g.: Tour ID: 11A8B9C TEB9 (Teterboro, NJ) -> ABE8 (Breinigsville, PA) Rate: $2,450.00 Dry Van"
+                  className="w-full p-3 rounded-xl border border-slate-300 font-mono text-xs focus:ring-2 focus:ring-orange-500 focus:outline-none"
+                  autoFocus
+                />
+              </div>
+
+              {/* Live Parsed Preview & Editor */}
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                  <span className="font-bold text-slate-700 uppercase tracking-wider text-[11px]">Parsed Tour Output</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${pasteDraft.vrid ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>
+                    {pasteDraft.vrid ? "Trip ID Ready" : "Awaiting Input"}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-bold text-slate-600">Trip ID / Tour # *</label>
+                    <input
+                      required
+                      type="text"
+                      value={pasteDraft.vrid}
+                      onChange={(e) => setPasteDraft({ ...pasteDraft, vrid: e.target.value })}
+                      placeholder="e.g. 11A8B9C"
+                      className="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-mono font-black text-slate-900 bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-slate-600">Rate USD ($)</label>
+                    <input
+                      type="number"
+                      value={pasteDraft.rateUSD}
+                      onChange={(e) => setPasteDraft({ ...pasteDraft, rateUSD: Number(e.target.value) })}
+                      className="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-bold text-emerald-700 bg-white"
+                    />
+                  </div>
+                </div>
+
+                {/* Origin / Destination Grid */}
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <div className="bg-white p-2.5 rounded-xl border border-slate-200 space-y-1.5">
+                    <span className="text-[10px] font-bold text-orange-600 uppercase">Origin Stop</span>
+                    <input
+                      type="text"
+                      value={pasteDraft.originFacilityCode || ""}
+                      onChange={(e) => setPasteDraft({ ...pasteDraft, originFacilityCode: e.target.value })}
+                      placeholder="Facility (JFK8)"
+                      className="w-full px-2 py-1 rounded border text-xs font-mono font-bold"
+                    />
+                    <div className="grid grid-cols-2 gap-1">
+                      <input
+                        type="text"
+                        value={pasteDraft.originCity}
+                        onChange={(e) => setPasteDraft({ ...pasteDraft, originCity: e.target.value })}
+                        placeholder="City"
+                        className="w-full px-2 py-1 rounded border text-xs"
+                      />
+                      <input
+                        type="text"
+                        value={pasteDraft.originState}
+                        onChange={(e) => setPasteDraft({ ...pasteDraft, originState: e.target.value })}
+                        placeholder="State"
+                        className="w-full px-2 py-1 rounded border text-xs uppercase font-bold"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-2.5 rounded-xl border border-slate-200 space-y-1.5">
+                    <span className="text-[10px] font-bold text-blue-600 uppercase">Destination Stop</span>
+                    <input
+                      type="text"
+                      value={pasteDraft.destFacilityCode || ""}
+                      onChange={(e) => setPasteDraft({ ...pasteDraft, destFacilityCode: e.target.value })}
+                      placeholder="Facility (MDW2)"
+                      className="w-full px-2 py-1 rounded border text-xs font-mono font-bold"
+                    />
+                    <div className="grid grid-cols-2 gap-1">
+                      <input
+                        type="text"
+                        value={pasteDraft.destCity}
+                        onChange={(e) => setPasteDraft({ ...pasteDraft, destCity: e.target.value })}
+                        placeholder="City"
+                        className="w-full px-2 py-1 rounded border text-xs"
+                      />
+                      <input
+                        type="text"
+                        value={pasteDraft.destState}
+                        onChange={(e) => setPasteDraft({ ...pasteDraft, destState: e.target.value })}
+                        placeholder="State"
+                        className="w-full px-2 py-1 rounded border text-xs uppercase font-bold"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Equipment & Driver */}
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="font-bold text-slate-600">Equipment Type</label>
+                    <select
+                      value={pasteDraft.equipment}
+                      onChange={(e) => setPasteDraft({ ...pasteDraft, equipment: e.target.value as EquipmentType })}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 font-bold bg-white"
+                    >
+                      <option value="Dry Van (53')">Dry Van (53')</option>
+                      <option value="Reefer (53')">Reefer (53')</option>
+                      <option value="Flatbed">Flatbed</option>
+                      <option value="Power Only">Power Only</option>
+                      <option value="26ft Box Truck">26ft Box Truck</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-600">Assigned Driver Phone</label>
+                    <input
+                      type="text"
+                      value={pasteDraft.driverPhone}
+                      onChange={(e) => setPasteDraft({ ...pasteDraft, driverPhone: e.target.value })}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white"
+                    />
+                  </div>
+                </div>
+
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t">
+                <button
+                  type="button"
+                  onClick={() => setIsPasteRelayOpen(false)}
+                  className="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCreating || !pasteDraft.vrid}
+                  className="px-6 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white font-black uppercase tracking-wider shadow"
+                >
+                  {isCreating ? "Ingesting..." : "✓ Ingest & Dispatch Tour"}
                 </button>
               </div>
 

@@ -115,6 +115,56 @@ document.addEventListener("DOMContentLoaded", async () => {
     checkConnectivity();
   });
 
+  // Render detected tours preview
+  function renderDetectedTours(tours) {
+    const listEl = document.getElementById("detected-tours-list");
+    const countBadge = document.getElementById("detected-count-badge");
+    if (!listEl || !countBadge) return;
+
+    if (!Array.isArray(tours) || tours.length === 0) {
+      countBadge.innerText = "0 Captured";
+      countBadge.style.color = "#94a3b8";
+      listEl.innerHTML = `<div style="color:#64748b; font-style:italic;">No active tours captured on the Relay screen.</div>`;
+      return;
+    }
+
+    countBadge.innerText = `${tours.length} Captured`;
+    countBadge.style.color = "#38bdf8";
+
+    listEl.innerHTML = tours
+      .map(
+        (t) => `
+        <div style="background:#050914; padding:5px 8px; border-radius:6px; border:1px solid #1e293b; display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div style="font-family:monospace; font-weight:800; color:#fb923c;">${t.vrid}</div>
+            <div style="font-size:9px; color:#94a3b8;">${t.originFacilityCode || t.originCity} ➔ ${t.destFacilityCode || t.destCity}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="color:#34d399; font-weight:800;">${t.rateUSD > 0 ? `$${t.rateUSD.toLocaleString()}` : "TBD"}</div>
+            <div style="font-size:8px; color:#64748b; text-transform:uppercase;">${t.equipment.split(" ")[0]}</div>
+          </div>
+        </div>
+      `
+      )
+      .join("");
+  }
+
+  // Poll detected tours from active Amazon Relay tab
+  async function fetchActiveRelayTours() {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab && tab.id && tab.url && tab.url.includes("relay.amazon.com")) {
+        chrome.tabs.sendMessage(tab.id, { type: "GET_DETECTED_TOURS" }, (res) => {
+          if (res && Array.isArray(res.tours)) {
+            renderDetectedTours(res.tours);
+          }
+        });
+      }
+    } catch (e) {}
+  }
+
+  fetchActiveRelayTours();
+
   // Manual Sync Now
   btnSyncNow.addEventListener("click", async () => {
     btnSyncNow.disabled = true;
@@ -164,7 +214,10 @@ document.addEventListener("DOMContentLoaded", async () => {
                 files: ["content/content-script.js"],
               });
               setTimeout(() => {
-                chrome.tabs.sendMessage(targetTab.id, { type: "EXTRACT_NOW" }, () => {
+                chrome.tabs.sendMessage(targetTab.id, { type: "EXTRACT_NOW" }, (res2) => {
+                  if (res2 && Array.isArray(res2.tours)) {
+                    renderDetectedTours(res2.tours);
+                  }
                   showAlert("✓ Sync attached & extracted from Amazon Relay!");
                 });
               }, 400);
@@ -175,7 +228,10 @@ document.addEventListener("DOMContentLoaded", async () => {
             showAlert("⚠️ Please refresh (F5) the Amazon Relay tab once to attach sync.", false);
           }
         } else {
-          showAlert("✓ Extracted tours from Amazon Relay tab!");
+          if (res && Array.isArray(res.tours)) {
+            renderDetectedTours(res.tours);
+          }
+          showAlert(`✓ Synced ${res?.count || 0} tours from Amazon Relay!`);
         }
 
         btnSyncNow.disabled = false;
