@@ -1,6 +1,7 @@
 /**
  * Unique Dispatch - Amazon Relay Passive Content Ingestion Script
  * Runs safely on https://relay.amazon.com/ to read active tour schedules.
+ * Extracts the exact Trip ID / Tour ID as written on screen without forced mutation or prefixes.
  */
 
 (function () {
@@ -69,11 +70,57 @@
   }
 
   /**
+   * Extract the exact Trip ID / Tour ID as written on Amazon Relay without mutating or prepending VRID-
+   */
+  function extractExactTripId(node, cardText) {
+    // 1. Check anchor links in the card (e.g. href="/tours/11ABC987" or "/trips/29301824" or "/loads/...")
+    if (node && node.querySelector) {
+      const linkEl = node.querySelector('a[href*="/tours/"], a[href*="/trips/"], a[href*="/loads/"], a[href*="/work-opportunities/"]');
+      if (linkEl && linkEl.href) {
+        const urlMatch = linkEl.href.match(/\/(?:tours|trips|loads|work-opportunities)\/([A-Za-z0-9\-_]+)/i);
+        if (urlMatch && urlMatch[1] && urlMatch[1].length >= 3) {
+          return urlMatch[1].trim();
+        }
+      }
+
+      // Check specific data-testid or class attributes in the node
+      const idEl = node.querySelector(
+        '[data-testid*="tour-id"], [data-testid*="trip-id"], [data-testid*="vrid"], [data-testid*="load-id"], [class*="tourId"], [class*="tripId"], [class*="tour-id"], [class*="trip-id"], [class*="tripNumber"], [class*="tourNumber"]'
+      );
+      if (idEl) {
+        const textVal = (idEl.innerText || idEl.textContent || "").trim();
+        const cleaned = textVal.replace(/^(?:Trip\s*(?:ID|#)?|Tour\s*(?:ID|#)?|Load\s*(?:ID|#)?|VRID\s*[:#\-]?)[\s:#\-]*/i, "").trim();
+        if (cleaned && cleaned.length >= 3) {
+          return cleaned;
+        }
+      }
+    }
+
+    // 2. Look for labeled text pattern (e.g. "Trip ID: 11A8B9C", "Tour #102948", "Trip #11A8B9C", "VRID: 9482710")
+    const labeledMatch = cardText.match(/(?:Trip\s*(?:ID|#)?|Tour\s*(?:ID|#)?|Load\s*(?:ID|#)?|VRID\s*[:#\-]?)[\s:#\-]+([A-Za-z0-9\-_]{4,24})/i);
+    if (labeledMatch && labeledMatch[1]) {
+      return labeledMatch[1].trim();
+    }
+
+    // 3. Fallback: Match alphanumeric or numeric trip identifiers (without prepending VRID-)
+    const tokenMatch = cardText.match(/\b([A-Z0-9]{2,5}[0-9A-Z]{4,14}|[0-9]{6,14}|VRID-[A-Z0-9]+)\b/i);
+    if (tokenMatch && tokenMatch[1]) {
+      const candidate = tokenMatch[1].trim();
+      const forbidden = ["AMAZON", "RELAY", "REEFER", "FLATBED", "DELIVERY", "CARRIER", "PICKUP", "UPCOMING", "TRANSIT", "STATUS", "DRYVAN", "WEIGHT", "EXPEDITED"];
+      if (!forbidden.includes(candidate.toUpperCase())) {
+        return candidate;
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * Safe extraction of active tours without triggering bot alarms
    */
   function extractAndSendTours(isManual = false) {
     const tours = [];
-    const seenVrids = new Set();
+    const seenTripIds = new Set();
 
     // 1. Broad DOM selectors covering all versions of Amazon Relay UI
     const candidateNodes = Array.from(
@@ -87,14 +134,12 @@
         const text = (node.innerText || "").trim();
         if (!text || text.length < 10) return;
 
-        // 1. Extract VRID
-        const vridMatch = text.match(/(VRID-[A-Z0-9]+|\b[0-9]{7,10}\b|[A-Z0-9]{8,12})/i);
-        if (!vridMatch) return;
-        const rawVrid = vridMatch[1];
-        const vrid = rawVrid.toUpperCase().startsWith("VRID-") ? rawVrid.toUpperCase() : `VRID-${rawVrid}`;
+        // 1. Extract EXACT Trip ID as written
+        const tripId = extractExactTripId(node, text);
+        if (!tripId) return;
 
-        if (seenVrids.has(vrid)) return;
-        seenVrids.add(vrid);
+        if (seenTripIds.has(tripId)) return;
+        seenTripIds.add(tripId);
 
         // 2. Extract Facility Codes (e.g. JFK8, CLT4, MDW2, DFW7, PHX6, ATL8)
         const facilityMatches = text.match(/\b[A-Z]{3}[0-9]\b|\b[A-Z]{4}\b/g) || [];
@@ -125,7 +170,7 @@
         const deliveryTime = new Date(now + 18 * 3600 * 1000).toISOString();
 
         tours.push({
-          vrid,
+          vrid: tripId, // Exact Trip ID as written
           source: "amazon_relay",
           equipment,
           rateUSD,
@@ -153,16 +198,34 @@
     // 2. Fallback: Full page regex scanning if candidate nodes didn't find any
     if (tours.length === 0 && document.body) {
       const pageText = document.body.innerText || "";
-      const matches = pageText.match(/(VRID-[A-Z0-9]+|\b[0-9]{8,10}\b)/gi) || [];
-      const uniqueMatches = Array.from(new Set(matches)).slice(0, 10);
+      const labeledMatches = pageText.match(/(?:Trip\s*(?:ID|#)?|Tour\s*(?:ID|#)?|Load\s*(?:ID|#)?|VRID\s*[:#\-]?)[\s:#\-]+([A-Za-z0-9\-_]{4,24})/gi) || [];
+      const extractedIds = [];
 
-      uniqueMatches.forEach((raw) => {
-        const vrid = raw.toUpperCase().startsWith("VRID-") ? raw.toUpperCase() : `VRID-${raw}`;
-        if (!seenVrids.has(vrid)) {
-          seenVrids.add(vrid);
+      labeledMatches.forEach((m) => {
+        const cleaned = m.replace(/^(?:Trip\s*(?:ID|#)?|Tour\s*(?:ID|#)?|Load\s*(?:ID|#)?|VRID\s*[:#\-]?)[\s:#\-]*/i, "").trim();
+        if (cleaned && cleaned.length >= 3 && !extractedIds.includes(cleaned)) {
+          extractedIds.push(cleaned);
+        }
+      });
+
+      if (extractedIds.length === 0) {
+        const rawTokens = pageText.match(/\b([A-Z0-9]{7,14}|[0-9]{6,12}|VRID-[A-Z0-9]+)\b/gi) || [];
+        rawTokens.forEach((t) => {
+          const upper = t.trim().toUpperCase();
+          const forbidden = ["AMAZON", "RELAY", "REEFER", "FLATBED", "DELIVERY", "CARRIER", "PICKUP", "UPCOMING", "TRANSIT", "STATUS", "DRYVAN", "WEIGHT", "EXPEDITED"];
+          if (!forbidden.includes(upper) && !extractedIds.includes(t.trim())) {
+            extractedIds.push(t.trim());
+          }
+        });
+      }
+
+      extractedIds.slice(0, 10).forEach((rawTripId) => {
+        const tripId = rawTripId;
+        if (!seenTripIds.has(tripId)) {
+          seenTripIds.add(tripId);
           const now = Date.now();
           tours.push({
-            vrid,
+            vrid: tripId, // Exact Trip ID as written
             source: "amazon_relay",
             equipment: "Dry Van (53')",
             rateUSD: 3100.0,

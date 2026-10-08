@@ -218,7 +218,7 @@ export default function DispatcherOperationsBoardPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          vrid: newVrid || `VRID-${Math.floor(1000000 + Math.random() * 9000000)}`,
+          vrid: newVrid || `TRIP-${Math.floor(1000000 + Math.random() * 9000000)}`,
           source: "manual_import",
           equipment: newEquipment,
           rateUSD: Number(newRate) || 3000,
@@ -943,13 +943,13 @@ export default function DispatcherOperationsBoardPage() {
               
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-700">VRID / Load Number *</label>
+                  <label className="font-bold text-slate-700">Trip ID / Tour Number *</label>
                   <input
                     required
                     type="text"
                     value={newVrid}
                     onChange={(e) => setNewVrid(e.target.value)}
-                    placeholder="e.g. VRID-9482710"
+                    placeholder="e.g. 11A8B9C or 1049281 or VRID-9482710"
                     className="w-full px-3 py-2 rounded-lg border border-slate-300 font-mono font-bold"
                   />
                 </div>
