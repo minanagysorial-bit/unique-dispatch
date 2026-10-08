@@ -212,6 +212,7 @@
 
     // 5. Build Ordered Stops Array
     const stopsList = [];
+    const cityStateMatches = Array.from(text.matchAll(/([A-Za-z\s\.\-]{3,24}),\s*([A-Z]{2})(?:\s+(\d{5}))?/g));
 
     if (subLegs.length > 0) {
       // Build sequenced stops from sub-legs
@@ -222,15 +223,17 @@
         // Add Origin of leg (for first leg or distinct stop)
         if (isFirst || stopsList.length === 0) {
           const addr = foundAddresses[0];
+          const oCity = addr?.city || (cityStateMatches[0] && cityStateMatches[0][1].trim()) || leg.fromFac;
+          const oState = addr?.state || (cityStateMatches[0] && cityStateMatches[0][2].trim()) || "US";
           stopsList.push({
             sequenceNumber: stopsList.length + 1,
             type: "pickup",
             activity: "pickup",
             facilityCode: leg.fromFac,
-            city: addr?.city || "San Antonio",
-            state: addr?.state || "TX",
-            postalCode: addr?.zip || (idx === 0 ? "78219" : undefined),
-            address: addr?.street ? `${addr.street}, ${addr.city}, ${addr.state}` : `Amazon Logistics Facility [${leg.fromFac}]`,
+            city: oCity,
+            state: oState,
+            postalCode: addr?.zip || (cityStateMatches[0] && cityStateMatches[0][3]) || undefined,
+            address: addr?.street ? `${addr.street}, ${oCity}, ${oState}` : `Amazon Logistics Facility [${leg.fromFac}]`,
             appointmentTime: parentPickupTime,
             status: "pending",
             notes: `Sub-Shipment Leg: ${leg.subId} (Origin)`,
@@ -238,7 +241,11 @@
         }
 
         // Add Destination of leg
-        const nextAddr = foundAddresses[idx + 1] || foundAddresses[foundAddresses.length - 1];
+        const nextAddr = foundAddresses[idx + 1] || (foundAddresses.length > 1 ? foundAddresses[foundAddresses.length - 1] : undefined);
+        const destCityMatch = (cityStateMatches[idx + 1] && cityStateMatches[idx + 1][1].trim()) || (cityStateMatches[cityStateMatches.length - 1] && cityStateMatches[cityStateMatches.length - 1][1].trim());
+        const destStateMatch = (cityStateMatches[idx + 1] && cityStateMatches[idx + 1][2].trim()) || (cityStateMatches[cityStateMatches.length - 1] && cityStateMatches[cityStateMatches.length - 1][2].trim());
+        const dCity = nextAddr?.city || destCityMatch || leg.toFac;
+        const dState = nextAddr?.state || destStateMatch || "US";
         const stepTime = new Date(new Date(parentPickupTime).getTime() + (idx + 1) * 2 * 3600000).toISOString();
 
         stopsList.push({
@@ -246,10 +253,10 @@
           type: isLast ? "delivery" : "intermediate",
           activity: isLast ? "delivery" : "drop_hook",
           facilityCode: leg.toFac,
-          city: nextAddr?.city || (leg.toFac.startsWith("IAH") || leg.toFac.startsWith("KIAH") ? "Houston" : "San Antonio"),
-          state: nextAddr?.state || "TX",
+          city: dCity,
+          state: dState,
           postalCode: nextAddr?.zip || undefined,
-          address: nextAddr?.street ? `${nextAddr.street}, ${nextAddr.city}, ${nextAddr.state}` : `Amazon Facility [${leg.toFac}]`,
+          address: nextAddr?.street ? `${nextAddr.street}, ${dCity}, ${dState}` : `Amazon Facility [${leg.toFac}]`,
           appointmentTime: isLast ? parentDeliveryTime : stepTime,
           status: "pending",
           notes: `Sub-Shipment Leg: ${leg.subId} (${leg.miles > 0 ? `${leg.miles} mi` : "Drop"})`,
@@ -262,16 +269,14 @@
         .map((m) => m[1] || m[2])
         .filter((f) => !["POST", "TRIP", "TOUR", "LOAD", "TYPE", "RATE", "TIME", "STOP", "CITY", "DEST", "FROM", "AUTO", "VIEW", "INFO", "COST", "FEES", "PAID", "DAYS", "EDIT", "DATE", "USER", "MORE", "SHOW", "HIDE", "NAME", "PAGE", "NEXT", "BACK", "SAVE", "EXIT", "HELP", "TEAM", "UNIT", "TEST", "WARN", "ROLE", "LIVE", "DOCK", "GATE", "SEMI", "VANS", "FLAT", "REEF", "AMZN", "SYNC", "MENU", "AMAZON", "RELAY", "TOTAL", "DROP", "HOOK", "MILES", "HOUR", "HOURS", "WEEK", "CDT", "CST", "EDT", "EST", "PDT", "PST", "MDT", "MST", "UTC", "CDL", "TWIC", "FAST", "TTA", "LCV", "NC"].includes(f.toUpperCase()));
 
-      const cityStateMatches = Array.from(text.matchAll(/([A-Za-z\s\.\-]{3,24}),\s*([A-Z]{2})(?:\s+(\d{5}))?/g));
-
-      const oFac = cleanFacilities[0] || "SAT41";
-      const oCity = (cityStateMatches[0] && cityStateMatches[0][1].trim()) || "San Antonio";
-      const oState = (cityStateMatches[0] && cityStateMatches[0][2].trim()) || "TX";
+      const oFac = cleanFacilities[0] || undefined;
+      const oCity = (cityStateMatches[0] && cityStateMatches[0][1].trim()) || oFac || "Origin Facility";
+      const oState = (cityStateMatches[0] && cityStateMatches[0][2].trim()) || "US";
 
       const dFac = cleanFacilities.length > 1 ? cleanFacilities[cleanFacilities.length - 1] : undefined;
       const dMatch = cityStateMatches.length > 1 ? cityStateMatches[cityStateMatches.length - 1] : cityStateMatches[0];
-      const dCity = (dMatch && dMatch[1].trim()) || "San Antonio";
-      const dState = (dMatch && dMatch[2].trim()) || "TX";
+      const dCity = (dMatch && dMatch[1].trim()) || dFac || "Destination Facility";
+      const dState = (dMatch && dMatch[2].trim()) || "US";
 
       stopsList.push({
         sequenceNumber: 1,
@@ -280,8 +285,8 @@
         facilityCode: oFac,
         city: oCity,
         state: oState,
-        postalCode: cityStateMatches[0] && cityStateMatches[0][3] ? cityStateMatches[0][3] : "78219",
-        address: foundAddresses[0] ? `${foundAddresses[0].street}, ${foundAddresses[0].city}` : `Amazon Logistics [${oFac}]`,
+        postalCode: cityStateMatches[0] && cityStateMatches[0][3] ? cityStateMatches[0][3] : undefined,
+        address: foundAddresses[0] ? `${foundAddresses[0].street}, ${foundAddresses[0].city}` : (oFac ? `Amazon Logistics [${oFac}]` : `${oCity}, ${oState}`),
         appointmentTime: parentPickupTime,
         status: "pending",
       });
