@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { parseSessionToken, PORTAL_SESSION_COOKIE } from "@/lib/auth-utils";
+import { parseEdgeSessionToken } from "@/lib/session-edge";
+import { PORTAL_SESSION_COOKIE } from "@/lib/auth-constants";
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -14,7 +15,7 @@ export function middleware(req: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
-    const payload = parseSessionToken(token);
+    const payload = parseEdgeSessionToken(token);
     if (!payload) {
       const loginUrl = new URL("/portal/login", req.url);
       return NextResponse.redirect(loginUrl);

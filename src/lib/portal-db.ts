@@ -14,12 +14,13 @@ import {
   BatchSyncPayload,
 } from "./portal-types";
 
-// Seed Users
+// Seed Users with high-grade PBKDF2 cryptographic password hashes
 const SEED_USERS: User[] = [
   {
     id: "usr-admin-01",
     name: "Marven Awad",
     email: "admin@uniquedispatch.com",
+    passwordHash: "a841a939a0b4c890d234bf460b14b14f:91391129a1e3a83a511f05ef99cee84ea711b2f283cc8c9358a86018fd35c3a1c4fedc4769344b9f72113f29928f3ad9773e3e0ad6cb4cda369772eb35c359aa", // UniqueAdmin2026!
     role: "super_admin",
     phone: "+1 (332) 244-5532",
     isActive: true,
@@ -27,9 +28,32 @@ const SEED_USERS: User[] = [
     createdAt: "2026-01-01T00:00:00.000Z",
   },
   {
+    id: "usr-admin-02",
+    name: "Marven Awad",
+    email: "uniquedispatchh@gmail.com",
+    passwordHash: "a841a939a0b4c890d234bf460b14b14f:91391129a1e3a83a511f05ef99cee84ea711b2f283cc8c9358a86018fd35c3a1c4fedc4769344b9f72113f29928f3ad9773e3e0ad6cb4cda369772eb35c359aa", // UniqueAdmin2026!
+    role: "super_admin",
+    phone: "+1 (332) 244-5532",
+    isActive: true,
+    lastLoginAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
+    createdAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: "usr-admin-03",
+    name: "Marven Awad",
+    email: "marvengerges2008@gmail.com",
+    passwordHash: "a841a939a0b4c890d234bf460b14b14f:91391129a1e3a83a511f05ef99cee84ea711b2f283cc8c9358a86018fd35c3a1c4fedc4769344b9f72113f29928f3ad9773e3e0ad6cb4cda369772eb35c359aa", // UniqueAdmin2026!
+    role: "super_admin",
+    phone: "+1 (332) 244-5532",
+    isActive: true,
+    lastLoginAt: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
+    createdAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
     id: "usr-disp-01",
     name: "Alex Reed",
     email: "dispatcher@uniquedispatch.com",
+    passwordHash: "20c9ff94222d0c5b6513b7694c14db4b:273ca94bfe3114ef795d3d13be2d66fb74b07edb9e3ad37a7378ca516acffe60958bd20b480dbacd595a2255defa491ccc35be300fdeed4a45910db1d64db169", // Dispatch2026!
     role: "dispatcher",
     assignedShift: "morning",
     phone: "+1 (332) 244-5533",
@@ -41,6 +65,7 @@ const SEED_USERS: User[] = [
     id: "usr-disp-02",
     name: "Samir Vance",
     email: "nightops@uniquedispatch.com",
+    passwordHash: "20c9ff94222d0c5b6513b7694c14db4b:273ca94bfe3114ef795d3d13be2d66fb74b07edb9e3ad37a7378ca516acffe60958bd20b480dbacd595a2255defa491ccc35be300fdeed4a45910db1d64db169", // Dispatch2026!
     role: "dispatcher",
     assignedShift: "night",
     phone: "+1 (332) 244-5534",
@@ -52,6 +77,7 @@ const SEED_USERS: User[] = [
     id: "usr-disp-03",
     name: "Elena Rostova",
     email: "elena@uniquedispatch.com",
+    passwordHash: "20c9ff94222d0c5b6513b7694c14db4b:273ca94bfe3114ef795d3d13be2d66fb74b07edb9e3ad37a7378ca516acffe60958bd20b480dbacd595a2255defa491ccc35be300fdeed4a45910db1d64db169", // Dispatch2026!
     role: "dispatcher",
     assignedShift: "morning",
     phone: "+1 (332) 244-5535",

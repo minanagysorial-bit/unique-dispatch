@@ -12,7 +12,7 @@ import {
   Code,
   Terminal,
 } from "lucide-react";
-import { DEFAULT_API_KEY } from "@/lib/auth-utils";
+import { DEFAULT_API_KEY } from "@/lib/auth-constants";
 
 interface ChromeExtensionGuideProps {
   isOpen: boolean;
