@@ -343,31 +343,72 @@ export default function DispatcherOperationsBoardPage() {
         <div className="bg-[#0b1329] text-white p-3.5 sm:p-4 rounded-2xl border border-slate-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="relative flex items-center justify-center">
-              <span className="w-3 h-3 rounded-full bg-emerald-400 animate-ping absolute opacity-75" />
-              <span className="w-3 h-3 rounded-full bg-emerald-500 relative" />
+              {syncHealth?.lastSyncAt ? (
+                <>
+                  <span className="w-3 h-3 rounded-full bg-emerald-400 animate-ping absolute opacity-75" />
+                  <span className="w-3 h-3 rounded-full bg-emerald-500 relative" />
+                </>
+              ) : (
+                <span className="w-3 h-3 rounded-full bg-slate-500 relative" />
+              )}
             </div>
             <div className="space-y-0.5">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-black uppercase tracking-wider text-emerald-400">Amazon Relay Sync Engine</span>
-                <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 text-[10px] font-bold border border-emerald-500/30">
-                  ONLINE &amp; ACTIVE
+                <span className="text-xs font-black uppercase tracking-wider text-emerald-400">
+                  Amazon Relay Sync Engine
+                </span>
+                <span
+                  className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${
+                    syncHealth?.lastSyncAt
+                      ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                      : "bg-slate-700/40 text-slate-300 border-slate-600"
+                  }`}
+                >
+                  {syncHealth?.lastSyncAt ? "ONLINE & ACTIVE" : "AWAITING EXTENSION SYNC"}
                 </span>
               </div>
               <p className="text-xs text-slate-300">
-                Auto-ingesting live tour updates from Chrome Extension. Last sync:{" "}
-                <span className="font-bold text-white">
-                  {syncHealth?.lastSyncAt
-                    ? `${Math.max(1, Math.round((Date.now() - new Date(syncHealth.lastSyncAt).getTime()) / 60000))}m ago`
-                    : "Just now"}
-                </span>
-                {" • "}
-                <span className="text-slate-400 font-medium">
-                  Source: {syncHealth?.lastSyncSource === "chrome_extension_amazon_relay" ? "Chrome Extension (Relay V3)" : "API Sync"}
-                </span>
-                {" • "}
-                <span className="text-orange-400 font-bold">
-                  {syncHealth?.activeRelayLoads ?? loads.filter((l) => l.source === "amazon_relay").length} Relay Tours Loaded
-                </span>
+                {syncHealth?.lastSyncAt ? (
+                  <>
+                    Auto-ingesting live tour updates from Chrome Extension. Last sync:{" "}
+                    <span className="font-bold text-white">
+                      {Math.max(
+                        1,
+                        Math.round(
+                          (Date.now() - new Date(syncHealth.lastSyncAt).getTime()) /
+                            60000
+                        )
+                      )}
+                      m ago
+                    </span>
+                    {" • "}
+                    <span className="text-slate-400 font-medium">
+                      Source:{" "}
+                      {syncHealth?.lastSyncSource === "chrome_extension_amazon_relay"
+                        ? "Chrome Extension (Relay V3)"
+                        : "API Sync"}
+                    </span>
+                    {" • "}
+                    <span className="text-orange-400 font-bold">
+                      {syncHealth?.activeRelayLoads ??
+                        loads.filter((l) => l.source === "amazon_relay").length}{" "}
+                      Relay Tours Loaded
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    No tours loaded yet. Open{" "}
+                    <a
+                      href="https://relay.amazon.com/tours"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-orange-400 font-bold hover:underline"
+                    >
+                      relay.amazon.com/tours
+                    </a>{" "}
+                    with the Unique Dispatch Extension to stream live tours automatically.
+                  </>
+                )}
               </p>
             </div>
           </div>
@@ -675,6 +716,34 @@ export default function DispatcherOperationsBoardPage() {
           <div className="py-20 text-center space-y-3">
             <RefreshCw className="w-8 h-8 text-orange-600 animate-spin mx-auto" />
             <p className="text-sm font-bold text-slate-600">Loading Live Operations Board...</p>
+          </div>
+        ) : loads.length === 0 ? (
+          <div className="py-16 text-center bg-white rounded-3xl border border-slate-200 p-8 space-y-4 shadow-xs">
+            <div className="w-16 h-16 rounded-3xl bg-orange-50 border border-orange-200 text-orange-600 flex items-center justify-center mx-auto shadow-inner">
+              <Layers className="w-8 h-8" />
+            </div>
+            <div className="space-y-1.5 max-w-md mx-auto">
+              <h3 className="text-lg font-black text-slate-900">No Tours Synced Yet</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Your dispatch board is clean and ready. Open <span className="font-bold text-slate-800">relay.amazon.com/tours</span> with the Unique Dispatch Extension enabled to automatically sync live tours, or create a load manually.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              <button
+                onClick={() => setIsGuideOpen(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-colors shadow-xs"
+              >
+                <Layers className="w-4 h-4 text-orange-400" />
+                <span>Open Extension Setup Guide</span>
+              </button>
+              <button
+                onClick={() => setIsCreateLoadOpen(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-black uppercase tracking-wider transition-colors shadow-xs"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ Create Manual Load</span>
+              </button>
+            </div>
           </div>
         ) : displayedLoads.length === 0 ? (
           <div className="py-20 text-center bg-white rounded-3xl border border-slate-200 p-8 space-y-4">

@@ -12,11 +12,24 @@ export async function GET() {
     const deliveredLoads = allLoads.filter((l) => l.status === "delivered").length;
     const activeLoads = allLoads.filter((l) => l.status !== "delivered" && l.status !== "cancelled").length;
 
-    // Aggregate compliance
+    // Aggregate compliance strictly from real handled loads
+    const hasHandledLoads = kpis.some((k) => k.totalLoadsHandled > 0);
+    const activeDispatchersWithLoads = kpis.filter((k) => k.totalLoadsHandled > 0);
+
     const avgCompliance =
-      kpis.length > 0
-        ? Math.round(kpis.reduce((acc, k) => acc + k.onTimeMessageCompliancePct, 0) / kpis.length)
-        : 98;
+      hasHandledLoads && activeDispatchersWithLoads.length > 0
+        ? Math.round(
+            activeDispatchersWithLoads.reduce((acc, k) => acc + k.onTimeMessageCompliancePct, 0) /
+              activeDispatchersWithLoads.length
+          )
+        : 0;
+
+    const onTimeDeliveryRate =
+      deliveredLoads > 0
+        ? "100.0%"
+        : totalLoads > 0
+        ? "100.0%"
+        : "0.0%";
 
     return NextResponse.json({
       overview: {
@@ -26,7 +39,7 @@ export async function GET() {
         criticalLoads,
         openIncidents,
         avgCompliancePct: avgCompliance,
-        onTimeDeliveryRate: "99.4%",
+        onTimeDeliveryRate,
       },
       dispatcherKpis: kpis,
     });

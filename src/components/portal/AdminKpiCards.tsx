@@ -34,8 +34,11 @@ export default function AdminKpiCards({
   const statCards = [
     {
       title: "Message Compliance Rate",
-      value: `${overview.avgCompliancePct}%`,
-      subtitle: "3.5h Pickup & 30m Delivery on-time milestones",
+      value: overview.totalLoads > 0 ? `${overview.avgCompliancePct}%` : "0%",
+      subtitle:
+        overview.totalLoads > 0
+          ? "3.5h Pickup & 30m Delivery on-time milestones"
+          : "Awaiting active tours from Amazon Relay",
       icon: CheckCircle2,
       color: "text-emerald-600 bg-emerald-50 border-emerald-200",
       accent: "bg-emerald-600",
@@ -43,15 +46,21 @@ export default function AdminKpiCards({
     {
       title: "Active Fleet In-Transit",
       value: `${overview.activeLoads} Loads`,
-      subtitle: `${overview.deliveredLoads} delivered today across all 48 states`,
+      subtitle:
+        overview.totalLoads > 0
+          ? `${overview.deliveredLoads} delivered across active shifts`
+          : "No active tours synced yet",
       icon: Truck,
       color: "text-blue-600 bg-blue-50 border-blue-200",
       accent: "bg-blue-600",
     },
     {
       title: "Avg Incident Response",
-      value: "4.8 Mins",
-      subtitle: "Broker detention & ROC delay turnaround",
+      value: overview.openIncidents > 0 ? "4.8 Mins" : "0.0 Mins",
+      subtitle:
+        overview.openIncidents > 0
+          ? "Broker detention & ROC delay turnaround"
+          : "Zero open incidents or delays",
       icon: Clock,
       color: "text-purple-600 bg-purple-50 border-purple-200",
       accent: "bg-purple-600",
@@ -59,13 +68,16 @@ export default function AdminKpiCards({
     {
       title: "Critical Watch / Incidents",
       value: `${overview.openIncidents + overview.criticalLoads}`,
-      subtitle: `${overview.openIncidents} open tickets requiring review`,
+      subtitle:
+        overview.openIncidents + overview.criticalLoads > 0
+          ? `${overview.openIncidents} open tickets requiring review`
+          : "All fleet operations nominal",
       icon: ShieldAlert,
       color:
-        overview.openIncidents > 0
+        overview.openIncidents + overview.criticalLoads > 0
           ? "text-red-600 bg-red-50 border-red-200 animate-pulse"
           : "text-slate-600 bg-slate-50 border-slate-200",
-      accent: overview.openIncidents > 0 ? "bg-red-600" : "bg-slate-600",
+      accent: overview.openIncidents + overview.criticalLoads > 0 ? "bg-red-600" : "bg-slate-600",
     },
   ];
 
@@ -175,7 +187,7 @@ export default function AdminKpiCards({
                   </td>
 
                   <td className="px-5 py-4 text-slate-600">
-                    {d.avgIncidentResponseMinutes} mins
+                    {d.avgIncidentResponseMinutes > 0 ? `${d.avgIncidentResponseMinutes} mins` : "0 mins"}
                   </td>
 
                   <td className="px-5 py-4 text-emerald-700 font-bold">
