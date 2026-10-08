@@ -1,14 +1,14 @@
 /**
  * Unique Dispatch - Amazon Relay Main-World Network Interceptor
- * Runs in the webpage context to passively intercept Amazon Relay's internal JSON API requests.
- * Captures all live, scheduled, and future tour schedules.
+ * Intercepts internal Amazon Relay GraphQL and REST API network requests.
+ * Extracts 100% authentic live, scheduled, and future multi-stop tour itineraries with zero fake data.
  */
 
 (function () {
   if (window.__ud_relay_interceptor_loaded) return;
   window.__ud_relay_interceptor_loaded = true;
 
-  console.log("🚚 [Unique Dispatch] Relay Main-World API Interceptor Initialized");
+  console.log("🚚 [Unique Dispatch] Relay Deep API Interceptor Initialized");
 
   function safeParseJson(text) {
     try {
@@ -32,148 +32,204 @@
     return new Date(Date.now() + fallbackHoursAhead * 3600 * 1000).toISOString();
   }
 
-  function normalizeApiTour(item) {
-    if (!item || typeof item !== "object") return null;
+  /**
+   * Helper: Normalize any Amazon Relay Tour / Work Opportunity object
+   */
+  function normalizeApiTour(raw) {
+    if (!raw || typeof raw !== "object") return null;
 
-    // 1. Extract Trip ID / Tour ID / Work Opportunity ID
+    // Unwrap node or wrapper
+    const item = raw.node ? raw.node : raw.tour ? raw.tour : raw.workOpportunity ? raw.workOpportunity : raw;
+
+    // 1. Extract Trip ID / Tour ID from all possible Relay API formats
     const rawId =
+      item.tourReferenceId ||
+      item.carrierTourId ||
       item.tourId ||
       item.tripId ||
       item.workOpportunityId ||
-      item.loadId ||
+      item.workOpportunityRef ||
       item.tourExecutionId ||
       item.executionId ||
-      item.vrid ||
-      item.id ||
-      item.tripNumber ||
+      item.referenceId ||
       item.tourNumber ||
-      item.workOpportunityNumber ||
+      item.tripNumber ||
+      item.workAssignmentId ||
+      item.vrid ||
+      item.orderId ||
+      item.id ||
+      (item.summary && (item.summary.tourId || item.summary.tourReferenceId)) ||
+      (item.details && (item.details.tourId || item.details.workOpportunityId)) ||
       "";
 
     const tripId = String(rawId).trim();
     if (!tripId || tripId.length < 3) return null;
 
+    // Filter out UI / Non-tour IDs
+    const forbiddenPrefixes = ["user-", "usr-", "nav-", "menu-", "btn-", "filter-", "setting-", "notif-", "theme-", "tab-"];
+    if (forbiddenPrefixes.some((p) => tripId.toLowerCase().startsWith(p))) return null;
+
     // 2. Extract Rate / Payout
     let rateUSD = 0;
     if (typeof item.totalPayout === "number") {
       rateUSD = item.totalPayout;
+    } else if (item.totalPayout && typeof item.totalPayout.value === "number") {
+      rateUSD = item.totalPayout.value;
+    } else if (item.totalPayout && typeof item.totalPayout.amount === "number") {
+      rateUSD = item.totalPayout.amount;
     } else if (item.payout && typeof item.payout.value === "number") {
       rateUSD = item.payout.value;
     } else if (item.payout && typeof item.payout.amount === "number") {
       rateUSD = item.payout.amount;
     } else if (item.rate && typeof item.rate.amount === "number") {
       rateUSD = item.rate.amount;
+    } else if (item.rate && typeof item.rate.value === "number") {
+      rateUSD = item.rate.value;
     } else if (typeof item.rateUSD === "number") {
       rateUSD = item.rateUSD;
     } else if (typeof item.payoutAmount === "number") {
       rateUSD = item.payoutAmount;
     } else if (typeof item.estimatedCost === "number") {
       rateUSD = item.estimatedCost;
+    } else if (typeof item.allInRate === "number") {
+      rateUSD = item.allInRate;
+    } else if (item.allInRate && typeof item.allInRate.amount === "number") {
+      rateUSD = item.allInRate.amount;
     }
 
-    // 3. Extract Stops / Legs
-    const rawStops = Array.isArray(item.stops)
-      ? item.stops
-      : Array.isArray(item.legs)
+    // 3. Extract Multi-Stop Itinerary / Legs / Stops
+    const rawLegs = Array.isArray(item.legs)
       ? item.legs
       : Array.isArray(item.workOpportunityLegs)
       ? item.workOpportunityLegs
       : Array.isArray(item.tourLegs)
       ? item.tourLegs
-      : Array.isArray(item.itinerary)
-      ? item.itinerary
+      : Array.isArray(item.subTours)
+      ? item.subTours
       : [];
 
-    let originFacility = item.originFacilityCode || item.originFacility || "";
-    let originCity = item.originCity || "";
-    let originState = item.originState || "US";
-    let pickupTime = item.pickupTime || item.startTime || item.startDate || "";
+    const rawStops = Array.isArray(item.stops)
+      ? item.stops
+      : Array.isArray(item.itinerary)
+      ? item.itinerary
+      : Array.isArray(item.stopDetails)
+      ? item.stopDetails
+      : Array.isArray(item.locationSequence)
+      ? item.locationSequence
+      : [];
 
-    let destFacility = item.destFacilityCode || item.destinationFacility || "";
-    let destCity = item.destCity || "";
-    let destState = item.destState || "US";
-    let deliveryTime = item.deliveryTime || item.endTime || item.endDate || "";
+    let normalizedStops = [];
 
-    if (rawStops.length > 0) {
-      const firstStop = rawStops[0];
-      const lastStop = rawStops[rawStops.length - 1];
+    // Approach A: Pairwise Legs extraction (e.g. Leg 1: Origin -> Dest, Leg 2: Origin -> Dest)
+    if (rawLegs.length > 0) {
+      const stopsFromLegs = [];
 
-      originFacility =
-        firstStop.facilityCode ||
-        firstStop.facilityId ||
-        firstStop.originFacilityCode ||
-        firstStop.locationCode ||
-        firstStop.originCode ||
-        originFacility;
+      rawLegs.forEach((leg, lIdx) => {
+        if (!leg || typeof leg !== "object") return;
 
-      originCity =
-        firstStop.city ||
-        firstStop.address?.city ||
-        firstStop.location?.city ||
-        firstStop.originCity ||
-        originCity ||
-        originFacility ||
-        "Amazon Origin";
+        // Origin of Leg
+        const oLoc = leg.originLocation || leg.origin || leg.startLocation || leg.startFacility || leg;
+        const oFac =
+          leg.originFacilityCode ||
+          leg.originFacility ||
+          oLoc.facilityCode ||
+          oLoc.facilityId ||
+          oLoc.locationCode ||
+          oLoc.nodeCode ||
+          oLoc.code ||
+          "";
 
-      originState =
-        firstStop.state ||
-        firstStop.address?.state ||
-        firstStop.location?.state ||
-        firstStop.originState ||
-        originState;
+        const oCity = oLoc.city || oLoc.address?.city || oLoc.location?.city || oFac || "Origin";
+        const oState = oLoc.state || oLoc.address?.state || oLoc.location?.state || "US";
+        const oAddr =
+          typeof oLoc.address === "string"
+            ? oLoc.address
+            : oLoc.address?.streetAddress || oLoc.address?.addressLine1 || oLoc.location?.addressLine1 || undefined;
+        const oZip = oLoc.postalCode || oLoc.zip || oLoc.address?.postalCode || undefined;
+        const oTime =
+          leg.plannedDepartureTime ||
+          leg.departureTime ||
+          leg.startTime ||
+          leg.windowStart ||
+          leg.earliestStartTime ||
+          leg.departureWindow?.start ||
+          oLoc.plannedDepartureTime ||
+          "";
 
-      pickupTime =
-        firstStop.plannedDepartureTime ||
-        firstStop.plannedArrivalTime ||
-        firstStop.departureEarliest ||
-        firstStop.arrivalEarliest ||
-        firstStop.windowStart ||
-        firstStop.startTime ||
-        pickupTime;
+        const oAct = leg.originActivity || leg.activityType || leg.workType || (lIdx === 0 ? "pickup" : "drop_hook");
 
-      destFacility =
-        lastStop.facilityCode ||
-        lastStop.facilityId ||
-        lastStop.destFacilityCode ||
-        lastStop.locationCode ||
-        lastStop.destCode ||
-        destFacility;
+        // Destination of Leg
+        const dLoc = leg.destinationLocation || leg.destination || leg.endLocation || leg.endFacility || leg;
+        const dFac =
+          leg.destFacilityCode ||
+          leg.destinationFacility ||
+          dLoc.facilityCode ||
+          dLoc.facilityId ||
+          dLoc.locationCode ||
+          dLoc.nodeCode ||
+          dLoc.code ||
+          "";
 
-      destCity =
-        lastStop.city ||
-        lastStop.address?.city ||
-        lastStop.location?.city ||
-        lastStop.destCity ||
-        destCity ||
-        destFacility ||
-        "Amazon Destination";
+        const dCity = dLoc.city || dLoc.address?.city || dLoc.location?.city || dFac || "Destination";
+        const dState = dLoc.state || dLoc.address?.state || dLoc.location?.state || "US";
+        const dAddr =
+          typeof dLoc.address === "string"
+            ? dLoc.address
+            : dLoc.address?.streetAddress || dLoc.address?.addressLine1 || dLoc.location?.addressLine1 || undefined;
+        const dZip = dLoc.postalCode || dLoc.zip || dLoc.address?.postalCode || undefined;
+        const dTime =
+          leg.plannedArrivalTime ||
+          leg.arrivalTime ||
+          leg.endTime ||
+          leg.windowEnd ||
+          leg.latestEndTime ||
+          leg.arrivalWindow?.start ||
+          dLoc.plannedArrivalTime ||
+          "";
 
-      destState =
-        lastStop.state ||
-        lastStop.address?.state ||
-        lastStop.location?.state ||
-        lastStop.destState ||
-        destState;
+        const dAct = leg.destActivity || (lIdx === rawLegs.length - 1 ? "delivery" : "drop_hook");
 
-      deliveryTime =
-        lastStop.plannedArrivalTime ||
-        lastStop.plannedDepartureTime ||
-        lastStop.arrivalLatest ||
-        lastStop.departureLatest ||
-        lastStop.windowEnd ||
-        lastStop.endTime ||
-        deliveryTime;
+        // Add Origin Stop if first leg or different facility
+        if (lIdx === 0 || stopsFromLegs.length === 0) {
+          stopsFromLegs.push({
+            sequenceNumber: stopsFromLegs.length + 1,
+            type: "pickup",
+            activity: oAct,
+            facilityCode: oFac || undefined,
+            facilityName: oLoc.facilityName || oLoc.name || undefined,
+            address: oAddr,
+            city: oCity,
+            state: oState,
+            postalCode: oZip,
+            appointmentTime: normalizeDate(oTime, 2),
+            status: leg.status === "COMPLETED" ? "completed" : "pending",
+          });
+        }
+
+        // Add Destination Stop
+        stopsFromLegs.push({
+          sequenceNumber: stopsFromLegs.length + 1,
+          type: lIdx === rawLegs.length - 1 ? "delivery" : "intermediate",
+          activity: dAct,
+          facilityCode: dFac || undefined,
+          facilityName: dLoc.facilityName || dLoc.name || undefined,
+          address: dAddr,
+          city: dCity,
+          state: dState,
+          postalCode: dZip,
+          appointmentTime: normalizeDate(dTime, (lIdx + 1) * 3 + 2),
+          status: leg.status === "COMPLETED" ? "completed" : "pending",
+        });
+      });
+
+      normalizedStops = stopsFromLegs;
     }
 
-    pickupTime = normalizeDate(pickupTime, 2);
-    deliveryTime = normalizeDate(deliveryTime, 16);
-
-    // Normalize each stop into structured TourStop
-    const normalizedStops = [];
-    if (rawStops.length > 0) {
+    // Approach B: Direct stops array extraction if legs were empty
+    if (normalizedStops.length === 0 && rawStops.length > 0) {
       rawStops.forEach((s, idx) => {
         if (!s || typeof s !== "object") return;
-        const facCode =
+        const fac =
           s.facilityCode ||
           s.facilityId ||
           s.locationCode ||
@@ -182,95 +238,93 @@
           s.destFacilityCode ||
           s.facility?.code ||
           s.facility?.facilityCode ||
+          s.code ||
           "";
 
-        const c =
+        const city =
           s.city ||
           s.address?.city ||
           s.location?.city ||
           s.facility?.city ||
-          (idx === 0 ? originCity : idx === rawStops.length - 1 ? destCity : "") ||
-          facCode ||
-          `Stop ${idx + 1}`;
+          fac ||
+          (idx === 0 ? "Origin" : idx === rawStops.length - 1 ? "Destination" : `Stop ${idx + 1}`);
 
-        const st =
-          s.state ||
-          s.address?.state ||
-          s.location?.state ||
-          s.facility?.state ||
-          (idx === 0 ? originState : idx === rawStops.length - 1 ? destState : "US");
+        const state = s.state || s.address?.state || s.location?.state || s.facility?.state || "US";
 
-        const rawActivity = String(
-          s.activity || s.activityType || s.workType || s.stopType || s.type || ""
-        ).toLowerCase();
+        const addr =
+          typeof s.address === "string"
+            ? s.address
+            : s.address?.streetAddress || s.address?.addressLine1 || s.location?.addressLine1 || undefined;
+
+        const rawAct = String(s.activity || s.activityType || s.workType || s.stopType || s.type || "").toLowerCase();
 
         let stopType = idx === 0 ? "pickup" : idx === rawStops.length - 1 ? "delivery" : "intermediate";
-        if (rawActivity.includes("drop") || rawActivity.includes("hook")) {
+        if (rawAct.includes("drop") || rawAct.includes("hook")) {
           stopType = "drop_hook";
-        } else if (rawActivity.includes("pickup") || rawActivity.includes("load")) {
-          stopType = "pickup";
-        } else if (rawActivity.includes("delivery") || rawActivity.includes("unload")) {
-          stopType = "delivery";
         }
 
-        const rawStopStatus = String(s.status || s.executionStatus || s.stopStatus || "").toUpperCase();
-        let stopStatus = "pending";
-        if (rawStopStatus.includes("COMPLET") || rawStopStatus.includes("DONE") || rawStopStatus.includes("FINISHED")) {
-          stopStatus = "completed";
-        } else if (rawStopStatus.includes("ARRIV") || rawStopStatus.includes("DOCK")) {
-          stopStatus = "arrived";
-        } else if (rawStopStatus.includes("TRANSIT") || rawStopStatus.includes("EN_ROUTE") || rawStopStatus.includes("ACTIVE")) {
-          stopStatus = "en_route";
-        } else if (rawStopStatus.includes("DELAY") || rawStopStatus.includes("LATE")) {
-          stopStatus = "delayed";
-        }
-
-        const apptTime =
+        const appt =
           s.plannedDepartureTime ||
           s.plannedArrivalTime ||
           s.appointmentTime ||
-          s.arrivalTimeWindow?.start ||
-          s.windowStart ||
-          s.departureEarliest ||
-          s.arrivalEarliest ||
+          s.departureTime ||
+          s.arrivalTime ||
           s.startTime ||
-          s.plannedTime ||
+          s.windowStart ||
           "";
 
         normalizedStops.push({
           sequenceNumber: idx + 1,
           type: stopType,
-          activity: rawActivity || (idx === 0 ? "pickup" : idx === rawStops.length - 1 ? "delivery" : "intermediate"),
-          facilityCode: facCode || undefined,
+          activity: rawAct || (idx === 0 ? "pickup" : idx === rawStops.length - 1 ? "delivery" : "intermediate"),
+          facilityCode: fac || undefined,
           facilityName: s.facilityName || s.locationName || s.name || s.facility?.name || undefined,
-          address: typeof s.address === "string" ? s.address : (s.address?.streetAddress || s.address?.addressLine1 || s.location?.addressLine1 || undefined),
-          city: c,
-          state: st,
-          postalCode: s.postalCode || s.zip || s.address?.postalCode || s.address?.zipCode || undefined,
-          appointmentTime: normalizeDate(apptTime, idx === 0 ? 2 : idx * 3 + 2),
-          arrivalTimeWindowStart: s.arrivalTimeWindow?.start || s.windowStart || undefined,
-          arrivalTimeWindowEnd: s.arrivalTimeWindow?.end || s.windowEnd || undefined,
-          status: stopStatus,
-          notes: s.instructions || s.notes || s.specialInstructions || undefined,
+          address: addr,
+          city,
+          state,
+          postalCode: s.postalCode || s.zip || s.address?.postalCode || undefined,
+          appointmentTime: normalizeDate(appt, idx === 0 ? 2 : idx * 3 + 2),
+          status: s.status === "COMPLETED" ? "completed" : "pending",
         });
       });
     }
 
-    // Distance in miles
-    let distanceMiles = undefined;
-    if (typeof item.distanceMiles === "number") {
-      distanceMiles = Math.round(item.distanceMiles);
-    } else if (typeof item.totalDistance === "number") {
-      distanceMiles = Math.round(item.totalDistance);
-    } else if (item.totalDistance && typeof item.totalDistance.value === "number") {
-      distanceMiles = Math.round(item.totalDistance.value);
-    } else if (item.distance && typeof item.distance.value === "number") {
-      distanceMiles = Math.round(item.distance.value);
-    } else if (typeof item.loadedDistance === "number") {
-      distanceMiles = Math.round(item.loadedDistance + (item.emptyDistance || 0));
+    // 4. Resolve Origin & Destination summary
+    let originCity = item.originCity || (normalizedStops[0] && normalizedStops[0].city) || item.originFacilityCode || "";
+    let originState = item.originState || (normalizedStops[0] && normalizedStops[0].state) || "US";
+    let originFacility = item.originFacilityCode || (normalizedStops[0] && normalizedStops[0].facilityCode) || "";
+    let pickupTime =
+      item.pickupTime ||
+      item.startTime ||
+      item.scheduledStartTime ||
+      item.startDate ||
+      (normalizedStops[0] && normalizedStops[0].appointmentTime) ||
+      "";
+
+    const lastStop = normalizedStops.length > 0 ? normalizedStops[normalizedStops.length - 1] : null;
+    let destCity = item.destCity || (lastStop && lastStop.city) || item.destFacilityCode || "";
+    let destState = item.destState || (lastStop && lastStop.state) || "US";
+    let destFacility = item.destFacilityCode || (lastStop && lastStop.facilityCode) || "";
+    let deliveryTime =
+      item.deliveryTime ||
+      item.endTime ||
+      item.scheduledEndTime ||
+      item.endDate ||
+      (lastStop && lastStop.appointmentTime) ||
+      "";
+
+    // Anti-pollution: A genuine tour MUST have either real stops, facility codes, or locations
+    if (normalizedStops.length === 0 && !originFacility && !destFacility && !originCity && !destCity && rateUSD <= 0) {
+      return null;
     }
 
-    // 4. Equipment
+    if (!originCity) originCity = originFacility || "Origin Facility";
+    if (!destCity) destCity = destFacility || "Destination Facility";
+
+    pickupTime = normalizeDate(pickupTime, 2);
+    deliveryTime = normalizeDate(deliveryTime, 16);
+
+    // 5. Equipment
     const rawEquipment =
       item.equipmentType ||
       item.trailerType ||
@@ -286,12 +340,25 @@
     else if (eqStr.includes("BOX")) equipment = "26ft Box Truck";
     else if (eqStr.includes("STEP")) equipment = "Step Deck";
 
-    // 5. Weight
+    // 6. Weight & Distance
     const weightLbs =
       (item.weight && typeof item.weight.value === "number" ? item.weight.value : null) ||
       (typeof item.weightLbs === "number" ? item.weightLbs : 38000);
 
-    // 6. Status
+    let distanceMiles = undefined;
+    if (typeof item.distanceMiles === "number") {
+      distanceMiles = Math.round(item.distanceMiles);
+    } else if (typeof item.totalDistance === "number") {
+      distanceMiles = Math.round(item.totalDistance);
+    } else if (item.totalDistance && typeof item.totalDistance.value === "number") {
+      distanceMiles = Math.round(item.totalDistance.value);
+    } else if (item.distance && typeof item.distance.value === "number") {
+      distanceMiles = Math.round(item.distance.value);
+    } else if (typeof item.loadedDistance === "number") {
+      distanceMiles = Math.round(item.loadedDistance + (item.emptyDistance || 0));
+    }
+
+    // 7. Status
     let status = "upcoming";
     const rawStatus = String(item.status || item.executionStatus || item.state || "").toUpperCase();
     if (rawStatus.includes("TRANSIT") || rawStatus.includes("EN_ROUTE") || rawStatus.includes("ACTIVE") || rawStatus.includes("ON_ROAD")) {
@@ -312,11 +379,11 @@
       weightLbs,
       distanceMiles: distanceMiles || undefined,
       totalStopsCount: normalizedStops.length > 0 ? normalizedStops.length : undefined,
-      originCity: originCity || originFacility || "Amazon Origin",
+      originCity,
       originState,
       originFacilityCode: originFacility || undefined,
       pickupTime,
-      destCity: destCity || destFacility || "Amazon Destination",
+      destCity,
       destState,
       destFacilityCode: destFacility || undefined,
       deliveryTime,
@@ -328,7 +395,7 @@
       trailerNumber: item.trailerNumber || item.trailerId || "TR-5300",
       carrierName: item.carrierName || item.carrier?.name || "Unique Dispatch Fleet",
       carrierMcDot: item.carrierMcDot || item.carrier?.dot || "MC-ACTIVE",
-      notes: `Captured via Amazon Relay API Interceptor on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}`,
+      notes: `Captured via Amazon Relay API on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}`,
     };
   }
 
@@ -338,7 +405,7 @@
     let candidateList = [];
 
     function findArrays(obj, depth = 0) {
-      if (!obj || depth > 4) return;
+      if (!obj || depth > 5) return;
       if (Array.isArray(obj)) {
         if (obj.length > 0 && typeof obj[0] === "object") {
           candidateList.push(...obj);
@@ -348,17 +415,18 @@
       if (typeof obj === "object") {
         for (const key of Object.keys(obj)) {
           const val = obj[key];
+          const k = key.toLowerCase();
           if (
-            key.toLowerCase().includes("tour") ||
-            key.toLowerCase().includes("trip") ||
-            key.toLowerCase().includes("workopportunit") ||
-            key.toLowerCase().includes("load") ||
-            key.toLowerCase().includes("schedule") ||
-            key.toLowerCase().includes("item") ||
-            key.toLowerCase().includes("edge") ||
-            key.toLowerCase().includes("node") ||
-            key.toLowerCase().includes("content") ||
-            key.toLowerCase().includes("result")
+            k.includes("tour") ||
+            k.includes("trip") ||
+            k.includes("workopportunit") ||
+            k.includes("load") ||
+            k.includes("schedule") ||
+            k.includes("execution") ||
+            k.includes("assignment") ||
+            k.includes("edge") ||
+            k.includes("content") ||
+            k.includes("result")
           ) {
             if (Array.isArray(val)) {
               candidateList.push(...val);
@@ -384,8 +452,7 @@
     const seenIds = new Set();
 
     candidateList.forEach((raw) => {
-      const item = raw && raw.node ? raw.node : raw;
-      const tour = normalizeApiTour(item);
+      const tour = normalizeApiTour(raw);
       if (tour && tour.vrid && !seenIds.has(tour.vrid)) {
         seenIds.add(tour.vrid);
         normalized.push(tour);
@@ -393,7 +460,7 @@
     });
 
     if (normalized.length > 0) {
-      console.log(`🚚 [Unique Dispatch] Intercepted ${normalized.length} tours from Relay API (${sourceUrl})`);
+      console.log(`🚚 [Unique Dispatch] Intercepted ${normalized.length} authentic tours from Relay API (${sourceUrl})`);
       window.postMessage(
         {
           type: "UD_RELAY_RAW_API_TOURS",

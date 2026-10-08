@@ -171,21 +171,27 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   fetchActiveRelayTours();
 
-  // Manual Sync Now with foolproof safety timeout and lastError checks
-  btnSyncNow.addEventListener("click", async () => {
-    btnSyncNow.disabled = true;
-    btnSyncNow.innerText = "Extracting...";
+  const btnReplaceNow = document.getElementById("btn-replace-now");
+  const btnClearBoard = document.getElementById("btn-clear-board");
 
-    // Safety watchdog: Guarantee button resets even if messaging times out
-    const watchdogTimer = setTimeout(() => {
-      btnSyncNow.disabled = false;
-      btnSyncNow.innerText = "⚡ Sync Active Relay Screen";
-    }, 2800);
+  // Reusable Extract & Dispatch Helper
+  async function executeExtraction(mode = "upsert") {
+    const isReplace = mode === "replace_all";
+    const targetBtn = isReplace ? btnReplaceNow : btnSyncNow;
+    if (targetBtn) {
+      targetBtn.disabled = true;
+      targetBtn.innerText = isReplace ? "Replacing..." : "Extracting...";
+    }
 
     const finishButton = () => {
-      clearTimeout(watchdogTimer);
-      btnSyncNow.disabled = false;
-      btnSyncNow.innerText = "⚡ Sync Active Relay Screen";
+      if (btnSyncNow) {
+        btnSyncNow.disabled = false;
+        btnSyncNow.innerText = "⚡ Sync Active Relay Screen";
+      }
+      if (btnReplaceNow) {
+        btnReplaceNow.disabled = false;
+        btnReplaceNow.innerText = "🔄 Replace All";
+      }
     };
 
     try {
@@ -213,8 +219,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         return;
       }
 
-      // Send message with lastError safety
-      chrome.tabs.sendMessage(targetTab.id, { type: "EXTRACT_NOW" }, async (res) => {
+      chrome.tabs.sendMessage(targetTab.id, { type: "EXTRACT_NOW", mode: mode }, async (res) => {
         const lastErr = chrome.runtime.lastError;
         const hasError = Boolean(lastErr) || !res;
 
@@ -226,12 +231,11 @@ document.addEventListener("DOMContentLoaded", async () => {
                 files: ["content/content-script.js"],
               });
               setTimeout(() => {
-                chrome.tabs.sendMessage(targetTab.id, { type: "EXTRACT_NOW" }, (res2) => {
-                  const subErr = chrome.runtime.lastError;
+                chrome.tabs.sendMessage(targetTab.id, { type: "EXTRACT_NOW", mode: mode }, (res2) => {
                   finishButton();
-                  if (!subErr && res2 && Array.isArray(res2.tours)) {
+                  if (res2 && Array.isArray(res2.tours)) {
                     renderDetectedTours(res2.tours);
-                    showAlert(`✓ Attached & synced ${res2.count || 0} tours from Amazon Relay!`);
+                    showAlert(`✓ Synced ${res2.count || 0} tours from Amazon Relay!`);
                   } else {
                     showAlert("⚠️ Please refresh (F5) the Amazon Relay tab once to attach sync.", false);
                   }
@@ -250,7 +254,8 @@ document.addEventListener("DOMContentLoaded", async () => {
           if (res && Array.isArray(res.tours)) {
             renderDetectedTours(res.tours);
           }
-          showAlert(`✓ Synced ${res?.count || 0} tours from Amazon Relay!`);
+          const actionMsg = isReplace ? "Replaced all tours in portal with" : "Synced";
+          showAlert(`✓ ${actionMsg} ${res?.count || 0} active Relay tours!`);
         }
 
         setTimeout(async () => {
@@ -265,5 +270,37 @@ document.addEventListener("DOMContentLoaded", async () => {
       finishButton();
       showAlert("⚠️ Please refresh (F5) the Amazon Relay tab once.", false);
     }
-  });
+  }
+
+  // 1. Manual Sync (Upsert)
+  btnSyncNow.addEventListener("click", () => executeExtraction("upsert"));
+
+  // 2. Replace All (Purge missing loads)
+  if (btnReplaceNow) {
+    btnReplaceNow.addEventListener("click", () => executeExtraction("replace_all"));
+  }
+
+  // 3. Clear Board
+  if (btnClearBoard) {
+    btnClearBoard.addEventListener("click", async () => {
+      if (!confirm("Are you sure you want to clear all loads from the Unique Dispatch Operations Board?")) {
+        return;
+      }
+      btnClearBoard.disabled = true;
+      btnClearBoard.innerText = "Clearing...";
+
+      chrome.runtime.sendMessage({ type: "CLEAR_ALL_PORTAL_LOADS" }, (res) => {
+        btnClearBoard.disabled = false;
+        btnClearBoard.innerText = "🗑️ Clear Board";
+        const err = chrome.runtime.lastError;
+        if (!err && res && res.success) {
+          lastSyncTimeEl.innerText = "Board cleared";
+          renderDetectedTours([]);
+          showAlert("✓ Cleared all loads from Operations Board!");
+        } else {
+          showAlert("⚠️ Failed to clear board. Check portal connection.", false);
+        }
+      });
+    });
+  }
 });

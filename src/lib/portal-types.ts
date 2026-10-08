@@ -239,6 +239,7 @@ export interface BatchSyncPayload {
   apiKey: string;
   source: "chrome_extension_amazon_relay" | "csv_import" | "api_integration";
   shift?: ShiftType;
+  mode?: "upsert" | "replace_all" | "clear";
   loads: Array<{
     vrid: string;
     source?: "amazon_relay" | "dat_power" | "truckstop" | "direct_shipper" | "manual_import";

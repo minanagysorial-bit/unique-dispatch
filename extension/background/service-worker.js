@@ -66,10 +66,17 @@ function simpleHash(str) {
 // Message Dispatcher
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "RELAY_TOURS_DETECTED") {
-    handleRelayToursSync(message.payload)
+    handleRelayToursSync(message.payload, message.mode || "upsert")
       .then((res) => sendResponse({ success: true, result: res }))
       .catch((err) => sendResponse({ success: false, error: err.message }));
     return true; // Keep message channel open for async response
+  }
+
+  if (message.type === "CLEAR_ALL_PORTAL_LOADS") {
+    clearAllPortalLoads()
+      .then((res) => sendResponse({ success: true, result: res }))
+      .catch((err) => sendResponse({ success: false, error: err.message }));
+    return true;
   }
 
   if (message.type === "TEST_CONNECTION") {
@@ -80,7 +87,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === "TRIGGER_MANUAL_SYNC") {
-    triggerContentSyncOnActiveTab()
+    triggerContentSyncOnActiveTab(message.mode || "upsert")
       .then(() => sendResponse({ success: true }))
       .catch((err) => sendResponse({ success: false, error: err.message }));
     return true;
@@ -88,9 +95,38 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 /**
+ * Clear all loads on portal
+ */
+async function clearAllPortalLoads() {
+  const config = await chrome.storage.local.get(["portalUrl", "apiKey"]);
+  const portalUrl = normalizePortalUrl(config.portalUrl);
+  const apiKey = config.apiKey || DEFAULT_CONFIG.apiKey;
+
+  const endpoint = `${portalUrl}/api/loads/sync`;
+  const res = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-unique-dispatch-key": apiKey,
+    },
+    body: JSON.stringify({ apiKey, action: "clear", mode: "clear" }),
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`Portal Clear Error (${res.status}): ${errorText}`);
+  }
+
+  lastPayloadHash = "";
+  await chrome.storage.local.set({ lastSyncRecord: null });
+  chrome.action.setBadgeText({ text: "" });
+  return await res.json();
+}
+
+/**
  * Handle and dispatch Relay tour payload to Unique Dispatch portal
  */
-async function handleRelayToursSync(loads) {
+async function handleRelayToursSync(loads, mode = "upsert") {
   if (!Array.isArray(loads) || loads.length === 0) {
     return { synced: 0, message: "No active tours detected" };
   }
@@ -105,9 +141,9 @@ async function handleRelayToursSync(loads) {
   const apiKey = config.apiKey || DEFAULT_CONFIG.apiKey;
   const currentShift = config.currentShift || "morning";
 
-  // Check if payload actually changed
+  // Check if payload actually changed (bypass cache check if replace_all mode)
   const currentHash = simpleHash(JSON.stringify(loads.map((l) => `${l.vrid}-${l.status}-${l.pickupTime}`)));
-  if (currentHash === lastPayloadHash) {
+  if (mode !== "replace_all" && currentHash === lastPayloadHash) {
     console.log("ℹ️ [Unique Dispatch Engine] Payload unchanged, skipping redundant request.");
     return { synced: loads.length, unchanged: true };
   }
@@ -118,6 +154,7 @@ async function handleRelayToursSync(loads) {
     apiKey: apiKey,
     source: "chrome_extension_amazon_relay",
     shift: currentShift,
+    mode: mode,
     loads: loads,
   };
 
@@ -178,7 +215,7 @@ async function testPortalConnection(portalUrl, apiKey) {
 /**
  * Find active Amazon Relay tab and request extraction
  */
-async function triggerContentSyncOnActiveTab() {
+async function triggerContentSyncOnActiveTab(mode = "upsert") {
   try {
     const tabs = await chrome.tabs.query({
       url: ["https://relay.amazon.com/*", "https://*.relay.amazon.com/*"],
@@ -186,7 +223,7 @@ async function triggerContentSyncOnActiveTab() {
 
     for (const tab of tabs) {
       if (tab.id) {
-        chrome.tabs.sendMessage(tab.id, { type: "EXTRACT_NOW" }, () => {
+        chrome.tabs.sendMessage(tab.id, { type: "EXTRACT_NOW", mode: mode }, () => {
           const err = chrome.runtime.lastError; // Consume error safely
         });
       }

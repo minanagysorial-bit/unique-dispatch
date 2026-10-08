@@ -27,6 +27,33 @@ export async function GET() {
   );
 }
 
+export async function DELETE(req: Request) {
+  try {
+    const authHeader = req.headers.get("authorization") || "";
+    const customKeyHeader = req.headers.get(PORTAL_API_KEY_HEADER) || "";
+    const apiKey = authHeader.replace(/^Bearer\s+/i, "") || customKeyHeader;
+
+    const validKey = process.env.SYNC_API_KEY || DEFAULT_API_KEY;
+    if (!apiKey || (apiKey !== validKey && apiKey !== DEFAULT_API_KEY)) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401, headers: corsHeaders }
+      );
+    }
+
+    const result = portalDb.clearAllLoads({ id: "api-sync", name: "Relay Extension Clear", role: "super_admin" });
+    return NextResponse.json(
+      { success: true, message: `Purged all ${result.deletedCount} loads from board.` },
+      { headers: corsHeaders }
+    );
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Failed to clear loads" },
+      { status: 500, headers: corsHeaders }
+    );
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const authHeader = req.headers.get("authorization") || "";
@@ -53,6 +80,15 @@ export async function POST(req: Request) {
       );
     }
 
+    // If explicit clear requested
+    if (payload?.mode === "clear" || payload?.action === "clear") {
+      const result = portalDb.clearAllLoads({ id: "api-sync", name: "Relay Extension", role: "super_admin" });
+      return NextResponse.json(
+        { success: true, message: `Purged ${result.deletedCount} loads from operations board.`, result },
+        { headers: corsHeaders }
+      );
+    }
+
     if (!payload || !Array.isArray(payload.loads)) {
       return NextResponse.json(
         { error: "Invalid payload format. Expected { loads: [...] }" },
@@ -69,10 +105,11 @@ export async function POST(req: Request) {
       "Amazon Relay Extension Sync"
     );
 
+    const removedMsg = result.removed ? `, ${result.removed} phantom loads pruned` : "";
     return NextResponse.json(
       {
         success: true,
-        message: `Successfully ingested ${result.synced} tours from Amazon Relay (${result.added} new, ${result.updated} updated).`,
+        message: `Successfully ingested ${result.synced} tours from Amazon Relay (${result.added} new, ${result.updated} updated${removedMsg}).`,
         result,
       },
       { headers: corsHeaders }

@@ -579,10 +579,44 @@ export const portalDb = {
     return true;
   },
 
+  clearAllLoads: (actor?: { id: string; name: string; role: any }): { deletedCount: number } => {
+    const deletedCount = loads.length;
+    loads.length = 0;
+    syncMeta = {
+      lastSyncAt: null,
+      lastSyncSource: null,
+      totalSyncedCount: 0,
+    };
+    if (actor) {
+      portalDb.addAuditLog({
+        actorId: actor.id,
+        actorName: actor.name,
+        actorRole: actor.role,
+        action: "ALL_LOADS_CLEARED",
+        targetType: "load",
+        details: `Purged all ${deletedCount} loads from dispatch operations board.`,
+      });
+    }
+    persist();
+    return { deletedCount };
+  },
+
   // Batch Sync (Chrome Extension & CSV Import)
-  syncBatchLoads: (payload: BatchSyncPayload, actorName = "Amazon Relay Sync"): { synced: number; added: number; updated: number } => {
+  syncBatchLoads: (payload: BatchSyncPayload, actorName = "Amazon Relay Sync"): { synced: number; added: number; updated: number; removed?: number } => {
     let added = 0;
     let updated = 0;
+    let removed = 0;
+
+    // If replace_all mode requested, remove older relay loads not in this active payload
+    if (payload.mode === "replace_all") {
+      const incomingVrids = new Set(payload.loads.map((l) => l.vrid));
+      for (let i = loads.length - 1; i >= 0; i--) {
+        if (loads[i].source === "amazon_relay" && !incomingVrids.has(loads[i].vrid)) {
+          loads.splice(i, 1);
+          removed++;
+        }
+      }
+    }
 
     for (const item of payload.loads) {
       const existing = loads.find((l) => l.vrid === item.vrid);
@@ -649,11 +683,11 @@ export const portalDb = {
       actorRole: "super_admin",
       action: "BATCH_SYNC_COMPLETED",
       targetType: "sync",
-      details: `Batch ingestion completed via ${payload.source}: ${added} loads created, ${updated} loads updated.`,
+      details: `Batch ingestion completed via ${payload.source}: ${added} loads created, ${updated} loads updated${removed > 0 ? `, ${removed} phantom loads pruned` : ""}.`,
     });
 
     persist();
-    return { synced: added + updated, added, updated };
+    return { synced: added + updated, added, updated, removed };
   },
 
   // Milestone Message Logging

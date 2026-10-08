@@ -39,6 +39,7 @@ import {
   Calendar,
   CalendarDays,
   CalendarClock,
+  Trash2,
 } from "lucide-react";
 import { Load, User, ShiftType, EquipmentType, MilestoneType } from "@/lib/portal-types";
 import { playMilestoneChime, playUrgentAlert, playEmergencySiren } from "@/lib/audio-alerts";
@@ -59,6 +60,7 @@ export default function DispatcherOperationsBoardPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loads, setLoads] = useState<Load[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isClearing, setIsClearing] = useState(false);
   const [currentShift, setCurrentShift] = useState<ShiftType>("morning");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -246,6 +248,29 @@ export default function DispatcherOperationsBoardPage() {
       localStorage.setItem("unique_dispatch_view_mode", mode);
     } catch (e) {
       // ignore
+    }
+  };
+
+  // Clear Board Handler (Purge Ghost Loads)
+  const handleClearBoard = async () => {
+    if (!confirm("Are you sure you want to purge all loads from the dispatch operations board? This will remove all previous test and phantom loads.")) {
+      return;
+    }
+    setIsClearing(true);
+    try {
+      const res = await fetch("/api/loads/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "clear", mode: "clear" }),
+      });
+      if (res.ok) {
+        await fetchLoads();
+        alert("✓ Board cleared! All ghost loads removed. You can now sync freshly from Amazon Relay.");
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsClearing(false);
     }
   };
 
@@ -951,6 +976,18 @@ export default function DispatcherOperationsBoardPage() {
               <RefreshCw className="w-3.5 h-3.5 text-orange-400" />
               <span>Refresh Board</span>
             </button>
+
+            {loads.length > 0 && (
+              <button
+                onClick={handleClearBoard}
+                disabled={isClearing}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold border border-red-200 transition-colors shadow-xs"
+                title="Purge all loads to remove ghost data and start fresh"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                <span className="hidden sm:inline">{isClearing ? "Clearing..." : "Clear Board"}</span>
+              </button>
+            )}
           </div>
 
         </div>

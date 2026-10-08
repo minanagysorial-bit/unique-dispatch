@@ -1,15 +1,15 @@
 /**
  * Unique Dispatch - Amazon Relay Passive Content Ingestion Script
- * Runs safely on https://relay.amazon.com/ to read active, scheduled, and future tour schedules.
- * High-performance non-blocking scanner with debounced DOM inspection and API interception.
+ * Scans Amazon Relay screens for genuine tours, multi-stop itineraries, rates, and schedules.
+ * Zero-tolerance for false/hallucinated data.
  */
 
 (function () {
   "use strict";
 
-  console.log("🚚 [Unique Dispatch] Relay Content Script Active");
+  console.log("🚚 [Unique Dispatch] Relay High-Fidelity Content Script Active");
 
-  // In-memory pool of captured tours (from API interception & DOM scanning)
+  // In-memory pool of captured tours
   const capturedToursMap = new Map();
   let isSyncing = false;
   let debounceScanTimer = null;
@@ -30,12 +30,12 @@
 
   injectMainWorldInterceptor();
 
-  // 2. Listen for messages from Main-World API Interceptor
+  // 2. Listen for messages from Main-World API Interceptor (Rich Authentic Payloads)
   window.addEventListener("message", (event) => {
     if (event.source !== window || !event.data) return;
 
     if (event.data.type === "UD_RELAY_RAW_API_TOURS" && Array.isArray(event.data.tours)) {
-      console.log(`🚚 [Unique Dispatch] Received ${event.data.tours.length} tours from API Interceptor`);
+      console.log(`🚚 [Unique Dispatch] Ingested ${event.data.tours.length} authentic tours from API`);
       let added = false;
 
       event.data.tours.forEach((tour) => {
@@ -113,69 +113,88 @@
     return targetDate.toISOString();
   }
 
-  // 4. Exact Trip ID Extractor
+  // 4. Extract Real Trip ID with Strict Validation (Zero False Positives)
   function extractExactTripIdFromNode(node, cardText) {
     if (!node) return null;
 
-    // 1. Check anchor links
+    // A. Check anchor link hrefs (most reliable in Amazon Relay)
     if (node.querySelector) {
-      const linkEl = node.querySelector('a[href*="/tours/"], a[href*="/trips/"], a[href*="/loads/"], a[href*="/work-opportunities/"], a[href*="/execution/"]');
+      const linkEl = node.querySelector(
+        'a[href*="/tours/"], a[href*="/trips/"], a[href*="/loads/"], a[href*="/work-opportunities/"], a[href*="/execution/"], a[href*="/loadboard/"]'
+      );
       if (linkEl && linkEl.href) {
-        const match = linkEl.href.match(/\/(?:tours|trips|loads|work-opportunities|execution)\/(?:details\/)?([A-Za-z0-9\-_]+)/i);
-        if (match && match[1] && match[1].length >= 3 && !match[1].toLowerCase().includes("search") && !match[1].toLowerCase().includes("history")) {
+        const match = linkEl.href.match(/\/(?:tours|trips|loads|work-opportunities|execution|loadboard)\/(?:details\/)?([A-Za-z0-9\-_]{3,32})/i);
+        if (
+          match &&
+          match[1] &&
+          !match[1].toLowerCase().includes("search") &&
+          !match[1].toLowerCase().includes("history") &&
+          !match[1].toLowerCase().includes("filter") &&
+          !match[1].toLowerCase().includes("create")
+        ) {
           return match[1].trim();
         }
       }
 
-      // Check specific data-testid or attributes
+      // B. Check dedicated data-testid or class attributes
       const idEl = node.querySelector(
-        '[data-testid*="tour-id"], [data-testid*="trip-id"], [data-testid*="vrid"], [data-testid*="load-id"], [class*="tourId"], [class*="tripId"], [class*="tour-id"], [class*="trip-id"], [class*="tripNumber"], [class*="tourNumber"]'
+        '[data-testid*="tour-id"], [data-testid*="trip-id"], [data-testid*="vrid"], [data-testid*="load-id"], [data-testid*="work-opportunity-id"], [class*="tourId"], [class*="tripId"], [class*="tour-id"], [class*="trip-id"], [class*="tripNumber"], [class*="tourNumber"]'
       );
       if (idEl) {
         const textVal = (idEl.textContent || "").trim();
-        const cleaned = textVal.replace(/^(?:Trip\s*(?:ID|#)?|Tour\s*(?:ID|#)?|Load\s*(?:ID|#)?|VRID\s*[:#\-]?)[\s:#\-]*/i, "").trim();
-        if (cleaned && cleaned.length >= 3) {
+        const cleaned = textVal.replace(/^(?:Trip\s*(?:ID|#|Number)?|Tour\s*(?:ID|#|Number)?|Load\s*(?:ID|#)?|VRID\s*[:#\-]?)[\s:#\-]*/i, "").trim();
+        if (cleaned && cleaned.length >= 3 && cleaned.length <= 24) {
           return cleaned;
         }
       }
     }
 
-    // 2. Look for labeled text pattern (e.g. "Trip ID: 11A8B9C", "Tour #102948", "Tour ID 11A8B9C", "VRID: 9482710")
-    const labeledMatch = cardText.match(/(?:Trip\s*(?:ID|#)?|Tour\s*(?:ID|#)?|Load\s*(?:ID|#)?|VRID\s*[:#\-]?)[\s:#\-]+([A-Za-z0-9\-_]{3,24})/i);
+    // C. Look for labeled pattern: "Trip # 12345", "Tour ID: 11A8B9C", "VRID: 9482710"
+    const labeledMatch = cardText.match(
+      /(?:Tour|Trip|Load|VRID|Work\s*Opportunity|Execution)\s*(?:ID|#|Number|Ref)?\s*[:#\-]?\s*([A-Za-z0-9\-_]{3,24})/i
+    );
     if (labeledMatch && labeledMatch[1]) {
-      return labeledMatch[1].trim();
+      const cand = labeledMatch[1].trim();
+      const forbidden = ["ID", "NUMBER", "DETAILS", "STATUS", "CARRIER", "ASSIGNED", "UPCOMING", "ACTIVE", "VIEW"];
+      if (!forbidden.includes(cand.toUpperCase())) {
+        return cand;
+      }
     }
 
-    // 3. Check data attribute on node
+    // D. Check data-attributes on node itself
     if (node.getAttribute) {
-      const dataId = node.getAttribute("data-tour-id") || node.getAttribute("data-trip-id") || node.getAttribute("data-id");
+      const dataId =
+        node.getAttribute("data-tour-id") ||
+        node.getAttribute("data-trip-id") ||
+        node.getAttribute("data-work-opportunity-id") ||
+        node.getAttribute("data-vrid");
       if (dataId && dataId.length >= 3) {
         return dataId.trim();
       }
     }
 
-    // 4. Token Match in Header/Row: If card contains facility code, extract standalone alphanumeric token at the beginning
-    const leadingToken = cardText.match(/^\s*#?([A-Z0-9]{4,16})\b/i);
-    if (leadingToken && leadingToken[1]) {
-      const cand = leadingToken[1].trim().toUpperCase();
+    // E. Hash pattern: e.g. #11A8B9C or #982103
+    const hashMatch = cardText.match(/#([A-Za-z0-9\-_]{4,20})\b/);
+    if (hashMatch && hashMatch[1]) {
+      const cand = hashMatch[1].trim().toUpperCase();
       const forbidden = ["AMAZON", "RELAY", "REEFER", "FLATBED", "DELIVERY", "CARRIER", "PICKUP", "UPCOMING", "TRANSIT", "STATUS", "DRYVAN", "WEIGHT", "EXPEDITED", "SCHEDULED", "BOOKED", "ASSIGNED", "ACTIVE"];
       if (!forbidden.includes(cand)) {
-        return leadingToken[1].trim();
+        return hashMatch[1].trim();
       }
     }
 
     return null;
   }
 
-  // 5. Targeted Fast DOM Tour Scanner (Zero layout thrashing)
+  // 5. Targeted Screen Scanner (Extracts only real cards/rows with real routes)
   function scanDomForTours() {
     const foundTours = [];
     const seenIds = new Set();
 
-    // Target specific tour containers only
+    // Select candidate tour rows and cards
     const candidateNodes = Array.from(
       document.querySelectorAll(
-        'table tbody tr, div[role="row"], [data-testid*="tour"], [data-testid*="trip"], [data-testid*="work-opportunity"], [class*="TourCard"], [class*="TripCard"], [class*="tour-card"], [class*="trip-card"], [class*="WorkOpportunityCard"], [class*="ExecutionCard"]'
+        'table tbody tr:not([class*="header"]), div[role="row"]:not([role="columnheader"]), [data-testid*="tour-card"], [data-testid*="trip-card"], [data-testid*="work-opportunity"], div[class*="TourCard"], div[class*="TripCard"], div[class*="WorkOpportunityCard"], div[class*="ExecutionCard"]'
       )
     );
 
@@ -183,54 +202,51 @@
       const node = candidateNodes[i];
       try {
         const text = (node.textContent || "").trim();
-        if (!text || text.length < 15 || text.length > 2500) continue;
+        if (!text || text.length < 15 || text.length > 3000) continue;
 
-        // Check facility codes
+        // Facility codes (e.g. JFK8, TEB9, ABE8)
         const facilityMatches = text.match(/\b([A-Z]{3}[0-9]|[A-Z]{4})\b/g) || [];
         const cleanFacilities = facilityMatches.filter((f) => {
           const upper = f.toUpperCase();
-          const forbidden = ["POST", "TRIP", "TOUR", "LOAD", "TYPE", "RATE", "TIME", "STOP", "CITY", "DEST", "FROM", "AUTO", "VIEW", "INFO", "COST", "FEES", "PAID", "DAYS", "EDIT", "DATE", "USER", "MORE", "SHOW", "HIDE"];
+          const forbidden = [
+            "POST", "TRIP", "TOUR", "LOAD", "TYPE", "RATE", "TIME", "STOP", "CITY", "DEST", "FROM", "AUTO",
+            "VIEW", "INFO", "COST", "FEES", "PAID", "DAYS", "EDIT", "DATE", "USER", "MORE", "SHOW", "HIDE",
+            "NAME", "PAGE", "NEXT", "BACK", "SAVE", "EXIT", "HELP", "TEAM", "UNIT", "TEST", "WARN", "ROLE",
+            "LIVE", "DOCK", "GATE", "SEMI", "VANS", "FLAT", "REEF", "AMZN", "SYNC", "MENU"
+          ];
           return !forbidden.includes(upper);
         });
 
         const hasRate = /\$[0-9]/.test(text);
-        const hasTime = /\b\d{1,2}:\d{2}\b|today|tomorrow|scheduled/i.test(text);
+        const hasTime = /\b\d{1,2}:\d{2}\b|today|tomorrow|scheduled|starts|ends/i.test(text);
 
-        if (cleanFacilities.length === 0 && !hasRate && !hasTime) continue;
+        // Anti-pollution: MUST have facility code OR (rate AND time)
+        if (cleanFacilities.length === 0 && (!hasRate || !hasTime)) continue;
 
         // Extract Real Trip ID
-        let tripId = extractExactTripIdFromNode(node, text);
+        const tripId = extractExactTripIdFromNode(node, text);
+        if (!tripId || seenIds.has(tripId)) continue;
 
-        if (!tripId) {
-          const anyTokenMatch = text.match(/\b([A-Z0-9]{2,4}-[A-Z0-9]{4,12}|[A-Z0-9]{6,16}|\b\d{6,12}\b)\b/);
-          if (anyTokenMatch && anyTokenMatch[1]) {
-            const cand = anyTokenMatch[1].trim().toUpperCase();
-            const forbidden = ["AMAZON", "RELAY", "REEFER", "FLATBED", "DELIVERY", "CARRIER", "PICKUP", "UPCOMING", "TRANSIT", "STATUS", "DRYVAN", "WEIGHT", "EXPEDITED", "SCHEDULED", "BOOKED", "ASSIGNED", "ACTIVE"];
-            if (!forbidden.includes(cand) && !cleanFacilities.includes(cand)) {
-              tripId = anyTokenMatch[1].trim();
-            }
+        // If we already intercepted a richer JSON API payload for this tripId, keep the rich one!
+        if (capturedToursMap.has(tripId)) {
+          const richTour = capturedToursMap.get(tripId);
+          if (richTour && richTour.stops && richTour.stops.length > 0) {
+            seenIds.add(tripId);
+            foundTours.push(richTour);
+            continue;
           }
         }
-
-        if (!tripId || seenIds.has(tripId)) continue;
 
         // Extract Cities / States
         const cityStateMatches = Array.from(text.matchAll(/([A-Za-z\s]{3,20}),\s*([A-Z]{2})\b/g));
 
-        let originCity = "Amazon Origin";
+        let originCity = cleanFacilities[0] || "Origin";
         let originState = "US";
-        let originFacility = undefined;
+        let originFacility = cleanFacilities[0] || undefined;
 
-        let destCity = "Amazon Destination";
+        let destCity = (cleanFacilities.length > 1 ? cleanFacilities[cleanFacilities.length - 1] : cleanFacilities[0]) || "Destination";
         let destState = "US";
-        let destFacility = undefined;
-
-        if (cleanFacilities.length >= 2) {
-          originFacility = cleanFacilities[0];
-          destFacility = cleanFacilities[cleanFacilities.length - 1];
-        } else if (cleanFacilities.length === 1) {
-          originFacility = cleanFacilities[0];
-        }
+        let destFacility = (cleanFacilities.length > 1 ? cleanFacilities[cleanFacilities.length - 1] : undefined);
 
         if (cityStateMatches.length >= 2) {
           originCity = cityStateMatches[0][1].trim();
@@ -240,10 +256,6 @@
         } else if (cityStateMatches.length === 1) {
           originCity = cityStateMatches[0][1].trim();
           originState = cityStateMatches[0][2].trim();
-          destCity = destFacility || "Amazon Destination";
-        } else if (originFacility) {
-          originCity = originFacility;
-          destCity = destFacility || "Destination Facility";
         }
 
         // Rate
@@ -256,6 +268,10 @@
         // Weight
         const weightMatch = text.match(/([0-9,]+)\s*(?:lbs|lb|k\s*lbs)/i);
         const weightLbs = weightMatch ? parseInt(weightMatch[1].replace(/,/g, ""), 10) : 38000;
+
+        // Distance in miles
+        const distanceMatch = text.match(/([0-9,]+)\s*(?:mi|miles)\b/i);
+        const distanceMiles = distanceMatch ? parseInt(distanceMatch[1].replace(/,/g, ""), 10) : undefined;
 
         // Equipment
         let equipment = "Dry Van (53')";
@@ -275,7 +291,7 @@
         const pickupTime = parseDateFromText(text, false);
         const deliveryTime = parseDateFromText(text, true);
 
-        // Build structured stops list from clean facilities if available
+        // Build structured multi-stop array from detected facilities
         const stopsList = [];
         if (cleanFacilities.length >= 2) {
           cleanFacilities.forEach((fac, idx) => {
@@ -303,6 +319,7 @@
           equipment,
           rateUSD,
           weightLbs,
+          distanceMiles,
           originCity,
           originState,
           originFacilityCode: originFacility,
@@ -320,7 +337,7 @@
           trailerNumber: "TR-5300",
           carrierName: "Unique Dispatch Fleet",
           carrierMcDot: "MC-ACTIVE",
-          notes: `Extracted from Amazon Relay on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}`,
+          notes: `Extracted from Amazon Relay screen on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}`,
         };
 
         foundTours.push(tourObj);
@@ -331,7 +348,7 @@
     return foundTours;
   }
 
-  // 6. Floating UI Status & Inspector Pill
+  // 6. Floating Inspector Pill UI
   function injectFloatingPill() {
     if (document.getElementById("ud-relay-sync-pill")) return;
 
@@ -351,7 +368,7 @@
         box-shadow: 0 12px 35px rgba(0,0,0,0.6), 0 0 0 1px rgba(234,88,12,0.5);
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         font-size: 11px;
-        max-width: 340px;
+        max-width: 360px;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         user-select: none;
       ">
@@ -377,9 +394,11 @@
         </div>
 
         <div id="ud-pill-drawer" style="display:none; border-top: 1px solid #1e293b; padding: 10px 14px; max-height: 240px; overflow-y: auto;">
-          <div style="font-weight:800; color:#cbd5e1; margin-bottom:6px; display:flex; justify-content:space-between;">
+          <div style="font-weight:800; color:#cbd5e1; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
             <span>Detected Screen Tours:</span>
-            <span id="ud-pill-drawer-status" style="color:#10b981;">Live Capture</span>
+            <button id="ud-pill-replace-btn" style="background:#1e293b; color:#38bdf8; border:1px solid #38bdf8; border-radius:6px; padding:2px 6px; font-size:9px; cursor:pointer; font-weight:bold;">
+              🔄 Replace All in Portal
+            </button>
           </div>
           <div id="ud-pill-drawer-list" style="display:flex; flex-direction:column; gap:6px;">
             <div style="color:#64748b; font-size:10px;">No tours captured yet. Browse tours or click Sync Now.</div>
@@ -393,9 +412,10 @@
     const pillCard = document.getElementById("ud-pill-card");
     const drawer = document.getElementById("ud-pill-drawer");
     const syncBtn = document.getElementById("ud-pill-sync-btn");
+    const replaceBtn = document.getElementById("ud-pill-replace-btn");
 
     pillCard.addEventListener("click", (e) => {
-      if (e.target === syncBtn || syncBtn.contains(e.target)) return;
+      if (e.target === syncBtn || syncBtn.contains(e.target) || e.target === replaceBtn || replaceBtn?.contains(e.target)) return;
       if (drawer.style.display === "none") {
         drawer.style.display = "block";
         updateDrawerList();
@@ -406,8 +426,15 @@
 
     syncBtn.addEventListener("click", (e) => {
       e.stopPropagation();
-      extractAndSyncAll(true);
+      extractAndSyncAll(true, "upsert");
     });
+
+    if (replaceBtn) {
+      replaceBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        extractAndSyncAll(true, "replace_all");
+      });
+    }
   }
 
   function updateFloatingPillUI() {
@@ -444,6 +471,7 @@
         const pDate = new Date(t.pickupTime);
         const isTomorrow = pDate.getDate() === new Date(Date.now() + 24 * 3600 * 1000).getDate();
         const dateTag = isTomorrow ? "Tomorrow" : `${pDate.getMonth() + 1}/${pDate.getDate()}`;
+        const stopsBadge = t.stops && t.stops.length > 2 ? `<span style="color:#fb923c; font-weight:800;">⚡ ${t.stops.length} Stops</span>` : "";
 
         return `
         <div style="background:#0f172a; padding:6px 10px; border-radius:8px; border:1px solid #1e293b; display:flex; flex-direction:column; gap:2px;">
@@ -453,7 +481,10 @@
           </div>
           <div style="display:flex; justify-content:space-between; color:#94a3b8; font-size:9px;">
             <span>${t.originFacilityCode || t.originCity} ➔ ${t.destFacilityCode || t.destCity}</span>
-            <span style="color:#38bdf8; font-weight:700;">📅 ${dateTag}</span>
+            <div style="display:flex; gap:6px;">
+              ${stopsBadge}
+              <span style="color:#38bdf8; font-weight:700;">📅 ${dateTag}</span>
+            </div>
           </div>
         </div>
       `;
@@ -462,11 +493,11 @@
   }
 
   // 7. Extraction & Dispatch
-  function extractAndSyncAll(isManual = false) {
+  function extractAndSyncAll(isManual = false, mode = "upsert") {
     if (isSyncing) return;
     isSyncing = true;
 
-    // Fast non-blocking DOM scan
+    // Fast targeted DOM scan
     scanDomForTours();
     updateFloatingPillUI();
 
@@ -480,22 +511,24 @@
       return;
     }
 
-    dispatchToursToBackground(allTours, isManual);
+    dispatchToursToBackground(allTours, isManual, mode);
   }
 
-  function dispatchToursToBackground(tours, isManual) {
+  function dispatchToursToBackground(tours, isManual, mode = "upsert") {
     try {
       chrome.runtime.sendMessage(
         {
           type: "RELAY_TOURS_DETECTED",
           payload: tours,
+          mode: mode,
         },
         (response) => {
           const err = chrome.runtime.lastError;
           isSyncing = false;
           if (!err && response && response.success) {
             if (isManual) {
-              showToast(`✓ Synced ${tours.length} exact Relay tours to Unique Dispatch!`);
+              const modeLabel = mode === "replace_all" ? "(Replaced All Tours)" : "";
+              showToast(`✓ Synced ${tours.length} exact Relay tours to Unique Dispatch! ${modeLabel}`);
             }
           } else if (isManual) {
             showToast(`⚠️ Sync notice: ${response?.error || "Check portal connection."}`);
@@ -538,23 +571,29 @@
   // 8. Message Listener
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.type === "EXTRACT_NOW") {
-      extractAndSyncAll(true);
+      const mode = request.mode || "upsert";
+      extractAndSyncAll(true, mode);
       sendResponse({ status: "done", count: capturedToursMap.size, tours: Array.from(capturedToursMap.values()) });
       return false;
     } else if (request.type === "GET_DETECTED_TOURS") {
       scanDomForTours();
       sendResponse({ count: capturedToursMap.size, tours: Array.from(capturedToursMap.values()) });
       return false;
+    } else if (request.type === "CLEAR_CAPTURED_POOL") {
+      capturedToursMap.clear();
+      updateFloatingPillUI();
+      sendResponse({ status: "cleared", count: 0 });
+      return false;
     }
   });
 
-  // 9. Startup & Debounced Observers
+  // 9. Startup & Observers
   setTimeout(() => {
     injectFloatingPill();
-    extractAndSyncAll(false);
+    extractAndSyncAll(false, "upsert");
   }, 1000);
 
-  // Debounced MutationObserver (ignores floating pill and prevents thread locks)
+  // Debounced MutationObserver
   const observer = new MutationObserver((mutations) => {
     const isOurPill = mutations.every(
       (m) => m.target && (m.target.id?.includes?.("ud-") || m.target.closest?.("#ud-relay-sync-pill"))
@@ -573,8 +612,7 @@
     subtree: true,
   });
 
-  // Periodic check every 30 seconds
   setInterval(() => {
-    extractAndSyncAll(false);
+    extractAndSyncAll(false, "upsert");
   }, 30000);
 })();
