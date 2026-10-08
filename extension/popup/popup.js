@@ -11,6 +11,25 @@ document.addEventListener("DOMContentLoaded", async () => {
   const btnSave = document.getElementById("btn-save");
   const btnSyncNow = document.getElementById("btn-sync-now");
 
+  /**
+   * Helper: Normalize user-entered Portal URL to prevent CORS preflight redirect errors
+   */
+  function normalizePortalUrl(rawUrl) {
+    let url = (rawUrl || "http://localhost:3000").trim();
+    if (!url.startsWith("http://") && !url.startsWith("https://")) {
+      if (url.includes("localhost") || url.startsWith("127.0.0.1")) {
+        url = `http://${url}`;
+      } else {
+        url = `https://${url}`;
+      }
+    }
+    // If user typed http:// for a remote domain (e.g. http://uniquedispatch.com), upgrade to https:// to prevent preflight redirect
+    if (url.startsWith("http://") && !url.includes("localhost") && !url.includes("127.0.0.1")) {
+      url = url.replace(/^http:\/\//i, "https://");
+    }
+    return url.replace(/\/$/, "");
+  }
+
   // Load stored configuration
   const config = await chrome.storage.local.get([
     "portalUrl",
@@ -35,26 +54,28 @@ document.addEventListener("DOMContentLoaded", async () => {
     statusBadge.className = "badge badge-checking";
     statusText.innerText = "Checking...";
 
+    const cleanUrl = normalizePortalUrl(portalUrlInput.value);
+
     try {
       chrome.runtime.sendMessage(
         {
           type: "TEST_CONNECTION",
-          portalUrl: portalUrlInput.value.trim(),
+          portalUrl: cleanUrl,
           apiKey: apiKeyInput.value.trim(),
         },
         (res) => {
-          if (res && res.success && res.data && (res.data.status === 200 || res.data.status === 401 || res.data.ok)) {
+          if (res && res.success && res.data && (res.data.status === 200 || res.data.ok)) {
             statusBadge.className = "badge badge-connected";
-            statusText.innerText = "Connected";
+            statusText.innerText = "Connected 🟢";
           } else {
             statusBadge.className = "badge badge-disconnected";
-            statusText.innerText = "Offline";
+            statusText.innerText = "Offline 🔴";
           }
         }
       );
     } catch (e) {
       statusBadge.className = "badge badge-disconnected";
-      statusText.innerText = "Offline";
+      statusText.innerText = "Offline 🔴";
     }
   }
 
@@ -65,15 +86,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     alertBox.className = `alert-box ${isSuccess ? "alert-success" : "alert-error"}`;
     setTimeout(() => {
       alertBox.className = "alert-box hidden";
-    }, 3500);
+    }, 4000);
   }
 
   // Save Settings
   btnSave.addEventListener("click", async () => {
-    const portalUrl = portalUrlInput.value.trim();
+    const portalUrl = normalizePortalUrl(portalUrlInput.value);
     const apiKey = apiKeyInput.value.trim();
     const currentShift = shiftSelect.value;
     const autoSyncEnabled = autoSyncToggle.checked;
+
+    portalUrlInput.value = portalUrl;
 
     await chrome.storage.local.set({
       portalUrl,
@@ -82,7 +105,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       autoSyncEnabled,
     });
 
-    showAlert("✓ Configuration saved successfully!");
+    showAlert("✓ Configuration saved & normalized successfully!");
     checkConnectivity();
   });
 
@@ -112,7 +135,23 @@ document.addEventListener("DOMContentLoaded", async () => {
         return;
       }
 
-      chrome.tabs.sendMessage(targetTab.id, { type: "EXTRACT_NOW" }, (res) => {
+      // 3. Send message or inject content script if needed
+      chrome.tabs.sendMessage(targetTab.id, { type: "EXTRACT_NOW" }, async (res) => {
+        if (chrome.runtime.lastError || !res) {
+          try {
+            // Programmatically inject script if tab wasn't ready
+            await chrome.scripting.executeScript({
+              target: { tabId: targetTab.id },
+              files: ["content/content-script.js"],
+            });
+            setTimeout(() => {
+              chrome.tabs.sendMessage(targetTab.id, { type: "EXTRACT_NOW" });
+            }, 600);
+          } catch (injErr) {
+            console.warn("Script injection note:", injErr);
+          }
+        }
+
         btnSyncNow.disabled = false;
         btnSyncNow.innerText = "⚡ Sync Active Relay Screen";
         showAlert("✓ Extracted tours from Amazon Relay tab!");

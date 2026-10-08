@@ -71,6 +71,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
+function normalizePortalUrl(rawUrl) {
+  let url = (rawUrl || DEFAULT_CONFIG.portalUrl).trim();
+  if (!url.startsWith("http://") && !url.startsWith("https://")) {
+    if (url.includes("localhost") || url.startsWith("127.0.0.1")) {
+      url = `http://${url}`;
+    } else {
+      url = `https://${url}`;
+    }
+  }
+  if (url.startsWith("http://") && !url.includes("localhost") && !url.includes("127.0.0.1")) {
+    url = url.replace(/^http:\/\//i, "https://");
+  }
+  return url.replace(/\/$/, "");
+}
+
 /**
  * Handle and dispatch Relay tour payload to Unique Dispatch portal
  */
@@ -85,7 +100,7 @@ async function handleRelayToursSync(loads) {
     "currentShift",
   ]);
 
-  const portalUrl = (config.portalUrl || DEFAULT_CONFIG.portalUrl).replace(/\/$/, "");
+  const portalUrl = normalizePortalUrl(config.portalUrl);
   const apiKey = config.apiKey || DEFAULT_CONFIG.apiKey;
   const currentShift = config.currentShift || "morning";
 
@@ -142,7 +157,7 @@ async function handleRelayToursSync(loads) {
  * Test connectivity with Portal
  */
 async function testPortalConnection(portalUrl, apiKey) {
-  const url = (portalUrl || DEFAULT_CONFIG.portalUrl).replace(/\/$/, "");
+  const url = normalizePortalUrl(portalUrl);
   const key = apiKey || DEFAULT_CONFIG.apiKey;
 
   try {

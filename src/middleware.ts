@@ -6,7 +6,22 @@ import { PORTAL_SESSION_COOKIE } from "@/lib/auth-constants";
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Only protect /portal/admin and /portal/dispatcher
+  // 1. Global CORS Preflight & Headers for all API Endpoints
+  if (pathname.startsWith("/api/")) {
+    if (req.method === "OPTIONS") {
+      return new NextResponse(null, {
+        status: 204,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type, Authorization, x-unique-dispatch-key",
+          "Access-Control-Max-Age": "86400",
+        },
+      });
+    }
+  }
+
+  // 2. Only protect /portal/admin and /portal/dispatcher
   if (pathname.startsWith("/portal/admin") || pathname.startsWith("/portal/dispatcher")) {
     const token = req.cookies.get(PORTAL_SESSION_COOKIE)?.value;
 
@@ -28,9 +43,17 @@ export function middleware(req: NextRequest) {
     }
   }
 
-  return NextResponse.next();
+  const response = NextResponse.next();
+
+  if (pathname.startsWith("/api/")) {
+    response.headers.set("Access-Control-Allow-Origin", "*");
+    response.headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    response.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, x-unique-dispatch-key");
+  }
+
+  return response;
 }
 
 export const config = {
-  matcher: ["/portal/admin/:path*", "/portal/dispatcher/:path*"],
+  matcher: ["/portal/admin/:path*", "/portal/dispatcher/:path*", "/api/:path*"],
 };

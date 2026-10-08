@@ -15,7 +15,9 @@
   },
   "permissions": [
     "storage",
-    "alarms"
+    "alarms",
+    "scripting",
+    "activeTab"
   ],
   "host_permissions": [
     "https://relay.amazon.com/*",
