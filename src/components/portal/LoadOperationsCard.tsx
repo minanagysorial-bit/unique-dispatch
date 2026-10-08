@@ -220,9 +220,13 @@ export default function LoadOperationsCard({
             </span>
           )}
 
-          {load.rateUSD && (
+          {load.rateUSD > 0 ? (
             <span className="text-xs font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
               ${load.rateUSD.toLocaleString()}
+            </span>
+          ) : (
+            <span className="text-xs font-black text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+              Amazon Contract
             </span>
           )}
         </div>

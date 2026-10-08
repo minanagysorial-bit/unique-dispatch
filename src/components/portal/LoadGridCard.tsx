@@ -344,7 +344,9 @@ export default function LoadGridCard({
 
           <div className="p-2 rounded-xl bg-emerald-50/70 border border-emerald-200">
             <span className="text-[10px] text-emerald-700 font-bold uppercase block">Rate (Gross)</span>
-            <span className="font-black text-emerald-900 text-sm block">${load.rateUSD.toLocaleString()}</span>
+            <span className="font-black text-emerald-900 text-sm block">
+              {load.rateUSD > 0 ? `$${load.rateUSD.toLocaleString()}` : "Amazon Contract"}
+            </span>
           </div>
         </div>
 

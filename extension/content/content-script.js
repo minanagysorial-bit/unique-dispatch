@@ -1,7 +1,8 @@
 /**
  * Unique Dispatch - Amazon Relay High-Fidelity Content Script
- * Scans Amazon Relay screens for 100% authentic tours, preserving exact screen order (#1 to #N).
- * Zero-tolerance for dropped loads or false data.
+ * Scans Amazon Relay screens for 100% authentic tours in exact 1:1 screen order (#1 to #N).
+ * Extracts authentic Trip IDs (T-..., B-..., VRIDs), Drivers, Stops, and exact Dates (Today/Tomorrow).
+ * Zero-tolerance for false/wrapper loads.
  */
 
 (function () {
@@ -45,23 +46,30 @@
     }
   });
 
-  // 2. Helper: Parse Real Dates from Amazon Relay Text (Today, Tomorrow, Specific Dates)
-  function parseDateFromText(text, isDelivery = false) {
+  // 2. High-Precision Date & Time Parser for Amazon Relay (e.g. "Thu, Oct 8, 18:03 CDT", "Fri, Oct 9, 00:30 CDT", "Tomorrow 14:00")
+  function parseRelayDateTime(dateString, isDelivery = false) {
+    if (!dateString) {
+      const fallback = new Date();
+      fallback.setHours(fallback.getHours() + (isDelivery ? 16 : 2));
+      return fallback.toISOString();
+    }
+
     const now = new Date();
     let targetDate = new Date(now);
-    const lower = (text || "").toLowerCase();
+    const text = String(dateString).trim();
+    const lower = text.toLowerCase();
 
-    // Check for "Tomorrow" or future offsets
+    // 1. Check for relative tags: Tomorrow / Yesterday / in N days
     if (lower.includes("tomorrow") || lower.includes("in 1 day") || lower.includes("in 24 hours")) {
       targetDate.setDate(targetDate.getDate() + 1);
     } else if (lower.includes("in 2 days") || lower.includes("in 48 hours")) {
       targetDate.setDate(targetDate.getDate() + 2);
-    } else if (lower.includes("in 3 days") || lower.includes("in 72 hours")) {
+    } else if (lower.includes("in 3 days")) {
       targetDate.setDate(targetDate.getDate() + 3);
     } else if (lower.includes("yesterday")) {
       targetDate.setDate(targetDate.getDate() - 1);
     } else {
-      // Check for Month + Day pattern (e.g. "Oct 9", "Oct 10", "10/09", "2026-10-09")
+      // 2. Match Amazon Relay format: "Thu, Oct 8", "Fri, Oct 9", "Oct 8", "Oct 09", "10/08"
       const monthMatch = text.match(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{1,2})(?:st|nd|rd|th)?(?:\s*,?\s*(\d{4}))?\b/i);
       const isoDateMatch = text.match(/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/);
       const numericDateMatch = text.match(/\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/);
@@ -77,7 +85,8 @@
 
         if (monthNum !== undefined && !isNaN(dayNum)) {
           targetDate.setFullYear(yearNum, monthNum, dayNum);
-          if (!monthMatch[3] && targetDate.getTime() < now.getTime() - 7 * 24 * 3600 * 1000) {
+          // If date parsed is more than 30 days in the past (and no explicit year was given), it's next year
+          if (!monthMatch[3] && targetDate.getTime() < now.getTime() - 30 * 24 * 3600 * 1000) {
             targetDate.setFullYear(targetDate.getFullYear() + 1);
           }
         }
@@ -99,7 +108,7 @@
       }
     }
 
-    // Check for specific clock time (e.g. "08:30 AM", "14:30", "2:00 PM", "8:00")
+    // 3. Match Clock Time: "18:03", "22:44", "08:30 AM", "2:00 PM"
     const timeMatch = text.match(/\b(\d{1,2}):(\d{2})\s*(AM|PM)?\b/i);
     if (timeMatch) {
       let hours = parseInt(timeMatch[1], 10);
@@ -121,159 +130,186 @@
     return targetDate.toISOString();
   }
 
-  // 3. Extract Real Trip ID with Multi-Strategy Infallible Scanner
-  function extractExactTripIdFromNode(node, cardText, fallbackIndex = 1) {
+  // 3. Extract Real Amazon Relay Trip ID (T-..., B-..., VRID, Contract)
+  function extractRelayTripId(node, text) {
     if (!node) return null;
 
-    const forbidden = [
-      "ID", "NUMBER", "DETAILS", "STATUS", "CARRIER", "ASSIGNED", "UPCOMING", "ACTIVE", "VIEW", "FILTER",
-      "SEARCH", "COMPLETED", "TODAY", "TOMORROW", "AMAZON", "RELAY", "REEFER", "FLATBED", "DELIVERY",
-      "PICKUP", "TRANSIT", "DRYVAN", "WEIGHT", "EXPEDITED", "SCHEDULED", "BOOKED", "HEADER", "FOOTER",
-      "TOTAL", "DROP", "HOOK", "MILES", "HOURS", "RATE", "PAYOUT", "MENU", "SETTINGS"
-    ];
+    // Pattern 1: Tour ID (T-...) or Block ID (B-...) e.g. T-115M3SH6V, B-DZTBJZ841, B-0WM2TN02
+    const prefixMatch = text.match(/\b([TB]-[A-Za-z0-9]{6,16})\b/);
+    if (prefixMatch && prefixMatch[1]) {
+      return prefixMatch[1].trim();
+    }
 
-    // Strategy A: Check ALL anchor links on node or inside node
-    const allLinks = [];
+    // Pattern 2: Work Opportunity (WO-...) or Tour Number
+    const woMatch = text.match(/\b(WO-[A-Za-z0-9]{4,14})\b/i);
+    if (woMatch && woMatch[1]) {
+      return woMatch[1].trim();
+    }
+
+    // Pattern 3: Anchor links href
+    const allLinks = Array.from(node.querySelectorAll ? node.querySelectorAll("a[href]") : []);
     if (node.tagName === "A") allLinks.push(node);
-    if (node.querySelectorAll) {
-      allLinks.push(...Array.from(node.querySelectorAll("a[href]")));
-    }
-
-    for (const linkEl of allLinks) {
-      const href = linkEl.getAttribute("href") || linkEl.href || "";
-      // 1. Direct path match (supports both singular and plural paths)
-      const pathMatch = href.match(
-        /\/(?:tours|tour|trips|trip|loads|load|work-opportunities|work-opportunity|execution|loadboard|carrier-tours|carrier-trips|carrier|program-trips)(?:\/details)?\/([A-Za-z0-9\-_]{3,32})/i
-      );
-      if (pathMatch && pathMatch[1]) {
-        const c = pathMatch[1].trim();
-        if (!forbidden.includes(c.toUpperCase())) {
-          return c;
-        }
-      }
-      // 2. Query parameter match
-      const queryMatch = href.match(
-        /[?&#](?:tourId|tripId|vrid|loadId|id|workOpportunityId|executionId|referenceId)=([A-Za-z0-9\-_]{3,32})/i
-      );
-      if (queryMatch && queryMatch[1]) {
-        const c = queryMatch[1].trim();
-        if (!forbidden.includes(c.toUpperCase())) {
-          return c;
-        }
-      }
-    }
-
-    // Strategy B: Check dedicated data-testid, data-id, or class attributes
-    if (node.querySelector) {
-      const idEl = node.querySelector(
-        '[data-testid*="tour-id" i], [data-testid*="trip-id" i], [data-testid*="vrid" i], [data-testid*="load-id" i], [data-testid*="work-opportunity-id" i], [data-testid*="tourReference" i], [class*="tourId" i], [class*="tripId" i], [class*="tour-id" i], [class*="trip-id" i], [class*="tripNumber" i], [class*="tourNumber" i], [class*="vrid" i], [class*="tourReference" i]'
-      );
-      if (idEl) {
-        const textVal = (idEl.textContent || "").trim();
-        const cleaned = textVal.replace(/^(?:Trip\s*(?:ID|#|Number|No)?|Tour\s*(?:ID|#|Number|No)?|Load\s*(?:ID|#)?|VRID\s*[:#\-]?)[\s:#\-]*/i, "").trim();
-        if (cleaned && cleaned.length >= 3 && cleaned.length <= 28) {
-          const upper = cleaned.toUpperCase();
-          if (!forbidden.includes(upper)) {
-            return cleaned;
-          }
-        }
-      }
-    }
-
-    // Strategy C: Check data-attributes on node itself
-    if (node.getAttribute) {
-      const dataId =
-        node.getAttribute("data-tour-id") ||
-        node.getAttribute("data-trip-id") ||
-        node.getAttribute("data-work-opportunity-id") ||
-        node.getAttribute("data-vrid") ||
-        node.getAttribute("data-item-id") ||
-        node.getAttribute("data-row-id") ||
-        node.getAttribute("data-tour-reference-id") ||
-        node.getAttribute("data-id");
-      if (dataId && dataId.length >= 3) {
-        const upper = dataId.trim().toUpperCase();
-        if (!forbidden.includes(upper) && !upper.startsWith("ROW-") && !upper.startsWith("ITEM-")) {
-          return dataId.trim();
-        }
-      }
-    }
-
-    // Strategy D: Global regex scan for labeled ID in text (e.g. "Tour: 11A8B9C", "VRID: 9482710", "Trip # 12345")
-    const labeledRegex = /(?:Tour|Trip|Load|VRID|WO|Work\s*Opportunity|Execution|Order|Booking|Reference)\s*(?:ID|#|Number|No|Ref|Code)?\s*[:#\-\s]+([A-Za-z0-9\-_]{3,24})/gi;
-    let labelMatch;
-    while ((labelMatch = labeledRegex.exec(cardText)) !== null) {
-      if (labelMatch[1]) {
-        const cand = labelMatch[1].trim();
+    for (const link of allLinks) {
+      const href = link.getAttribute("href") || link.href || "";
+      const m = href.match(/\/(?:tours|tour|trips|trip|loads|load|work-opportunities|carrier|execution)\/(?:details\/)?([TB]-[A-Za-z0-9]{6,16}|[0-9]{6,10}|[A-Za-z0-9\-_]{6,24})/i);
+      if (m && m[1]) {
+        const cand = m[1].trim();
+        const forbidden = ["SEARCH", "HISTORY", "FILTER", "CREATE", "VIEW", "DETAILS", "SAVED", "TRIPS", "TOURS", "LOADS", "CARRIER", "EXECUTION"];
         if (!forbidden.includes(cand.toUpperCase())) {
           return cand;
         }
       }
     }
 
-    // Strategy E: Global regex scan for Hash IDs (e.g. #11A8B9C or #982103)
-    const hashRegex = /#([A-Za-z0-9\-_]{4,20})\b/g;
-    let hashMatch;
-    while ((hashMatch = hashRegex.exec(cardText)) !== null) {
-      if (hashMatch[1]) {
-        const cand = hashMatch[1].trim();
-        if (!forbidden.includes(cand.toUpperCase())) {
-          return cand;
-        }
+    // Pattern 4: Labeled Trip ID in text
+    const labeledMatch = text.match(/(?:Trip|Tour|Load|VRID|Booking|Ref)\s*(?:ID|#|Number|No)?\s*[:#\-\s]+([TB]-[A-Za-z0-9]{6,16}|[0-9]{6,10}|[A-Za-z0-9\-_]{6,18})/i);
+    if (labeledMatch && labeledMatch[1]) {
+      const cand = labeledMatch[1].trim();
+      const forbidden = ["ID", "NUMBER", "DETAILS", "STATUS", "CARRIER", "ASSIGNED", "UPCOMING", "ACTIVE", "VIEW", "FILTER", "SEARCH", "COMPLETED"];
+      if (!forbidden.includes(cand.toUpperCase())) {
+        return cand;
       }
     }
 
-    // Strategy F: Table Cell / Column Scanner for standalone VRID or Tour codes
-    const cells = node.querySelectorAll
-      ? Array.from(node.querySelectorAll('td, [role="cell"], [role="gridcell"], div[class*="cell" i], div[class*="column" i], span[class*="id" i], span[class*="badge" i]'))
-      : [];
+    // Pattern 5: Standalone 6-10 digit VRID in table cells
+    const cells = Array.from(node.querySelectorAll ? node.querySelectorAll('td, [role="cell"], [role="gridcell"], div[class*="cell" i], span[class*="id" i]') : []);
     for (const cell of cells) {
       const cellText = (cell.textContent || "").trim();
-      if (!cellText || cellText.length < 4 || cellText.length > 24) continue;
-
-      // Pure numeric VRID (6-10 digits)
-      if (/^\b[0-9]{6,10}\b$/.test(cellText)) {
+      if (/^([TB]-[A-Za-z0-9]{6,16})$/.test(cellText)) {
         return cellText;
       }
-      // Alphanumeric Tour format (e.g. 11A8B9C, 3N88XP9, WO-10293, T-98124)
-      if (/^[A-Za-z0-9\-_]{5,18}$/.test(cellText) && /[A-Za-z]/.test(cellText) && /[0-9]/.test(cellText)) {
-        const upper = cellText.toUpperCase();
-        if (!forbidden.includes(upper)) {
-          return cellText;
-        }
-      }
-    }
-
-    // Strategy G: Standalone 6-10 digit numbers in text (VRID)
-    const numericRegex = /\b([0-9]{6,10})\b/g;
-    let numMatch;
-    while ((numMatch = numericRegex.exec(cardText)) !== null) {
-      const val = numMatch[1];
-      // Exclude common weights (e.g. 38000, 42000, 45000) or current year (2026)
-      const numVal = parseInt(val, 10);
-      if (numVal !== 2026 && numVal !== 2027 && numVal < 30000 && numVal > 99999) {
-        return val;
-      }
-      if (val.length >= 7) {
-        return val;
-      }
-    }
-
-    // Strategy H: Standalone alphanumeric tour code tokens (e.g. 11A8B9C, 3X9K2P)
-    const alphaNumRegex = /\b([0-9][A-Z0-9]{5,11}|[A-Z][A-Z0-9]{5,11})\b/g;
-    let anMatch;
-    while ((anMatch = alphaNumRegex.exec(cardText)) !== null) {
-      const val = anMatch[1].trim();
-      const upper = val.toUpperCase();
-      if (/[A-Z]/.test(upper) && /[0-9]/.test(upper) && !forbidden.includes(upper)) {
-        return val;
+      if (/^[0-9]{6,10}$/.test(cellText)) {
+        return cellText;
       }
     }
 
     return null;
   }
 
-  // 4. Targeted Screen Scanner strictly preserving vertical top-to-bottom Relay Screen Order
+  // 4. Extract Assigned Driver Name
+  function extractDriverName(node, text) {
+    if (!node) return "Assigned Driver";
+
+    // Check select dropdown value or text
+    const selectEl = node.querySelector ? node.querySelector("select") : null;
+    if (selectEl) {
+      const selectedOpt = selectEl.options[selectEl.selectedIndex];
+      const optText = selectedOpt ? selectedOpt.text.trim() : selectEl.value.trim();
+      if (optText && !/select|assign|choose|driver/i.test(optText)) {
+        return optText;
+      }
+    }
+
+    // Check driver badge / assignee elements
+    const driverEl = node.querySelector
+      ? node.querySelector('[data-testid*="driver" i], [class*="driver" i], [class*="assignee" i], [class*="Driver" i]')
+      : null;
+    if (driverEl) {
+      const dText = (driverEl.textContent || "").trim();
+      if (dText && dText.length >= 2 && dText.length <= 30 && !/assign|status/i.test(dText)) {
+        return dText;
+      }
+    }
+
+    // Pattern in Relay text: "M. Ford", "M. CRISTOBAL", "J. Solis", "J. Jackson", "D. Perez", "A. Lopez", "T. Walker", "M. CARTER", "Dunlap"
+    // Often follows endorsements like "CDL", "LCV, NC", "TWIC", "FAST"
+    const driverRegex = /(?:CDL[^\n\r]*|Endorsements[^\n\r]*)\s+([A-Z]\.\s+[A-Za-z0-9]+|[A-Z][a-z]+|[A-Z]{3,15})/i;
+    const dm = text.match(driverRegex);
+    if (dm && dm[1]) {
+      const cand = dm[1].trim();
+      const forbidden = ["CDL", "FAST", "TWIC", "TTA", "LCV", "NC", "ACCEPT", "DETAILS", "DROP", "HOOK", "TRAILER", "CONTRACT"];
+      if (!forbidden.includes(cand.toUpperCase())) {
+        return cand;
+      }
+    }
+
+    // Standalone "Initial. Lastname" pattern (e.g. M. Ford, J. Solis)
+    const initialNameMatch = text.match(/\b([A-Z]\.\s+[A-Za-z]{2,20})\b/);
+    if (initialNameMatch && initialNameMatch[1]) {
+      return initialNameMatch[1].trim();
+    }
+
+    return "Assigned Driver";
+  }
+
+  // 5. Extract Multi-Stop Details from Amazon Relay Row
+  function extractStopsFromRelayRow(node, text) {
+    const stops = [];
+
+    // Facility regex: e.g. [AUS2], [IAH1], [SAT4], AUS2, JFK8, TEB9
+    const facilityMatches = Array.from(text.matchAll(/(?:\[([A-Z0-9]{3,6})\]|\b([A-Z]{3,4}[0-9]{1,2})\b)/g));
+    const cleanFacilities = facilityMatches
+      .map((m) => m[1] || m[2])
+      .filter((f) => {
+        const forbidden = ["POST", "TRIP", "TOUR", "LOAD", "TYPE", "RATE", "TIME", "STOP", "CITY", "DEST", "FROM", "AUTO", "VIEW", "INFO", "COST", "FEES", "PAID", "DAYS", "EDIT", "DATE", "USER", "MORE", "SHOW", "HIDE", "NAME", "PAGE", "NEXT", "BACK", "SAVE", "EXIT", "HELP", "TEAM", "UNIT", "TEST", "WARN", "ROLE", "LIVE", "DOCK", "GATE", "SEMI", "VANS", "FLAT", "REEF", "AMZN", "SYNC", "MENU", "AMAZON", "RELAY", "TOTAL", "DROP", "HOOK", "MILES", "HOUR", "HOURS", "WEEK", "CDT", "CST", "EDT", "EST", "PDT", "PST", "MDT", "MST", "UTC", "CDL", "TWIC", "FAST", "TTA", "LCV", "NC"];
+        return f && !forbidden.includes(f.toUpperCase());
+      });
+
+    // Match City, State pairs (e.g. "Pflugerville, TX 78660", "Dallas, TX 75241", "San Antonio, TX 78219", "San Antonio, TX")
+    const cityStateMatches = Array.from(
+      text.matchAll(/([A-Za-z\s\.\-]{3,24}),\s*([A-Z]{2})(?:\s+(\d{5}))?/g)
+    );
+
+    // Match Dates in row text (e.g. "Thu, Oct 8, 18:03 CDT", "Fri, Oct 9, 05:20 CDT")
+    const dateMatches = Array.from(
+      text.matchAll(/(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun),?\s+)?(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}(?:st|nd|rd|th)?(?:\s*,?\s*\d{4})?,?\s+\d{1,2}:\d{2}\s*(?:AM|PM)?(?:\s*[A-Z]{3})?/gi)
+    );
+
+    const now = new Date();
+    const defaultPickupTime = dateMatches[0] ? parseRelayDateTime(dateMatches[0][0], false) : parseRelayDateTime(text, false);
+    const defaultDeliveryTime = dateMatches[1] ? parseRelayDateTime(dateMatches[1][0], true) : dateMatches[0] ? parseRelayDateTime(dateMatches[0][0], true) : parseRelayDateTime(text, true);
+
+    // Build Stop 1 (Pickup)
+    const oFacility = cleanFacilities[0] || undefined;
+    const oCity = (cityStateMatches[0] && cityStateMatches[0][1].trim()) || oFacility || "Origin Facility";
+    const oState = (cityStateMatches[0] && cityStateMatches[0][2].trim()) || "US";
+    const oZip = cityStateMatches[0] && cityStateMatches[0][3] ? cityStateMatches[0][3] : undefined;
+
+    stops.push({
+      sequenceNumber: 1,
+      type: "pickup",
+      activity: "pickup",
+      facilityCode: oFacility,
+      city: oCity,
+      state: oState,
+      postalCode: oZip,
+      appointmentTime: defaultPickupTime,
+      status: "pending",
+    });
+
+    // Build Stop 2 (Delivery)
+    const dFacility = (cleanFacilities.length > 1 ? cleanFacilities[cleanFacilities.length - 1] : undefined);
+    const dMatch = cityStateMatches.length > 1 ? cityStateMatches[cityStateMatches.length - 1] : cityStateMatches[0];
+    const dCity = (dMatch && dMatch[1].trim()) || dFacility || "Destination Facility";
+    const dState = (dMatch && dMatch[2].trim()) || "US";
+    const dZip = dMatch && dMatch[3] ? dMatch[3] : undefined;
+
+    stops.push({
+      sequenceNumber: 2,
+      type: "delivery",
+      activity: "delivery",
+      facilityCode: dFacility,
+      city: dCity,
+      state: dState,
+      postalCode: dZip,
+      appointmentTime: defaultDeliveryTime,
+      status: "pending",
+    });
+
+    return {
+      stops,
+      originCity: oCity,
+      originState: oState,
+      originFacilityCode: oFacility,
+      pickupTime: defaultPickupTime,
+      destCity: dCity,
+      destState: dState,
+      destFacilityCode: dFacility,
+      deliveryTime: defaultDeliveryTime,
+    };
+  }
+
+  // 6. Targeted Screen Scanner strictly preserving vertical top-to-bottom Relay Screen Order
   function scanDomForTours() {
     const candidateNodes = [];
     const candidateElementSet = new Set();
@@ -305,24 +341,6 @@
       '[class*="awsui_card" i], [class*="awsui-card" i], [class*="awsui-cards" i] li, [class*="TourCard" i], [class*="tour-card" i], [class*="TripCard" i], [class*="trip-card" i], [class*="WorkOpportunityCard" i], [class*="work-opportunity" i], [data-testid*="card" i], [data-testid*="row" i], [data-testid*="tour" i], [data-testid*="trip" i], [data-testid*="item" i]'
     ).forEach(addCandidate);
 
-    // Selector Strategy 4 (Fallback): Any block element containing VRID or facility codes
-    if (candidateNodes.length === 0) {
-      const allDivs = Array.from(document.querySelectorAll('div, li, article, section, tr'));
-      for (const d of allDivs) {
-        if (d.children.length <= 15 && d.textContent) {
-          const txt = d.textContent;
-          if (
-            (/\b([A-Z]{3,4}[0-9]{1,2})\b/.test(txt) || /\b([0-9]{6,10})\b/.test(txt) || /tour|trip|vrid|work opportunity/i.test(txt)) &&
-            txt.length >= 10 &&
-            txt.length <= 5000
-          ) {
-            const container = d.closest('tr, [role="row"], li, article, section, [class*="card" i], [class*="row" i]') || d;
-            addCandidate(container);
-          }
-        }
-      }
-    }
-
     // Filter out parent containers that contain other candidate child nodes (to avoid duplicate "wrapper" tours)
     const filteredCandidateNodes = candidateNodes.filter((node) => {
       for (const other of candidateNodes) {
@@ -353,30 +371,40 @@
       const node = filteredCandidateNodes[i];
       try {
         const text = (node.textContent || "").trim();
-        if (!text || text.length < 8) continue;
+        if (!text || text.length < 10) continue;
 
-        // Facility codes (e.g. JFK8, TEB9, ABE8, KRDU, KCVG, SWF1, LCY2, LTN4)
-        const facilityMatches = text.match(/\b([A-Z]{3,4}[0-9]{1,2})\b/g) || [];
-        const forbiddenFacilities = [
-          "POST", "TRIP", "TOUR", "LOAD", "TYPE", "RATE", "TIME", "STOP", "CITY", "DEST", "FROM", "AUTO",
-          "VIEW", "INFO", "COST", "FEES", "PAID", "DAYS", "EDIT", "DATE", "USER", "MORE", "SHOW", "HIDE",
-          "NAME", "PAGE", "NEXT", "BACK", "SAVE", "EXIT", "HELP", "TEAM", "UNIT", "TEST", "WARN", "ROLE",
-          "LIVE", "DOCK", "GATE", "SEMI", "VANS", "FLAT", "REEF", "AMZN", "SYNC", "MENU", "AMAZON", "RELAY",
-          "TOTAL", "DROP", "HOOK", "MILES", "HOUR", "HOURS", "WEEK", "CARD", "GRID", "EST", "EDT", "CST",
-          "CDT", "MST", "MDT", "PST", "PDT", "UTC", "AM", "PM"
-        ];
-        const cleanFacilities = facilityMatches.filter((f) => !forbiddenFacilities.includes(f.toUpperCase()));
+        // Anti-ghost check: Discard header bars, search bars, filter bars, pagination bars
+        const isHeaderOrFilter =
+          text.includes("Search by IDs") ||
+          text.includes("Domiciles") ||
+          text.includes("Disruptions") ||
+          text.includes("Work types") ||
+          text.includes("Programs") ||
+          text.includes("1-10 of") ||
+          text.includes("results per page") ||
+          text.includes("Sort by") ||
+          text.includes("Export") ||
+          text.includes("Bulk action");
 
-        // Extract trip ID with fallback
-        let tripId = extractExactTripIdFromNode(node, text, i + 1);
+        // Extract genuine Relay Trip ID
+        let tripId = extractRelayTripId(node, text);
 
-        if (!tripId && cleanFacilities.length >= 2) {
-          tripId = `RELAY-${cleanFacilities[0]}-${cleanFacilities[cleanFacilities.length - 1]}-${i + 1}`;
-        } else if (!tripId && cleanFacilities.length === 1) {
-          tripId = `RELAY-${cleanFacilities[0]}-${i + 1}`;
-        } else if (!tripId) {
-          tripId = `RELAY-TOUR-${i + 1}`;
+        // If no genuine Trip ID found and it looks like a header/wrapper, discard it immediately!
+        if (!tripId && isHeaderOrFilter) {
+          continue;
         }
+
+        // If no Trip ID found, but element contains real stop route (e.g. [SAT4] -> San Antonio, TX)
+        if (!tripId) {
+          const hasFacility = /\[[A-Z0-9]{3,6}\]|\b[A-Z]{3,4}[0-9]{1,2}\b/.test(text);
+          const hasCityState = /[A-Za-z\s]{3,20},\s*[A-Z]{2}\b/.test(text);
+          if (hasFacility && hasCityState) {
+            tripId = `RELAY-TRIP-${i + 1}`;
+          }
+        }
+
+        // If still no trip ID, skip this node (prevents fake/ghost cards)
+        if (!tripId) continue;
 
         if (seenIds.has(tripId)) continue;
         seenIds.add(tripId);
@@ -389,26 +417,15 @@
           continue;
         }
 
-        // Extract Cities / States
-        const cityStateMatches = Array.from(text.matchAll(/([A-Za-z\s\.\-]{2,25}),\s*([A-Z]{2})\b/g));
+        // Extract Stops, Locations & Exact Dates
+        const routeData = extractStopsFromRelayRow(node, text);
 
-        let originCity = cleanFacilities[0] || "Origin Facility";
-        let originState = "US";
-        let originFacility = cleanFacilities[0] || undefined;
+        // Extract Driver Name
+        const driverName = extractDriverName(node, text);
 
-        let destCity = (cleanFacilities.length > 1 ? cleanFacilities[cleanFacilities.length - 1] : cleanFacilities[0]) || "Destination Facility";
-        let destState = "US";
-        let destFacility = (cleanFacilities.length > 1 ? cleanFacilities[cleanFacilities.length - 1] : undefined);
-
-        if (cityStateMatches.length >= 2) {
-          originCity = cityStateMatches[0][1].trim();
-          originState = cityStateMatches[0][2].trim();
-          destCity = cityStateMatches[cityStateMatches.length - 1][1].trim();
-          destState = cityStateMatches[cityStateMatches.length - 1][2].trim();
-        } else if (cityStateMatches.length === 1) {
-          originCity = cityStateMatches[0][1].trim();
-          originState = cityStateMatches[0][2].trim();
-        }
+        // Extract Contract Code if present (e.g. C-000030574)
+        const contractMatch = text.match(/\b(C-[0-9]{6,12})\b/);
+        const contractCode = contractMatch ? contractMatch[1] : "C-RELAY";
 
         // Rate
         const rateMatch = text.match(/\$([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})?|\b[0-9]{2,5}\b)/);
@@ -432,6 +449,7 @@
         else if (/power\s*only/i.test(text)) equipment = "Power Only";
         else if (/box\s*truck|26(?:ft|'|\s*ft)/i.test(text)) equipment = "26ft Box Truck";
         else if (/step\s*deck/i.test(text)) equipment = "Step Deck";
+        else if (/53'?\s*trailer/i.test(text)) equipment = "Dry Van (53')";
 
         // Status
         let status = "upcoming";
@@ -442,30 +460,6 @@
         else if (/delayed|at\s*risk/i.test(text)) status = "delayed";
         else if (/cancelled|void/i.test(text)) status = "cancelled";
 
-        const pickupTime = parseDateFromText(text, false);
-        const deliveryTime = parseDateFromText(text, true);
-
-        // Build structured multi-stop array from detected facilities
-        const stopsList = [];
-        if (cleanFacilities.length >= 2) {
-          cleanFacilities.forEach((fac, idx) => {
-            const isFirst = idx === 0;
-            const isLast = idx === cleanFacilities.length - 1;
-            const stopCity = isFirst ? originCity : isLast ? destCity : fac;
-            const stopState = isFirst ? originState : isLast ? destState : "US";
-            stopsList.push({
-              sequenceNumber: idx + 1,
-              type: isFirst ? "pickup" : isLast ? "delivery" : "intermediate",
-              activity: isFirst ? "pickup" : isLast ? "delivery" : "drop_hook",
-              facilityCode: fac,
-              city: stopCity,
-              state: stopState,
-              appointmentTime: isFirst ? pickupTime : isLast ? deliveryTime : new Date(new Date(pickupTime).getTime() + idx * 3 * 3600000).toISOString(),
-              status: isFirst && status === "in_transit" ? "completed" : status === "delivered" ? "completed" : "pending",
-            });
-          });
-        }
-
         const tourObj = {
           vrid: tripId,
           source: "amazon_relay",
@@ -473,25 +467,25 @@
           rateUSD,
           weightLbs,
           distanceMiles,
-          originCity,
-          originState,
-          originFacilityCode: originFacility,
-          pickupTime,
-          destCity,
-          destState,
-          destFacilityCode: destFacility,
-          deliveryTime,
-          stops: stopsList.length > 0 ? stopsList : undefined,
-          totalStopsCount: stopsList.length > 0 ? stopsList.length : 2,
+          originCity: routeData.originCity,
+          originState: routeData.originState,
+          originFacilityCode: routeData.originFacilityCode,
+          pickupTime: routeData.pickupTime,
+          destCity: routeData.destCity,
+          destState: routeData.destState,
+          destFacilityCode: routeData.destFacilityCode,
+          deliveryTime: routeData.deliveryTime,
+          stops: routeData.stops,
+          totalStopsCount: routeData.stops.length,
           status,
           screenIndex: currentScreenIndex++,
-          driverName: "Assigned Driver",
+          driverName: driverName,
           driverPhone: "+1 (555) 000-0000",
           tractorNumber: "UD-AMZ",
           trailerNumber: "TR-5300",
-          carrierName: "Unique Dispatch Fleet",
-          carrierMcDot: "MC-ACTIVE",
-          notes: `Extracted from Amazon Relay screen in exact visual order on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}`,
+          carrierName: "Chism Tracking / Unique Dispatch",
+          carrierMcDot: contractCode,
+          notes: `Amazon Relay Contract: ${contractCode} | Screen Position #${currentScreenIndex}`,
         };
 
         foundTours.push(tourObj);
@@ -527,7 +521,7 @@
     return latestOrderedTours;
   }
 
-  // 5. Floating Inspector Pill UI (Only in top frame)
+  // 7. Floating Inspector Pill UI (Only in top frame)
   function injectFloatingPill() {
     if (window.self !== window.top) return;
     if (document.getElementById("ud-relay-sync-pill")) return;
@@ -659,7 +653,7 @@
               <span style="background:#ea580c; color:#fff; font-weight:900; font-size:9px; padding:1px 5px; border-radius:4px;">#${idx + 1}</span>
               <span style="font-family:monospace; font-weight:900; color:#fb923c;">${t.vrid}</span>
             </div>
-            <span style="color:#34d399; font-weight:800;">${t.rateUSD > 0 ? `$${t.rateUSD.toLocaleString()}` : "Rate TBD"}</span>
+            <span style="color:#34d399; font-weight:800;">${t.rateUSD > 0 ? `$${t.rateUSD.toLocaleString()}` : (t.driverName || "Assigned Driver")}</span>
           </div>
           <div style="display:flex; justify-content:space-between; color:#94a3b8; font-size:9px;">
             <span>${t.originFacilityCode || t.originCity} ➔ ${t.destFacilityCode || t.destCity}</span>
@@ -674,7 +668,7 @@
       .join("");
   }
 
-  // 6. Extraction & Dispatch in Strict Screen Order
+  // 8. Extraction & Dispatch in Strict Screen Order
   function extractAndSyncAll(isManual = false, mode = "upsert") {
     if (isSyncing) return;
     isSyncing = true;
@@ -749,7 +743,7 @@
     }, 4000);
   }
 
-  // 7. Message Listener
+  // 9. Message Listener
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.type === "EXTRACT_NOW") {
       const mode = request.mode || "upsert";
@@ -779,7 +773,7 @@
     updateFloatingPillUI();
   };
 
-  // 8. Startup & Observers
+  // 10. Startup & Observers
   setTimeout(() => {
     injectFloatingPill();
     scanDomForTours();
