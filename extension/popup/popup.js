@@ -10,6 +10,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const btnSave = document.getElementById("btn-save");
   const btnSyncNow = document.getElementById("btn-sync-now");
+  const btnReplaceNow = document.getElementById("btn-replace-now");
+  const btnClearBoard = document.getElementById("btn-clear-board");
 
   /**
    * Helper: Normalize user-entered Portal URL to prevent CORS preflight redirect errors
@@ -37,6 +39,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     "currentShift",
     "autoSyncEnabled",
     "lastSyncRecord",
+    "lastDetectedTours",
   ]);
 
   const cleanPortalUrl = normalizePortalUrl(config.portalUrl || "https://uniquedispatch.com");
@@ -53,6 +56,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (config.lastSyncRecord && config.lastSyncRecord.lastSyncedAt) {
     const d = new Date(config.lastSyncRecord.lastSyncedAt);
     lastSyncTimeEl.innerText = `${d.toLocaleTimeString()} (${config.lastSyncRecord.totalLoads || 0} loads)`;
+  }
+
+  if (Array.isArray(config.lastDetectedTours) && config.lastDetectedTours.length > 0) {
+    renderDetectedTours(config.lastDetectedTours);
   }
 
   // Test Connectivity
@@ -161,14 +168,23 @@ document.addEventListener("DOMContentLoaded", async () => {
       .join("");
   }
 
-  // Poll detected tours from active Amazon Relay tab with safe lastError handling
+  // Poll detected tours from active Amazon Relay tab & service worker cache
   async function fetchActiveRelayTours() {
     try {
+      // 1. Check background service worker cache first
+      chrome.runtime.sendMessage({ type: "GET_LATEST_CACHED_TOURS" }, (res) => {
+        const err = chrome.runtime.lastError;
+        if (!err && res && Array.isArray(res.tours) && res.tours.length > 0) {
+          renderDetectedTours(res.tours);
+        }
+      });
+
+      // 2. Query active Amazon Relay tab
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (tab && tab.id && tab.url && (tab.url.includes("relay.amazon") || tab.url.includes("amazon.com/relay") || tab.url.includes("amazon.com/carrier"))) {
         chrome.tabs.sendMessage(tab.id, { type: "GET_DETECTED_TOURS" }, (res) => {
-          const err = chrome.runtime.lastError; // Read and suppress unhandled connection error
-          if (!err && res && Array.isArray(res.tours)) {
+          const err = chrome.runtime.lastError;
+          if (!err && res && Array.isArray(res.tours) && res.tours.length > 0) {
             renderDetectedTours(res.tours);
           }
         });
@@ -177,9 +193,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   fetchActiveRelayTours();
-
-  const btnReplaceNow = document.getElementById("btn-replace-now");
-  const btnClearBoard = document.getElementById("btn-clear-board");
 
   // Reusable Extract & Dispatch Helper
   async function executeExtraction(mode = "upsert") {
@@ -237,13 +250,13 @@ document.addEventListener("DOMContentLoaded", async () => {
           if (chrome.scripting && typeof chrome.scripting.executeScript === "function") {
             try {
               await chrome.scripting.executeScript({
-                target: { tabId: targetTab.id },
+                target: { tabId: targetTab.id, allFrames: true },
                 files: ["content/content-script.js"],
               });
               setTimeout(() => {
                 chrome.tabs.sendMessage(targetTab.id, { type: "EXTRACT_NOW", mode: mode }, (res2) => {
                   finishButton();
-                  if (res2 && Array.isArray(res2.tours)) {
+                  if (res2 && Array.isArray(res2.tours) && res2.tours.length > 0) {
                     renderDetectedTours(res2.tours);
                     showAlert(`✓ Synced ${res2.count || 0} tours from Amazon Relay!`);
                   } else {
@@ -264,8 +277,9 @@ document.addEventListener("DOMContentLoaded", async () => {
           if (res && Array.isArray(res.tours)) {
             renderDetectedTours(res.tours);
           }
+          const count = res?.count || 0;
           const actionMsg = isReplace ? "Replaced all tours in portal with" : "Synced";
-          showAlert(`✓ ${actionMsg} ${res?.count || 0} active Relay tours!`);
+          showAlert(`✓ ${actionMsg} ${count} active Relay tours!`);
         }
 
         setTimeout(async () => {

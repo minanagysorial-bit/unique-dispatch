@@ -11,8 +11,11 @@
   console.log("🚚 [Unique Dispatch] Relay Deep API Interceptor Initialized");
 
   function safeParseJson(text) {
+    if (!text || typeof text !== "string") return null;
+    const trimmed = text.trim();
+    if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) return null;
     try {
-      return JSON.parse(text);
+      return JSON.parse(trimmed);
     } catch (e) {
       return null;
     }
@@ -39,7 +42,7 @@
     if (!raw || typeof raw !== "object") return null;
 
     // Unwrap node or wrapper
-    const item = raw.node ? raw.node : raw.tour ? raw.tour : raw.workOpportunity ? raw.workOpportunity : raw;
+    const item = raw.node ? raw.node : raw.tour ? raw.tour : raw.workOpportunity ? raw.workOpportunity : raw.trip ? raw.trip : raw;
 
     // 1. Extract Trip ID / Tour ID from all possible Relay API formats
     const rawId =
@@ -65,7 +68,7 @@
     const tripId = String(rawId).trim();
     if (!tripId || tripId.length < 3) return null;
 
-    // Filter out UI / Non-tour IDs
+    // Filter out obvious non-tour UI IDs
     const forbiddenPrefixes = ["user-", "usr-", "nav-", "menu-", "btn-", "filter-", "setting-", "notif-", "theme-", "tab-"];
     if (forbiddenPrefixes.some((p) => tripId.toLowerCase().startsWith(p))) return null;
 
@@ -120,7 +123,7 @@
 
     let normalizedStops = [];
 
-    // Approach A: Pairwise Legs extraction (e.g. Leg 1: Origin -> Dest, Leg 2: Origin -> Dest)
+    // Approach A: Pairwise Legs extraction
     if (rawLegs.length > 0) {
       const stopsFromLegs = [];
 
@@ -189,7 +192,7 @@
 
         const dAct = leg.destActivity || (lIdx === rawLegs.length - 1 ? "delivery" : "drop_hook");
 
-        // Add Origin Stop if first leg or different facility
+        // Add Origin Stop if first leg
         if (lIdx === 0 || stopsFromLegs.length === 0) {
           stopsFromLegs.push({
             sequenceNumber: stopsFromLegs.length + 1,
@@ -313,7 +316,7 @@
       (lastStop && lastStop.appointmentTime) ||
       "";
 
-    // Anti-pollution: A genuine tour MUST have either real stops, facility codes, or locations
+    // Anti-pollution check
     if (normalizedStops.length === 0 && !originFacility && !destFacility && !originCity && !destCity && rateUSD <= 0) {
       return null;
     }
@@ -404,43 +407,30 @@
 
     let candidateList = [];
 
-    function findArrays(obj, depth = 0) {
-      if (!obj || depth > 5) return;
+    function findObjectsAndArrays(obj, depth = 0) {
+      if (!obj || depth > 10) return;
       if (Array.isArray(obj)) {
         if (obj.length > 0 && typeof obj[0] === "object") {
           candidateList.push(...obj);
+        }
+        for (const item of obj) {
+          if (item && typeof item === "object") {
+            findObjectsAndArrays(item, depth + 1);
+          }
         }
         return;
       }
       if (typeof obj === "object") {
         for (const key of Object.keys(obj)) {
           const val = obj[key];
-          const k = key.toLowerCase();
-          if (
-            k.includes("tour") ||
-            k.includes("trip") ||
-            k.includes("workopportunit") ||
-            k.includes("load") ||
-            k.includes("schedule") ||
-            k.includes("execution") ||
-            k.includes("assignment") ||
-            k.includes("edge") ||
-            k.includes("content") ||
-            k.includes("result")
-          ) {
-            if (Array.isArray(val)) {
-              candidateList.push(...val);
-            } else if (val && typeof val === "object") {
-              findArrays(val, depth + 1);
-            }
-          } else if (val && typeof val === "object") {
-            findArrays(val, depth + 1);
+          if (val && typeof val === "object") {
+            findObjectsAndArrays(val, depth + 1);
           }
         }
       }
     }
 
-    findArrays(data);
+    findObjectsAndArrays(data);
 
     if (candidateList.length === 0 && Array.isArray(data)) {
       candidateList = data;
@@ -483,7 +473,7 @@
       clone
         .text()
         .then((text) => {
-          if (text && (text.startsWith("{") || text.startsWith("["))) {
+          if (text) {
             const parsed = safeParseJson(text);
             if (parsed) {
               handlePossibleRelayData(parsed, url);
@@ -504,12 +494,12 @@
     return origOpen.apply(this, arguments);
   };
 
-    XMLHttpRequest.prototype.send = function () {
+  XMLHttpRequest.prototype.send = function () {
     this.addEventListener("load", function () {
       try {
         const url = this._ud_url || "";
         const text = this.responseText;
-        if (text && (text.startsWith("{") || text.startsWith("["))) {
+        if (text) {
           const parsed = safeParseJson(text);
           if (parsed) {
             handlePossibleRelayData(parsed, url);

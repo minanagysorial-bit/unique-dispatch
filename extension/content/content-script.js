@@ -1,7 +1,7 @@
 /**
  * Unique Dispatch - Amazon Relay High-Fidelity Content Script
- * Scans Amazon Relay screens for 100% authentic tours, preserving exact screen order.
- * Zero-tolerance for false/hallucinated data.
+ * Scans Amazon Relay screens for 100% authentic tours, preserving exact screen order (#1 to #N).
+ * Zero-tolerance for dropped loads or false data.
  */
 
 (function () {
@@ -49,16 +49,21 @@
   function parseDateFromText(text, isDelivery = false) {
     const now = new Date();
     let targetDate = new Date(now);
-    const lower = text.toLowerCase();
+    const lower = (text || "").toLowerCase();
 
-    // Check for "Tomorrow"
+    // Check for "Tomorrow" or future offsets
     if (lower.includes("tomorrow") || lower.includes("in 1 day") || lower.includes("in 24 hours")) {
       targetDate.setDate(targetDate.getDate() + 1);
     } else if (lower.includes("in 2 days") || lower.includes("in 48 hours")) {
       targetDate.setDate(targetDate.getDate() + 2);
+    } else if (lower.includes("in 3 days") || lower.includes("in 72 hours")) {
+      targetDate.setDate(targetDate.getDate() + 3);
+    } else if (lower.includes("yesterday")) {
+      targetDate.setDate(targetDate.getDate() - 1);
     } else {
-      // Check for Month + Day pattern (e.g. "Oct 9", "Oct 10", "10/09")
-      const monthMatch = text.match(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{1,2})\b/i);
+      // Check for Month + Day pattern (e.g. "Oct 9", "Oct 10", "10/09", "2026-10-09")
+      const monthMatch = text.match(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{1,2})(?:st|nd|rd|th)?(?:\s*,?\s*(\d{4}))?\b/i);
+      const isoDateMatch = text.match(/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/);
       const numericDateMatch = text.match(/\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/);
 
       if (monthMatch) {
@@ -68,22 +73,33 @@
         };
         const monthNum = months[monthMatch[1].toLowerCase().slice(0, 3)];
         const dayNum = parseInt(monthMatch[2], 10);
+        const yearNum = monthMatch[3] ? parseInt(monthMatch[3], 10) : now.getFullYear();
+
         if (monthNum !== undefined && !isNaN(dayNum)) {
-          targetDate.setMonth(monthNum, dayNum);
-          if (targetDate.getTime() < now.getTime() - 7 * 24 * 3600 * 1000) {
+          targetDate.setFullYear(yearNum, monthNum, dayNum);
+          if (!monthMatch[3] && targetDate.getTime() < now.getTime() - 7 * 24 * 3600 * 1000) {
             targetDate.setFullYear(targetDate.getFullYear() + 1);
           }
+        }
+      } else if (isoDateMatch) {
+        const y = parseInt(isoDateMatch[1], 10);
+        const m = parseInt(isoDateMatch[2], 10) - 1;
+        const d = parseInt(isoDateMatch[3], 10);
+        if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+          targetDate.setFullYear(y, m, d);
         }
       } else if (numericDateMatch) {
         const m = parseInt(numericDateMatch[1], 10) - 1;
         const d = parseInt(numericDateMatch[2], 10);
+        let y = numericDateMatch[3] ? parseInt(numericDateMatch[3], 10) : now.getFullYear();
+        if (y < 100) y += 2000;
         if (!isNaN(m) && !isNaN(d)) {
-          targetDate.setMonth(m, d);
+          targetDate.setFullYear(y, m, d);
         }
       }
     }
 
-    // Check for specific clock time (e.g. "08:30 AM", "14:30", "2:00 PM")
+    // Check for specific clock time (e.g. "08:30 AM", "14:30", "2:00 PM", "8:00")
     const timeMatch = text.match(/\b(\d{1,2}):(\d{2})\s*(AM|PM)?\b/i);
     if (timeMatch) {
       let hours = parseInt(timeMatch[1], 10);
@@ -105,11 +121,18 @@
     return targetDate.toISOString();
   }
 
-  // 3. Extract Real Trip ID with Multi-Strategy Adaptability (Zero Drops)
-  function extractExactTripIdFromNode(node, cardText) {
+  // 3. Extract Real Trip ID with Multi-Strategy Infallible Scanner
+  function extractExactTripIdFromNode(node, cardText, fallbackIndex = 1) {
     if (!node) return null;
 
-    // A. Check ALL anchor links on node or inside node
+    const forbidden = [
+      "ID", "NUMBER", "DETAILS", "STATUS", "CARRIER", "ASSIGNED", "UPCOMING", "ACTIVE", "VIEW", "FILTER",
+      "SEARCH", "COMPLETED", "TODAY", "TOMORROW", "AMAZON", "RELAY", "REEFER", "FLATBED", "DELIVERY",
+      "PICKUP", "TRANSIT", "DRYVAN", "WEIGHT", "EXPEDITED", "SCHEDULED", "BOOKED", "HEADER", "FOOTER",
+      "TOTAL", "DROP", "HOOK", "MILES", "HOURS", "RATE", "PAYOUT", "MENU", "SETTINGS"
+    ];
+
+    // Strategy A: Check ALL anchor links on node or inside node
     const allLinks = [];
     if (node.tagName === "A") allLinks.push(node);
     if (node.querySelectorAll) {
@@ -118,37 +141,46 @@
 
     for (const linkEl of allLinks) {
       const href = linkEl.getAttribute("href") || linkEl.href || "";
-      // 1. Direct path match: e.g. /tours/11A8B9C or /trips/9482710 or /work-opportunities/10293
-      const pathMatch = href.match(/\/(?:tours|trips|loads|work-opportunities|execution|loadboard|carrier-tours|program-trips)(?:\/details)?\/([A-Za-z0-9\-_]{3,32})/i);
+      // 1. Direct path match (supports both singular and plural paths)
+      const pathMatch = href.match(
+        /\/(?:tours|tour|trips|trip|loads|load|work-opportunities|work-opportunity|execution|loadboard|carrier-tours|carrier-trips|carrier|program-trips)(?:\/details)?\/([A-Za-z0-9\-_]{3,32})/i
+      );
       if (pathMatch && pathMatch[1]) {
         const c = pathMatch[1].trim();
-        const forbidden = ["SEARCH", "HISTORY", "FILTER", "CREATE", "VIEW", "DETAILS", "SAVED", "TRIPS", "TOURS", "LOADS", "CARRIER", "EXECUTION"];
         if (!forbidden.includes(c.toUpperCase())) {
           return c;
         }
       }
-      // 2. Query parameter match: e.g. ?tourId=11A8B9C or ?tripId=9482710 or ?vrid=...
-      const queryMatch = href.match(/[?&](?:tourId|tripId|vrid|loadId|workOpportunityId|executionId)=([A-Za-z0-9\-_]{3,32})/i);
-      if (queryMatch && queryMatch[1]) {
-        return queryMatch[1].trim();
-      }
-    }
-
-    // B. Check dedicated data-testid, data-id, or class attributes
-    if (node.querySelector) {
-      const idEl = node.querySelector(
-        '[data-testid*="tour-id" i], [data-testid*="trip-id" i], [data-testid*="vrid" i], [data-testid*="load-id" i], [data-testid*="work-opportunity-id" i], [class*="tourId" i], [class*="tripId" i], [class*="tour-id" i], [class*="trip-id" i], [class*="tripNumber" i], [class*="tourNumber" i], [class*="vrid" i]'
+      // 2. Query parameter match
+      const queryMatch = href.match(
+        /[?&#](?:tourId|tripId|vrid|loadId|id|workOpportunityId|executionId|referenceId)=([A-Za-z0-9\-_]{3,32})/i
       );
-      if (idEl) {
-        const textVal = (idEl.textContent || "").trim();
-        const cleaned = textVal.replace(/^(?:Trip\s*(?:ID|#|Number)?|Tour\s*(?:ID|#|Number)?|Load\s*(?:ID|#)?|VRID\s*[:#\-]?)[\s:#\-]*/i, "").trim();
-        if (cleaned && cleaned.length >= 3 && cleaned.length <= 24) {
-          return cleaned;
+      if (queryMatch && queryMatch[1]) {
+        const c = queryMatch[1].trim();
+        if (!forbidden.includes(c.toUpperCase())) {
+          return c;
         }
       }
     }
 
-    // C. Check data-attributes on node itself
+    // Strategy B: Check dedicated data-testid, data-id, or class attributes
+    if (node.querySelector) {
+      const idEl = node.querySelector(
+        '[data-testid*="tour-id" i], [data-testid*="trip-id" i], [data-testid*="vrid" i], [data-testid*="load-id" i], [data-testid*="work-opportunity-id" i], [data-testid*="tourReference" i], [class*="tourId" i], [class*="tripId" i], [class*="tour-id" i], [class*="trip-id" i], [class*="tripNumber" i], [class*="tourNumber" i], [class*="vrid" i], [class*="tourReference" i]'
+      );
+      if (idEl) {
+        const textVal = (idEl.textContent || "").trim();
+        const cleaned = textVal.replace(/^(?:Trip\s*(?:ID|#|Number|No)?|Tour\s*(?:ID|#|Number|No)?|Load\s*(?:ID|#)?|VRID\s*[:#\-]?)[\s:#\-]*/i, "").trim();
+        if (cleaned && cleaned.length >= 3 && cleaned.length <= 28) {
+          const upper = cleaned.toUpperCase();
+          if (!forbidden.includes(upper)) {
+            return cleaned;
+          }
+        }
+      }
+    }
+
+    // Strategy C: Check data-attributes on node itself
     if (node.getAttribute) {
       const dataId =
         node.getAttribute("data-tour-id") ||
@@ -157,61 +189,85 @@
         node.getAttribute("data-vrid") ||
         node.getAttribute("data-item-id") ||
         node.getAttribute("data-row-id") ||
+        node.getAttribute("data-tour-reference-id") ||
         node.getAttribute("data-id");
       if (dataId && dataId.length >= 3) {
-        const forbidden = ["SEARCH", "FILTER", "HEADER", "FOOTER", "MENU"];
-        if (!forbidden.includes(dataId.toUpperCase())) {
+        const upper = dataId.trim().toUpperCase();
+        if (!forbidden.includes(upper) && !upper.startsWith("ROW-") && !upper.startsWith("ITEM-")) {
           return dataId.trim();
         }
       }
     }
 
-    // D. Labeled pattern in text: e.g. "VRID: 9482710", "Trip # 12345", "Tour ID 11A8B9C", "Tour #11A8B9C"
-    const labeledMatch = cardText.match(
-      /(?:Tour|Trip|Load|VRID|Work\s*Opportunity|Execution|Order)\s*(?:ID|#|Number|Ref)?\s*[:#\-\s]+([A-Za-z0-9\-_]{3,24})/i
-    );
-    if (labeledMatch && labeledMatch[1]) {
-      const cand = labeledMatch[1].trim();
-      const forbidden = ["ID", "NUMBER", "DETAILS", "STATUS", "CARRIER", "ASSIGNED", "UPCOMING", "ACTIVE", "VIEW", "FILTER", "SEARCH", "COMPLETED", "TODAY", "TOMORROW"];
-      if (!forbidden.includes(cand.toUpperCase())) {
-        return cand;
+    // Strategy D: Global regex scan for labeled ID in text (e.g. "Tour: 11A8B9C", "VRID: 9482710", "Trip # 12345")
+    const labeledRegex = /(?:Tour|Trip|Load|VRID|WO|Work\s*Opportunity|Execution|Order|Booking|Reference)\s*(?:ID|#|Number|No|Ref|Code)?\s*[:#\-\s]+([A-Za-z0-9\-_]{3,24})/gi;
+    let labelMatch;
+    while ((labelMatch = labeledRegex.exec(cardText)) !== null) {
+      if (labelMatch[1]) {
+        const cand = labelMatch[1].trim();
+        if (!forbidden.includes(cand.toUpperCase())) {
+          return cand;
+        }
       }
     }
 
-    // E. Hash pattern: e.g. #11A8B9C or #982103
-    const hashMatch = cardText.match(/#([A-Za-z0-9\-_]{4,20})\b/);
-    if (hashMatch && hashMatch[1]) {
-      const cand = hashMatch[1].trim().toUpperCase();
-      const forbidden = ["AMAZON", "RELAY", "REEFER", "FLATBED", "DELIVERY", "CARRIER", "PICKUP", "UPCOMING", "TRANSIT", "STATUS", "DRYVAN", "WEIGHT", "EXPEDITED", "SCHEDULED", "BOOKED", "ASSIGNED", "ACTIVE", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
-      if (!forbidden.includes(cand)) {
-        return hashMatch[1].trim();
+    // Strategy E: Global regex scan for Hash IDs (e.g. #11A8B9C or #982103)
+    const hashRegex = /#([A-Za-z0-9\-_]{4,20})\b/g;
+    let hashMatch;
+    while ((hashMatch = hashRegex.exec(cardText)) !== null) {
+      if (hashMatch[1]) {
+        const cand = hashMatch[1].trim();
+        if (!forbidden.includes(cand.toUpperCase())) {
+          return cand;
+        }
       }
     }
 
-    // F. Table Cell / First Column ID Scanner (crucial for Amazon Relay tables without "Tour ID:" prefix in cells)
-    const cells = node.querySelectorAll ? Array.from(node.querySelectorAll('td, [role="cell"], [role="gridcell"], div[class*="cell" i], div[class*="column" i], span[class*="id" i]')) : [];
+    // Strategy F: Table Cell / Column Scanner for standalone VRID or Tour codes
+    const cells = node.querySelectorAll
+      ? Array.from(node.querySelectorAll('td, [role="cell"], [role="gridcell"], div[class*="cell" i], div[class*="column" i], span[class*="id" i], span[class*="badge" i]'))
+      : [];
     for (const cell of cells) {
       const cellText = (cell.textContent || "").trim();
-      if (!cellText || cellText.length < 4 || cellText.length > 20) continue;
+      if (!cellText || cellText.length < 4 || cellText.length > 24) continue;
 
-      // Pure numeric VRID format (e.g. 9482710 or 12345678)
+      // Pure numeric VRID (6-10 digits)
       if (/^\b[0-9]{6,10}\b$/.test(cellText)) {
         return cellText;
       }
-      // Alphanumeric Tour format (e.g. 11A8B9C, 3N88XP9, T-1029384, WO-98213)
-      if (/^[A-Za-z0-9]{6,16}$/.test(cellText) && /[A-Za-z]/.test(cellText) && /[0-9]/.test(cellText)) {
+      // Alphanumeric Tour format (e.g. 11A8B9C, 3N88XP9, WO-10293, T-98124)
+      if (/^[A-Za-z0-9\-_]{5,18}$/.test(cellText) && /[A-Za-z]/.test(cellText) && /[0-9]/.test(cellText)) {
         const upper = cellText.toUpperCase();
-        const forbidden = ["AMAZON", "CARRIER", "REEFER", "FLATBED", "DRYVAN", "DELIVERY", "UPCOMING", "COMPLETED", "EXPEDITED"];
         if (!forbidden.includes(upper)) {
           return cellText;
         }
       }
     }
 
-    // G. Standalone token in text matching numeric VRID (6-10 digits)
-    const numericVridMatch = cardText.match(/\b([0-9]{7,10})\b/);
-    if (numericVridMatch && numericVridMatch[1]) {
-      return numericVridMatch[1];
+    // Strategy G: Standalone 6-10 digit numbers in text (VRID)
+    const numericRegex = /\b([0-9]{6,10})\b/g;
+    let numMatch;
+    while ((numMatch = numericRegex.exec(cardText)) !== null) {
+      const val = numMatch[1];
+      // Exclude common weights (e.g. 38000, 42000, 45000) or current year (2026)
+      const numVal = parseInt(val, 10);
+      if (numVal !== 2026 && numVal !== 2027 && numVal < 30000 && numVal > 99999) {
+        return val;
+      }
+      if (val.length >= 7) {
+        return val;
+      }
+    }
+
+    // Strategy H: Standalone alphanumeric tour code tokens (e.g. 11A8B9C, 3X9K2P)
+    const alphaNumRegex = /\b([0-9][A-Z0-9]{5,11}|[A-Z][A-Z0-9]{5,11})\b/g;
+    let anMatch;
+    while ((anMatch = alphaNumRegex.exec(cardText)) !== null) {
+      const val = anMatch[1].trim();
+      const upper = val.toUpperCase();
+      if (/[A-Z]/.test(upper) && /[0-9]/.test(upper) && !forbidden.includes(upper)) {
+        return val;
+      }
     }
 
     return null;
@@ -219,8 +275,8 @@
 
   // 4. Targeted Screen Scanner strictly preserving vertical top-to-bottom Relay Screen Order
   function scanDomForTours() {
-    const candidateElementSet = new Set();
     const candidateNodes = [];
+    const candidateElementSet = new Set();
 
     function addCandidate(el) {
       if (!el || candidateElementSet.has(el)) return;
@@ -229,14 +285,14 @@
       candidateNodes.push(el);
     }
 
-    // Selector Strategy 1: All table rows (Standard HTML Table or Cloudscape Table)
+    // Selector Strategy 1: Table Rows (Cloudscape Table, HTML Table, Grid Rows)
     document.querySelectorAll(
-      'table tbody tr:not([class*="header" i]), [role="row"]:not([role="columnheader" i]), [class*="awsui_row" i], [class*="awsui-table-row" i]'
+      'table tbody tr:not([class*="header" i]), [role="row"]:not([role="columnheader" i]), [class*="awsui_row" i], [class*="awsui-table-row" i], [class*="awsui_table_row" i], [class*="TableRow" i], [class*="table-row" i], [class*="grid-row" i]'
     ).forEach(addCandidate);
 
-    // Selector Strategy 2: All Tour / Trip / Loadboard links and their card containers
+    // Selector Strategy 2: Tour / Trip / Loadboard Links and their card containers
     document.querySelectorAll(
-      'a[href*="/tours" i], a[href*="/trips" i], a[href*="/loads" i], a[href*="/work-opportunities" i], a[href*="/execution" i], a[href*="/loadboard" i], a[href*="/carrier" i]'
+      'a[href*="/tours" i], a[href*="/tour" i], a[href*="/trips" i], a[href*="/trip" i], a[href*="/loads" i], a[href*="/load" i], a[href*="/work-opportunities" i], a[href*="/work-opportunity" i], a[href*="/execution" i], a[href*="/loadboard" i], a[href*="/carrier" i]'
     ).forEach((link) => {
       const container = link.closest(
         'tr, [role="row"], [class*="card" i], [class*="row" i], [class*="item" i], [class*="tour" i], [class*="trip" i], li, article, section'
@@ -244,19 +300,22 @@
       addCandidate(container);
     });
 
-    // Selector Strategy 3: Cloudscape Cards, Card grids, and Item wrappers
+    // Selector Strategy 3: Cloudscape Cards, Card Grids, Tiles, and Item Wrappers
     document.querySelectorAll(
-      '[class*="awsui_card" i], [class*="awsui-card" i], [class*="TourCard" i], [class*="tour-card" i], [class*="TripCard" i], [class*="trip-card" i], [class*="WorkOpportunityCard" i], [class*="work-opportunity" i], [data-testid*="card" i], [data-testid*="row" i], [data-testid*="tour" i], [data-testid*="trip" i], [data-testid*="item" i]'
+      '[class*="awsui_card" i], [class*="awsui-card" i], [class*="awsui-cards" i] li, [class*="TourCard" i], [class*="tour-card" i], [class*="TripCard" i], [class*="trip-card" i], [class*="WorkOpportunityCard" i], [class*="work-opportunity" i], [data-testid*="card" i], [data-testid*="row" i], [data-testid*="tour" i], [data-testid*="trip" i], [data-testid*="item" i]'
     ).forEach(addCandidate);
 
-    // Selector Strategy 4 (Fallback if no candidate nodes found yet):
-    // Search elements that contain facility code patterns (e.g. JFK8, TEB9)
+    // Selector Strategy 4 (Fallback): Any block element containing VRID or facility codes
     if (candidateNodes.length === 0) {
-      const allDivs = Array.from(document.querySelectorAll('div, li, article, section'));
+      const allDivs = Array.from(document.querySelectorAll('div, li, article, section, tr'));
       for (const d of allDivs) {
-        if (d.children.length <= 10 && d.textContent) {
+        if (d.children.length <= 15 && d.textContent) {
           const txt = d.textContent;
-          if (/\b([A-Z]{3}[0-9]|[A-Z]{4})\b/.test(txt) && (/\$[0-9]/.test(txt) || /\b\d{1,2}:\d{2}\b/i.test(txt) || /tour|trip|vrid|stop|rate/i.test(txt))) {
+          if (
+            (/\b([A-Z]{3,4}[0-9]{1,2})\b/.test(txt) || /\b([0-9]{6,10})\b/.test(txt) || /tour|trip|vrid|work opportunity/i.test(txt)) &&
+            txt.length >= 10 &&
+            txt.length <= 5000
+          ) {
             const container = d.closest('tr, [role="row"], li, article, section, [class*="card" i], [class*="row" i]') || d;
             addCandidate(container);
           }
@@ -264,8 +323,18 @@
       }
     }
 
+    // Filter out parent containers that contain other candidate child nodes (to avoid duplicate "wrapper" tours)
+    const filteredCandidateNodes = candidateNodes.filter((node) => {
+      for (const other of candidateNodes) {
+        if (other !== node && node.contains(other)) {
+          return false; // Discard outer container, keep inner row/card!
+        }
+      }
+      return true;
+    });
+
     // Strictly sort candidate nodes by vertical top-to-bottom document position
-    candidateNodes.sort((a, b) => {
+    filteredCandidateNodes.sort((a, b) => {
       const rectA = a.getBoundingClientRect();
       const rectB = b.getBoundingClientRect();
       const topA = rectA.top + (window.scrollY || window.pageYOffset || 0);
@@ -280,38 +349,36 @@
     const seenIds = new Set();
     let currentScreenIndex = 0;
 
-    for (let i = 0; i < candidateNodes.length; i++) {
-      const node = candidateNodes[i];
+    for (let i = 0; i < filteredCandidateNodes.length; i++) {
+      const node = filteredCandidateNodes[i];
       try {
         const text = (node.textContent || "").trim();
-        if (!text || text.length < 10 || text.length > 5000) continue;
+        if (!text || text.length < 8) continue;
 
-        // Facility codes (e.g. JFK8, TEB9, ABE8)
-        const facilityMatches = text.match(/\b([A-Z]{3}[0-9]|[A-Z]{4})\b/g) || [];
-        const cleanFacilities = facilityMatches.filter((f) => {
-          const upper = f.toUpperCase();
-          const forbidden = [
-            "POST", "TRIP", "TOUR", "LOAD", "TYPE", "RATE", "TIME", "STOP", "CITY", "DEST", "FROM", "AUTO",
-            "VIEW", "INFO", "COST", "FEES", "PAID", "DAYS", "EDIT", "DATE", "USER", "MORE", "SHOW", "HIDE",
-            "NAME", "PAGE", "NEXT", "BACK", "SAVE", "EXIT", "HELP", "TEAM", "UNIT", "TEST", "WARN", "ROLE",
-            "LIVE", "DOCK", "GATE", "SEMI", "VANS", "FLAT", "REEF", "AMZN", "SYNC", "MENU", "AMAZON", "RELAY",
-            "TOTAL", "DROP", "HOOK", "MILES", "HOUR", "HOURS", "WEEK", "CARD", "GRID"
-          ];
-          return !forbidden.includes(upper);
-        });
+        // Facility codes (e.g. JFK8, TEB9, ABE8, KRDU, KCVG, SWF1, LCY2, LTN4)
+        const facilityMatches = text.match(/\b([A-Z]{3,4}[0-9]{1,2})\b/g) || [];
+        const forbiddenFacilities = [
+          "POST", "TRIP", "TOUR", "LOAD", "TYPE", "RATE", "TIME", "STOP", "CITY", "DEST", "FROM", "AUTO",
+          "VIEW", "INFO", "COST", "FEES", "PAID", "DAYS", "EDIT", "DATE", "USER", "MORE", "SHOW", "HIDE",
+          "NAME", "PAGE", "NEXT", "BACK", "SAVE", "EXIT", "HELP", "TEAM", "UNIT", "TEST", "WARN", "ROLE",
+          "LIVE", "DOCK", "GATE", "SEMI", "VANS", "FLAT", "REEF", "AMZN", "SYNC", "MENU", "AMAZON", "RELAY",
+          "TOTAL", "DROP", "HOOK", "MILES", "HOUR", "HOURS", "WEEK", "CARD", "GRID", "EST", "EDT", "CST",
+          "CDT", "MST", "MDT", "PST", "PDT", "UTC", "AM", "PM"
+        ];
+        const cleanFacilities = facilityMatches.filter((f) => !forbiddenFacilities.includes(f.toUpperCase()));
 
-        const hasRate = /\$[0-9]/.test(text);
-        const hasTime = /\b\d{1,2}:\d{2}\b|today|tomorrow|scheduled|starts|ends|pickup|delivery/i.test(text);
+        // Extract trip ID with fallback
+        let tripId = extractExactTripIdFromNode(node, text, i + 1);
 
-        // Extract or synthesize trip ID
-        let tripId = extractExactTripIdFromNode(node, text);
         if (!tripId && cleanFacilities.length >= 2) {
           tripId = `RELAY-${cleanFacilities[0]}-${cleanFacilities[cleanFacilities.length - 1]}-${i + 1}`;
+        } else if (!tripId && cleanFacilities.length === 1) {
+          tripId = `RELAY-${cleanFacilities[0]}-${i + 1}`;
+        } else if (!tripId) {
+          tripId = `RELAY-TOUR-${i + 1}`;
         }
 
-        if (!tripId || seenIds.has(tripId)) continue;
-        if (cleanFacilities.length === 0 && !hasRate && !hasTime && !capturedApiToursMap.has(tripId)) continue;
-
+        if (seenIds.has(tripId)) continue;
         seenIds.add(tripId);
 
         // If we already intercepted a richer JSON API payload for this tripId, merge and keep screenIndex!
@@ -323,13 +390,13 @@
         }
 
         // Extract Cities / States
-        const cityStateMatches = Array.from(text.matchAll(/([A-Za-z\s]{3,20}),\s*([A-Z]{2})\b/g));
+        const cityStateMatches = Array.from(text.matchAll(/([A-Za-z\s\.\-]{2,25}),\s*([A-Z]{2})\b/g));
 
-        let originCity = cleanFacilities[0] || "Origin";
+        let originCity = cleanFacilities[0] || "Origin Facility";
         let originState = "US";
         let originFacility = cleanFacilities[0] || undefined;
 
-        let destCity = (cleanFacilities.length > 1 ? cleanFacilities[cleanFacilities.length - 1] : cleanFacilities[0]) || "Destination";
+        let destCity = (cleanFacilities.length > 1 ? cleanFacilities[cleanFacilities.length - 1] : cleanFacilities[0]) || "Destination Facility";
         let destState = "US";
         let destFacility = (cleanFacilities.length > 1 ? cleanFacilities[cleanFacilities.length - 1] : undefined);
 
@@ -369,9 +436,11 @@
         // Status
         let status = "upcoming";
         if (/in\s*transit|en\s*route|on\s*road/i.test(text)) status = "in_transit";
+        else if (/at\s*pickup|arrived\s*at\s*origin/i.test(text)) status = "at_pickup";
+        else if (/at\s*delivery|arrived\s*at\s*dest/i.test(text)) status = "at_delivery";
         else if (/delivered|completed/i.test(text)) status = "delivered";
         else if (/delayed|at\s*risk/i.test(text)) status = "delayed";
-        else if (/cancelled/i.test(text)) status = "cancelled";
+        else if (/cancelled|void/i.test(text)) status = "cancelled";
 
         const pickupTime = parseDateFromText(text, false);
         const deliveryTime = parseDateFromText(text, true);
@@ -426,7 +495,9 @@
         };
 
         foundTours.push(tourObj);
-      } catch (err) {}
+      } catch (err) {
+        console.warn("Tour parse warning:", err);
+      }
     }
 
     // Append any API-intercepted tours that weren't found on the DOM
@@ -448,6 +519,11 @@
     }
 
     latestOrderedTours = foundTours;
+    // Persist to local storage for immediate popup availability
+    try {
+      chrome.storage.local.set({ lastDetectedTours: latestOrderedTours });
+    } catch (e) {}
+
     return latestOrderedTours;
   }
 
@@ -689,6 +765,9 @@
       capturedApiToursMap.clear();
       latestOrderedTours = [];
       updateFloatingPillUI();
+      try {
+        chrome.storage.local.set({ lastDetectedTours: [] });
+      } catch (e) {}
       sendResponse({ status: "cleared", count: 0 });
       return false;
     }

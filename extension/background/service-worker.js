@@ -63,16 +63,34 @@ function simpleHash(str) {
   return String(hash);
 }
 
+// In-memory cache of latest detected tours
+let latestCapturedTours = [];
+
 // Message Dispatcher
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "RELAY_TOURS_DETECTED") {
+    if (Array.isArray(message.payload) && message.payload.length > 0) {
+      latestCapturedTours = message.payload;
+      try {
+        chrome.storage.local.set({ lastDetectedTours: latestCapturedTours });
+      } catch (e) {}
+    }
     handleRelayToursSync(message.payload, message.mode || "upsert")
       .then((res) => sendResponse({ success: true, result: res }))
       .catch((err) => sendResponse({ success: false, error: err.message }));
     return true; // Keep message channel open for async response
   }
 
+  if (message.type === "GET_LATEST_CACHED_TOURS") {
+    sendResponse({ count: latestCapturedTours.length, tours: latestCapturedTours });
+    return false;
+  }
+
   if (message.type === "CLEAR_ALL_PORTAL_LOADS") {
+    latestCapturedTours = [];
+    try {
+      chrome.storage.local.set({ lastDetectedTours: [] });
+    } catch (e) {}
     clearAllPortalLoads()
       .then((res) => sendResponse({ success: true, result: res }))
       .catch((err) => sendResponse({ success: false, error: err.message }));
@@ -218,7 +236,7 @@ async function testPortalConnection(portalUrl, apiKey) {
 async function triggerContentSyncOnActiveTab(mode = "upsert") {
   try {
     const tabs = await chrome.tabs.query({
-      url: ["https://relay.amazon.com/*", "https://*.relay.amazon.com/*"],
+      url: ["https://relay.amazon.com/*", "https://*.relay.amazon.com/*", "https://*.amazon.com/*"],
     });
 
     for (const tab of tabs) {
