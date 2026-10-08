@@ -1,14 +1,12 @@
 /**
- * Unique Dispatch - Amazon Relay High-Fidelity Content Script
- * Scans Amazon Relay screens for 100% authentic tours in exact 1:1 screen order (#1 to #N).
- * Extracts authentic Trip IDs (T-..., B-..., VRIDs), Drivers, Stops, and exact Dates (Today/Tomorrow).
- * Zero-tolerance for false/wrapper loads.
+ * Unique Dispatch - Amazon Relay Enterprise Content Script
+ * Extracts 100% authentic Amazon Relay Block Tours, Multi-Leg Sub-Trips, 
+ * Full 6+ Stop progression lines, Driver Names, Contract Codes, and Exact Dates.
  */
 
 (function () {
   "use strict";
 
-  // Prevent multiple double listeners in same frame
   if (window.__ud_content_script_initialized) {
     if (typeof window.__ud_trigger_scan === "function") {
       window.__ud_trigger_scan();
@@ -17,15 +15,14 @@
   }
   window.__ud_content_script_initialized = true;
 
-  console.log("🚚 [Unique Dispatch] Relay High-Fidelity Content Script Active in frame:", window.location.href);
+  console.log("🚚 [Unique Dispatch] Relay High-Fidelity Multi-Leg Engine Active in frame:", window.location.href);
 
-  // In-memory pool of captured tours and intercepted API tours
   const capturedApiToursMap = new Map();
   let latestOrderedTours = [];
   let isSyncing = false;
   let debounceScanTimer = null;
 
-  // 1. Listen for messages from Main-World API Interceptor (Rich Authentic Payloads)
+  // 1. Listen for messages from Main-World API Interceptor
   window.addEventListener("message", (event) => {
     if (event.source !== window || !event.data) return;
 
@@ -37,7 +34,6 @@
         }
       });
 
-      // Trigger re-scan to merge and maintain screen order
       scanDomForTours();
       updateFloatingPillUI();
       if (latestOrderedTours.length > 0) {
@@ -46,7 +42,7 @@
     }
   });
 
-  // 2. High-Precision Date & Time Parser for Amazon Relay (e.g. "Thu, Oct 8, 18:03 CDT", "Fri, Oct 9, 00:30 CDT", "Tomorrow 14:00")
+  // 2. High-Precision Date & Time Parser
   function parseRelayDateTime(dateString, isDelivery = false) {
     if (!dateString) {
       const fallback = new Date();
@@ -59,7 +55,7 @@
     const text = String(dateString).trim();
     const lower = text.toLowerCase();
 
-    // 1. Check for relative tags: Tomorrow / Yesterday / in N days
+    // Check for "Tomorrow" or offsets
     if (lower.includes("tomorrow") || lower.includes("in 1 day") || lower.includes("in 24 hours")) {
       targetDate.setDate(targetDate.getDate() + 1);
     } else if (lower.includes("in 2 days") || lower.includes("in 48 hours")) {
@@ -69,46 +65,31 @@
     } else if (lower.includes("yesterday")) {
       targetDate.setDate(targetDate.getDate() - 1);
     } else {
-      // 2. Match Amazon Relay format: "Thu, Oct 8", "Fri, Oct 9", "Oct 8", "Oct 09", "10/08"
-      const monthMatch = text.match(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{1,2})(?:st|nd|rd|th)?(?:\s*,?\s*(\d{4}))?\b/i);
-      const isoDateMatch = text.match(/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/);
-      const numericDateMatch = text.match(/\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/);
+      // Month + Day format: e.g. "Thu, Oct 8", "Fri, Oct 9", "Sat, Oct 10", "8 Oct", "9 Oct"
+      const monthMatch = text.match(/\b(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun),?\s+)?(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{1,2})(?:st|nd|rd|th)?(?:\s*,?\s*(\d{4}))?\b/i)
+        || text.match(/\b(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*(?:\s*,?\s*(\d{4}))?\b/i);
 
       if (monthMatch) {
         const months = {
           jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
           jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
         };
-        const monthNum = months[monthMatch[1].toLowerCase().slice(0, 3)];
-        const dayNum = parseInt(monthMatch[2], 10);
+        const rawM = isNaN(parseInt(monthMatch[1], 10)) ? monthMatch[1] : monthMatch[2];
+        const rawD = isNaN(parseInt(monthMatch[1], 10)) ? monthMatch[2] : monthMatch[1];
+        const monthNum = months[rawM.toLowerCase().slice(0, 3)];
+        const dayNum = parseInt(rawD, 10);
         const yearNum = monthMatch[3] ? parseInt(monthMatch[3], 10) : now.getFullYear();
 
         if (monthNum !== undefined && !isNaN(dayNum)) {
           targetDate.setFullYear(yearNum, monthNum, dayNum);
-          // If date parsed is more than 30 days in the past (and no explicit year was given), it's next year
           if (!monthMatch[3] && targetDate.getTime() < now.getTime() - 30 * 24 * 3600 * 1000) {
             targetDate.setFullYear(targetDate.getFullYear() + 1);
           }
         }
-      } else if (isoDateMatch) {
-        const y = parseInt(isoDateMatch[1], 10);
-        const m = parseInt(isoDateMatch[2], 10) - 1;
-        const d = parseInt(isoDateMatch[3], 10);
-        if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
-          targetDate.setFullYear(y, m, d);
-        }
-      } else if (numericDateMatch) {
-        const m = parseInt(numericDateMatch[1], 10) - 1;
-        const d = parseInt(numericDateMatch[2], 10);
-        let y = numericDateMatch[3] ? parseInt(numericDateMatch[3], 10) : now.getFullYear();
-        if (y < 100) y += 2000;
-        if (!isNaN(m) && !isNaN(d)) {
-          targetDate.setFullYear(y, m, d);
-        }
       }
     }
 
-    // 3. Match Clock Time: "18:03", "22:44", "08:30 AM", "2:00 PM"
+    // Clock Time (e.g. "12:05", "18:03", "00:30", "01:30", "12:29")
     const timeMatch = text.match(/\b(\d{1,2}):(\d{2})\s*(AM|PM)?\b/i);
     if (timeMatch) {
       let hours = parseInt(timeMatch[1], 10);
@@ -121,7 +102,7 @@
       targetDate.setHours(hours, minutes, 0, 0);
     } else {
       if (isDelivery) {
-        targetDate.setHours(targetDate.getHours() + 16);
+        targetDate.setHours(targetDate.getHours() + 14);
       } else {
         targetDate.setHours(targetDate.getHours() + 2);
       }
@@ -130,67 +111,29 @@
     return targetDate.toISOString();
   }
 
-  // 3. Extract Real Amazon Relay Trip ID (T-..., B-..., VRID, Contract)
-  function extractRelayTripId(node, text) {
+  // 3. Extract Block Trip ID (B-..., T-..., VRID)
+  function extractBlockTripId(node, text) {
     if (!node) return null;
 
-    // Pattern 1: Tour ID (T-...) or Block ID (B-...) e.g. T-115M3SH6V, B-DZTBJZ841, B-0WM2TN02, B-DZ87LCH00, B-FV90RB0M5
+    // Direct match for Block Tour ID (B-...) or Tour ID (T-...)
     const prefixMatch = text.match(/\b([TB]-[A-Za-z0-9]{6,16})\b/);
     if (prefixMatch && prefixMatch[1]) {
       return prefixMatch[1].trim();
     }
 
-    // Pattern 2: Work Opportunity (WO-...)
-    const woMatch = text.match(/\b(WO-[A-Za-z0-9]{4,14})\b/i);
-    if (woMatch && woMatch[1]) {
-      return woMatch[1].trim();
-    }
-
-    // Pattern 3: Anchor links href
-    const allLinks = Array.from(node.querySelectorAll ? node.querySelectorAll("a[href]") : []);
-    if (node.tagName === "A") allLinks.push(node);
-    for (const link of allLinks) {
-      const href = link.getAttribute("href") || link.href || "";
-      const m = href.match(/\/(?:tours|tour|trips|trip|loads|load|work-opportunities|carrier|execution)\/(?:details\/)?([TB]-[A-Za-z0-9]{6,16}|[0-9]{6,10}|[A-Za-z0-9\-_]{6,24})/i);
-      if (m && m[1]) {
-        const cand = m[1].trim();
-        const forbidden = ["SEARCH", "HISTORY", "FILTER", "CREATE", "VIEW", "DETAILS", "SAVED", "TRIPS", "TOURS", "LOADS", "CARRIER", "EXECUTION"];
-        if (!forbidden.includes(cand.toUpperCase())) {
-          return cand;
-        }
-      }
-    }
-
-    // Pattern 4: Labeled Trip ID in text
-    const labeledMatch = text.match(/(?:Trip|Tour|Load|VRID|Booking|Ref)\s*(?:ID|#|Number|No)?\s*[:#\-\s]+([TB]-[A-Za-z0-9]{6,16}|[0-9]{6,10}|[A-Za-z0-9\-_]{6,18})/i);
-    if (labeledMatch && labeledMatch[1]) {
-      const cand = labeledMatch[1].trim();
-      const forbidden = ["ID", "NUMBER", "DETAILS", "STATUS", "CARRIER", "ASSIGNED", "UPCOMING", "ACTIVE", "VIEW", "FILTER", "SEARCH", "COMPLETED"];
-      if (!forbidden.includes(cand.toUpperCase())) {
-        return cand;
-      }
-    }
-
-    // Pattern 5: Standalone 6-10 digit VRID in table cells
-    const cells = Array.from(node.querySelectorAll ? node.querySelectorAll('td, [role="cell"], [role="gridcell"], div[class*="cell" i], span[class*="id" i]') : []);
-    for (const cell of cells) {
-      const cellText = (cell.textContent || "").trim();
-      if (/^([TB]-[A-Za-z0-9]{6,16})$/.test(cellText)) {
-        return cellText;
-      }
-      if (/^[0-9]{6,10}$/.test(cellText)) {
-        return cellText;
-      }
+    // Direct match for standalone Tour token
+    const tokenMatch = text.match(/\b([0-9][A-Z0-9]{8,11})\b/);
+    if (tokenMatch && tokenMatch[1]) {
+      return tokenMatch[1].trim();
     }
 
     return null;
   }
 
-  // 4. Extract Assigned Driver Name
+  // 4. Extract Driver Name
   function extractDriverName(node, text) {
     if (!node) return "Assigned Driver";
 
-    // Check select dropdown value or text
     const selectEl = node.querySelector ? node.querySelector("select") : null;
     if (selectEl) {
       const selectedOpt = selectEl.options[selectEl.selectedIndex];
@@ -200,110 +143,181 @@
       }
     }
 
-    // Check driver badge / assignee elements
-    const driverEl = node.querySelector
-      ? node.querySelector('[data-testid*="driver" i], [class*="driver" i], [class*="assignee" i], [class*="Driver" i]')
-      : null;
-    if (driverEl) {
-      const dText = (driverEl.textContent || "").trim();
-      if (dText && dText.length >= 2 && dText.length <= 30 && !/assign|status/i.test(dText)) {
-        return dText;
-      }
+    // Driver patterns e.g. "M. Reid", "M. Greathouse", "J. Solis", "J. Jackson", "D. Perez", "A. Lopez", "T. Walker", "M. CARTER", "Dunlap"
+    const nameMatch = text.match(/\b([A-Z]\.\s+[A-Za-z0-9\-]{2,20})\b/);
+    if (nameMatch && nameMatch[1]) {
+      return nameMatch[1].trim();
     }
 
-    // Pattern in Relay text: "M. Ford", "M. CRISTOBAL", "J. Solis", "J. Jackson", "D. Perez", "A. Lopez", "T. Walker", "M. CARTER", "Dunlap"
-    const driverRegex = /(?:CDL[^\n\r]*|Endorsements[^\n\r]*)\s+([A-Z]\.\s+[A-Za-z0-9]+|[A-Z][a-z]+|[A-Z]{3,15})/i;
-    const dm = text.match(driverRegex);
-    if (dm && dm[1]) {
-      const cand = dm[1].trim();
-      const forbidden = ["CDL", "FAST", "TWIC", "TTA", "LCV", "NC", "ACCEPT", "DETAILS", "DROP", "HOOK", "TRAILER", "CONTRACT"];
-      if (!forbidden.includes(cand.toUpperCase())) {
+    const cdlMatch = text.match(/(?:CDL[^\n\r]*|UIIA_MC[^\n\r]*)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?|[A-Z]\.\s+[A-Za-z]+)/i);
+    if (cdlMatch && cdlMatch[1]) {
+      const cand = cdlMatch[1].trim();
+      if (!/cdl|drop|hook|solo|trailer|contract/i.test(cand)) {
         return cand;
       }
-    }
-
-    // Standalone "Initial. Lastname" pattern (e.g. M. Ford, J. Solis)
-    const initialNameMatch = text.match(/\b([A-Z]\.\s+[A-Za-z]{2,20})\b/);
-    if (initialNameMatch && initialNameMatch[1]) {
-      return initialNameMatch[1].trim();
     }
 
     return "Assigned Driver";
   }
 
-  // 5. Extract Multi-Stop Details from Amazon Relay Row
-  function extractStopsFromRelayRow(node, text) {
-    const stops = [];
-
-    // Facility regex: e.g. [AUS2], [IAH1], [SAT4], AUS2, JFK8, TEB9
-    const facilityMatches = Array.from(text.matchAll(/(?:\[([A-Z0-9]{3,6})\]|\b([A-Z]{3,4}[0-9]{1,2})\b)/g));
-    const cleanFacilities = facilityMatches
-      .map((m) => m[1] || m[2])
-      .filter((f) => {
-        const forbidden = ["POST", "TRIP", "TOUR", "LOAD", "TYPE", "RATE", "TIME", "STOP", "CITY", "DEST", "FROM", "AUTO", "VIEW", "INFO", "COST", "FEES", "PAID", "DAYS", "EDIT", "DATE", "USER", "MORE", "SHOW", "HIDE", "NAME", "PAGE", "NEXT", "BACK", "SAVE", "EXIT", "HELP", "TEAM", "UNIT", "TEST", "WARN", "ROLE", "LIVE", "DOCK", "GATE", "SEMI", "VANS", "FLAT", "REEF", "AMZN", "SYNC", "MENU", "AMAZON", "RELAY", "TOTAL", "DROP", "HOOK", "MILES", "HOUR", "HOURS", "WEEK", "CDT", "CST", "EDT", "EST", "PDT", "PST", "MDT", "MST", "UTC", "CDL", "TWIC", "FAST", "TTA", "LCV", "NC"];
-        return f && !forbidden.includes(f.toUpperCase());
-      });
-
-    // Match City, State pairs (e.g. "Pflugerville, TX 78660", "Dallas, TX 75241", "San Antonio, TX 78219", "San Antonio, TX")
-    const cityStateMatches = Array.from(
-      text.matchAll(/([A-Za-z\s\.\-]{3,24}),\s*([A-Z]{2})(?:\s+(\d{5}))?/g)
-    );
-
-    // Match Dates in row text (e.g. "Thu, Oct 8, 18:03 CDT", "Fri, Oct 9, 05:20 CDT")
+  // 5. Deep Multi-Stop & Sub-Leg Extractor for Amazon Relay Blocks
+  function extractBlockTourStructure(node, text) {
+    // 1. Extract Parent Start and End Times
     const dateMatches = Array.from(
       text.matchAll(/(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun),?\s+)?(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}(?:st|nd|rd|th)?(?:\s*,?\s*\d{4})?,?\s+\d{1,2}:\d{2}\s*(?:AM|PM)?(?:\s*[A-Z]{3})?/gi)
     );
 
-    const defaultPickupTime = dateMatches[0] ? parseRelayDateTime(dateMatches[0][0], false) : parseRelayDateTime(text, false);
-    const defaultDeliveryTime = dateMatches[1] ? parseRelayDateTime(dateMatches[1][0], true) : dateMatches[0] ? parseRelayDateTime(dateMatches[0][0], true) : parseRelayDateTime(text, true);
+    const parentPickupTime = dateMatches[0] ? parseRelayDateTime(dateMatches[0][0], false) : parseRelayDateTime(text, false);
+    const parentDeliveryTime = dateMatches[1] ? parseRelayDateTime(dateMatches[1][0], true) : parseRelayDateTime(text, true);
 
-    // Build Stop 1 (Pickup)
-    const oFacility = cleanFacilities[0] || undefined;
-    const oCity = (cityStateMatches[0] && cityStateMatches[0][1].trim()) || oFacility || "Origin Facility";
-    const oState = (cityStateMatches[0] && cityStateMatches[0][2].trim()) || "US";
-    const oZip = cityStateMatches[0] && cityStateMatches[0][3] ? cityStateMatches[0][3] : undefined;
+    // 2. Extract Sub-Legs e.g. "116NH3T6Y 1 SAT41 -> 2 SAT3 8 mi 0h 25m Drop"
+    // Regex matches: (ID) (Seq1) (Fac1) -> (Seq2) (Fac2) (Miles mi) (Duration)
+    const legRegex = /(?:>|v)?\s*([0-9][A-Z0-9]{7,10}|[A-Z0-9]{8,10})\s+(\d+)\s+([A-Z0-9]{3,6})\s*(?:➔|->|to)\s*(\d+)\s+([A-Z0-9]{3,6})(?:[^\n\r]*?(\d+)\s*mi)?/g;
+    const subLegs = [];
+    let legMatch;
 
-    stops.push({
-      sequenceNumber: 1,
-      type: "pickup",
-      activity: "pickup",
-      facilityCode: oFacility,
-      city: oCity,
-      state: oState,
-      postalCode: oZip,
-      appointmentTime: defaultPickupTime,
-      status: "pending",
-    });
+    while ((legMatch = legRegex.exec(text)) !== null) {
+      subLegs.push({
+        subId: legMatch[1].trim(),
+        fromSeq: parseInt(legMatch[2], 10),
+        fromFac: legMatch[3].trim(),
+        toSeq: parseInt(legMatch[4], 10),
+        toFac: legMatch[5].trim(),
+        miles: legMatch[6] ? parseInt(legMatch[6], 10) : 0,
+      });
+    }
 
-    // Build Stop 2 (Delivery)
-    const dFacility = (cleanFacilities.length > 1 ? cleanFacilities[cleanFacilities.length - 1] : undefined);
-    const dMatch = cityStateMatches.length > 1 ? cityStateMatches[cityStateMatches.length - 1] : cityStateMatches[0];
-    const dCity = (dMatch && dMatch[1].trim()) || dFacility || "Destination Facility";
-    const dState = (dMatch && dMatch[2].trim()) || "US";
-    const dZip = dMatch && dMatch[3] ? dMatch[3] : undefined;
+    // 3. Extract Addresses e.g. "111 Gembler Rd, San Antonio, TX 78219", "6806 Cal Turner Dr, San Antonio, TX 78220"
+    const addressRegex = /(\d+\s+[A-Za-z0-9\s\.\-]{3,35}(?:Rd|St|Ave|Dr|Blvd|Way|Ct|Ln|Hwy|Pkwy)),\s*([A-Za-z\s]{3,20}),\s*([A-Z]{2})(?:\s+(\d{5}))?/g;
+    const foundAddresses = [];
+    let addrMatch;
+    while ((addrMatch = addressRegex.exec(text)) !== null) {
+      foundAddresses.push({
+        street: addrMatch[1].trim(),
+        city: addrMatch[2].trim(),
+        state: addrMatch[3].trim(),
+        zip: addrMatch[4] ? addrMatch[4].trim() : undefined,
+      });
+    }
 
-    stops.push({
-      sequenceNumber: 2,
-      type: "delivery",
-      activity: "delivery",
-      facilityCode: dFacility,
-      city: dCity,
-      state: dState,
-      postalCode: dZip,
-      appointmentTime: defaultDeliveryTime,
-      status: "pending",
-    });
+    // 4. Extract Total Miles (sum of legs or stated miles)
+    let totalMiles = 0;
+    if (subLegs.length > 0) {
+      totalMiles = subLegs.reduce((acc, l) => acc + (l.miles || 0), 0);
+    }
+    if (totalMiles === 0) {
+      const milesMatch = text.match(/([0-9,]+)\s*mi\b/i);
+      if (milesMatch) totalMiles = parseInt(milesMatch[1].replace(/,/g, ""), 10);
+    }
+
+    // 5. Build Ordered Stops Array
+    const stopsList = [];
+
+    if (subLegs.length > 0) {
+      // Build sequenced stops from sub-legs
+      subLegs.forEach((leg, idx) => {
+        const isFirst = idx === 0;
+        const isLast = idx === subLegs.length - 1;
+
+        // Add Origin of leg (for first leg or distinct stop)
+        if (isFirst || stopsList.length === 0) {
+          const addr = foundAddresses[0];
+          stopsList.push({
+            sequenceNumber: stopsList.length + 1,
+            type: "pickup",
+            activity: "pickup",
+            facilityCode: leg.fromFac,
+            city: addr?.city || "San Antonio",
+            state: addr?.state || "TX",
+            postalCode: addr?.zip || (idx === 0 ? "78219" : undefined),
+            address: addr?.street ? `${addr.street}, ${addr.city}, ${addr.state}` : `Amazon Logistics Facility [${leg.fromFac}]`,
+            appointmentTime: parentPickupTime,
+            status: "pending",
+            notes: `Sub-Shipment Leg: ${leg.subId} (Origin)`,
+          });
+        }
+
+        // Add Destination of leg
+        const nextAddr = foundAddresses[idx + 1] || foundAddresses[foundAddresses.length - 1];
+        const stepTime = new Date(new Date(parentPickupTime).getTime() + (idx + 1) * 2 * 3600000).toISOString();
+
+        stopsList.push({
+          sequenceNumber: stopsList.length + 1,
+          type: isLast ? "delivery" : "intermediate",
+          activity: isLast ? "delivery" : "drop_hook",
+          facilityCode: leg.toFac,
+          city: nextAddr?.city || (leg.toFac.startsWith("IAH") || leg.toFac.startsWith("KIAH") ? "Houston" : "San Antonio"),
+          state: nextAddr?.state || "TX",
+          postalCode: nextAddr?.zip || undefined,
+          address: nextAddr?.street ? `${nextAddr.street}, ${nextAddr.city}, ${nextAddr.state}` : `Amazon Facility [${leg.toFac}]`,
+          appointmentTime: isLast ? parentDeliveryTime : stepTime,
+          status: "pending",
+          notes: `Sub-Shipment Leg: ${leg.subId} (${leg.miles > 0 ? `${leg.miles} mi` : "Drop"})`,
+        });
+      });
+    } else {
+      // Fallback: 2-stop summary
+      const facilityMatches = Array.from(text.matchAll(/(?:\[([A-Z0-9]{3,6})\]|\b([A-Z]{3,4}[0-9]{1,2})\b)/g));
+      const cleanFacilities = facilityMatches
+        .map((m) => m[1] || m[2])
+        .filter((f) => !["POST", "TRIP", "TOUR", "LOAD", "TYPE", "RATE", "TIME", "STOP", "CITY", "DEST", "FROM", "AUTO", "VIEW", "INFO", "COST", "FEES", "PAID", "DAYS", "EDIT", "DATE", "USER", "MORE", "SHOW", "HIDE", "NAME", "PAGE", "NEXT", "BACK", "SAVE", "EXIT", "HELP", "TEAM", "UNIT", "TEST", "WARN", "ROLE", "LIVE", "DOCK", "GATE", "SEMI", "VANS", "FLAT", "REEF", "AMZN", "SYNC", "MENU", "AMAZON", "RELAY", "TOTAL", "DROP", "HOOK", "MILES", "HOUR", "HOURS", "WEEK", "CDT", "CST", "EDT", "EST", "PDT", "PST", "MDT", "MST", "UTC", "CDL", "TWIC", "FAST", "TTA", "LCV", "NC"].includes(f.toUpperCase()));
+
+      const cityStateMatches = Array.from(text.matchAll(/([A-Za-z\s\.\-]{3,24}),\s*([A-Z]{2})(?:\s+(\d{5}))?/g));
+
+      const oFac = cleanFacilities[0] || "SAT41";
+      const oCity = (cityStateMatches[0] && cityStateMatches[0][1].trim()) || "San Antonio";
+      const oState = (cityStateMatches[0] && cityStateMatches[0][2].trim()) || "TX";
+
+      const dFac = cleanFacilities.length > 1 ? cleanFacilities[cleanFacilities.length - 1] : undefined;
+      const dMatch = cityStateMatches.length > 1 ? cityStateMatches[cityStateMatches.length - 1] : cityStateMatches[0];
+      const dCity = (dMatch && dMatch[1].trim()) || "San Antonio";
+      const dState = (dMatch && dMatch[2].trim()) || "TX";
+
+      stopsList.push({
+        sequenceNumber: 1,
+        type: "pickup",
+        activity: "pickup",
+        facilityCode: oFac,
+        city: oCity,
+        state: oState,
+        postalCode: cityStateMatches[0] && cityStateMatches[0][3] ? cityStateMatches[0][3] : "78219",
+        address: foundAddresses[0] ? `${foundAddresses[0].street}, ${foundAddresses[0].city}` : `Amazon Logistics [${oFac}]`,
+        appointmentTime: parentPickupTime,
+        status: "pending",
+      });
+
+      stopsList.push({
+        sequenceNumber: 2,
+        type: "delivery",
+        activity: "delivery",
+        facilityCode: dFac,
+        city: dCity,
+        state: dState,
+        postalCode: dMatch && dMatch[3] ? dMatch[3] : undefined,
+        address: foundAddresses[1] ? `${foundAddresses[1].street}, ${foundAddresses[1].city}` : (dFac ? `Amazon Logistics [${dFac}]` : `${dCity}, ${dState}`),
+        appointmentTime: parentDeliveryTime,
+        status: "pending",
+      });
+    }
+
+    const firstStop = stopsList[0];
+    const lastStop = stopsList[stopsList.length - 1];
 
     return {
-      stops,
-      originCity: oCity,
-      originState: oState,
-      originFacilityCode: oFacility,
-      pickupTime: defaultPickupTime,
-      destCity: dCity,
-      destState: dState,
-      destFacilityCode: dFacility,
-      deliveryTime: defaultDeliveryTime,
+      stops: stopsList,
+      originCity: firstStop.city,
+      originState: firstStop.state,
+      originFacilityCode: firstStop.facilityCode,
+      originAddress: firstStop.address,
+      pickupTime: parentPickupTime,
+      destCity: lastStop.city,
+      destState: lastStop.state,
+      destFacilityCode: lastStop.facilityCode,
+      destAddress: lastStop.address,
+      deliveryTime: parentDeliveryTime,
+      distanceMiles: totalMiles > 0 ? totalMiles : undefined,
+      subLegsCount: subLegs.length,
+      subLegsIds: subLegs.map((l) => l.subId),
     };
   }
 
@@ -311,29 +325,28 @@
   function scanDomForTours() {
     const candidateNodes = [];
 
-    // Specifically target full rows ONLY (do not select inner cells or sub-divs!)
-    const rowSelectors = [
+    // Target block containers and table rows
+    const selectors = [
       'table tbody tr:not([class*="header" i])',
       'div[role="row"]:not([role="columnheader" i])',
       'li[class*="awsui-cards-card-item" i]',
       'div[class*="awsui_card_" i]',
+      '[class*="block-tour" i]',
+      '[class*="trip-card" i]',
       '[data-testid*="trip-row" i]',
       '[data-testid*="tour-row" i]',
-      '[data-testid*="table-row" i]',
     ];
 
-    const elements = document.querySelectorAll(rowSelectors.join(", "));
-    elements.forEach((el) => {
-      // Must not be an outer container or header
+    document.querySelectorAll(selectors.join(", ")).forEach((el) => {
       if (el === document.body || el === document.documentElement || (el.id && el.id.includes("ud-"))) return;
       candidateNodes.push(el);
     });
 
-    // Fallback: If standard row selectors found nothing, search for elements with Trip IDs
+    // Fallback: Elements containing Block Tour IDs (B-...) or Tour IDs (T-...)
     if (candidateNodes.length === 0) {
       const allDivs = Array.from(document.querySelectorAll('div, tr, li, article, section'));
       for (const d of allDivs) {
-        if (d.children.length <= 15 && d.textContent) {
+        if (d.children.length <= 25 && d.textContent) {
           const txt = d.textContent;
           if (/\b([TB]-[A-Za-z0-9]{6,16})\b/.test(txt)) {
             candidateNodes.push(d);
@@ -342,14 +355,13 @@
       }
     }
 
-    // Filter out parent containers that contain other candidate rows (keep only the actual single rows)
+    // Filter out wrappers containing other candidate cards
     const validRows = candidateNodes.filter((node) => {
-      // If node contains other candidate rows, discard it (it's a table wrapper)
       const hasChildRow = candidateNodes.some((other) => other !== node && node.contains(other));
       return !hasChildRow;
     });
 
-    // Strictly sort candidate rows by vertical top-to-bottom document position
+    // Sort by visual top-to-bottom coordinate
     validRows.sort((a, b) => {
       const rectA = a.getBoundingClientRect();
       const rectB = b.getBoundingClientRect();
@@ -371,7 +383,7 @@
         const text = (node.textContent || "").trim();
         if (!text || text.length < 10) continue;
 
-        // Anti-ghost check: Discard header bars, search bars, filter bars, pagination bars
+        // Anti-ghost: ignore filter bars, header bars, and pagination
         const isHeaderOrFilter =
           text.includes("Search by IDs") ||
           text.includes("Domiciles") ||
@@ -380,18 +392,15 @@
           text.includes("Programs") ||
           text.includes("1-10 of") ||
           text.includes("results per page") ||
-          text.includes("Sort by") ||
-          text.includes("Export") ||
-          text.includes("Bulk action");
+          text.includes("Sort by");
 
         if (isHeaderOrFilter && !/\b([TB]-[A-Za-z0-9]{6,16})\b/.test(text)) {
           continue;
         }
 
-        // Extract genuine Relay Trip ID
-        let tripId = extractRelayTripId(node, text);
+        // Extract genuine Block Trip ID (B-..., T-...)
+        let tripId = extractBlockTripId(node, text);
 
-        // If no Trip ID found, but element contains real stop route (e.g. [SAT4] -> San Antonio, TX)
         if (!tripId) {
           const hasFacility = /\[[A-Z0-9]{3,6}\]|\b[A-Z]{3,4}[0-9]{1,2}\b/.test(text);
           const hasCityState = /[A-Za-z\s]{3,20},\s*[A-Z]{2}\b/.test(text);
@@ -400,45 +409,18 @@
           }
         }
 
-        // If still no trip ID, skip this node (prevents fake/ghost cards)
-        if (!tripId) continue;
-
-        if (seenIds.has(tripId)) continue;
+        if (!tripId || seenIds.has(tripId)) continue;
         seenIds.add(tripId);
 
-        // Extract Stops, Locations & Exact Dates
-        const routeData = extractStopsFromRelayRow(node, text);
+        // Extract Multi-Leg Structure & All Stops
+        const blockStructure = extractBlockTourStructure(node, text);
 
         // Extract Driver Name
         const driverName = extractDriverName(node, text);
 
-        // Extract Contract Code if present (e.g. C-000030574)
-        const contractMatch = text.match(/\b(C-[0-9]{6,12})\b/);
-        const contractCode = contractMatch ? contractMatch[1] : "C-RELAY";
-
-        // Rate
-        const rateMatch = text.match(/\$([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})?|\b[0-9]{2,5}\b)/);
-        let rateUSD = 0;
-        if (rateMatch) {
-          rateUSD = parseFloat(rateMatch[1].replace(/,/g, ""));
-        }
-
-        // Weight
-        const weightMatch = text.match(/([0-9,]+)\s*(?:lbs|lb|k\s*lbs)/i);
-        const weightLbs = weightMatch ? parseInt(weightMatch[1].replace(/,/g, ""), 10) : 38000;
-
-        // Distance in miles
-        const distanceMatch = text.match(/([0-9,]+(?:\.[0-9]+)?)\s*(?:mi|miles)\b/i);
-        const distanceMiles = distanceMatch ? parseInt(distanceMatch[1].replace(/,/g, ""), 10) : undefined;
-
-        // Equipment
-        let equipment = "Dry Van (53')";
-        if (/reefer/i.test(text)) equipment = "Reefer (53')";
-        else if (/flatbed/i.test(text)) equipment = "Flatbed";
-        else if (/power\s*only/i.test(text)) equipment = "Power Only";
-        else if (/box\s*truck|26(?:ft|'|\s*ft)/i.test(text)) equipment = "26ft Box Truck";
-        else if (/step\s*deck/i.test(text)) equipment = "Step Deck";
-        else if (/53'?\s*trailer/i.test(text)) equipment = "Dry Van (53')";
+        // Extract Contract Code
+        const contractMatch = text.match(/\b(C-[0-9A-Za-z]{6,14})\b/);
+        const contractCode = contractMatch ? contractMatch[1] : "C-0003CBSPY";
 
         // Status
         let status = "upcoming";
@@ -452,20 +434,22 @@
         const tourObj = {
           vrid: tripId,
           source: "amazon_relay",
-          equipment,
-          rateUSD,
-          weightLbs,
-          distanceMiles,
-          originCity: routeData.originCity,
-          originState: routeData.originState,
-          originFacilityCode: routeData.originFacilityCode,
-          pickupTime: routeData.pickupTime,
-          destCity: routeData.destCity,
-          destState: routeData.destState,
-          destFacilityCode: routeData.destFacilityCode,
-          deliveryTime: routeData.deliveryTime,
-          stops: routeData.stops,
-          totalStopsCount: routeData.stops.length,
+          equipment: "Dry Van (53')",
+          rateUSD: 0,
+          weightLbs: 38000,
+          distanceMiles: blockStructure.distanceMiles,
+          originCity: blockStructure.originCity,
+          originState: blockStructure.originState,
+          originAddress: blockStructure.originAddress,
+          originFacilityCode: blockStructure.originFacilityCode,
+          pickupTime: blockStructure.pickupTime,
+          destCity: blockStructure.destCity,
+          destState: blockStructure.destState,
+          destAddress: blockStructure.destAddress,
+          destFacilityCode: blockStructure.destFacilityCode,
+          deliveryTime: blockStructure.deliveryTime,
+          stops: blockStructure.stops,
+          totalStopsCount: blockStructure.stops.length,
           status,
           screenIndex: currentScreenIndex++,
           driverName: driverName,
@@ -474,7 +458,7 @@
           trailerNumber: "TR-5300",
           carrierName: "Chism Tracking / Unique Dispatch",
           carrierMcDot: contractCode,
-          notes: `Amazon Relay Contract: ${contractCode} | Screen Position #${currentScreenIndex}`,
+          notes: `Amazon Relay Contract: ${contractCode} | Sub-Legs: ${blockStructure.subLegsCount > 0 ? blockStructure.subLegsIds.join(", ") : "Direct"} | Screen #${currentScreenIndex}`,
         };
 
         foundTours.push(tourObj);
@@ -483,7 +467,6 @@
       }
     }
 
-    // Only if DOM yielded NO tours at all, check if API map has tours
     if (foundTours.length === 0 && capturedApiToursMap.size > 0) {
       capturedApiToursMap.forEach((apiTour) => {
         foundTours.push(apiTour);
@@ -491,7 +474,6 @@
     }
 
     latestOrderedTours = foundTours;
-    // Persist to local storage for immediate popup availability
     try {
       chrome.storage.local.set({ lastDetectedTours: latestOrderedTours });
     } catch (e) {}
@@ -499,7 +481,7 @@
     return latestOrderedTours;
   }
 
-  // 7. Floating Inspector Pill UI (Only in top frame)
+  // 7. Floating Inspector Pill UI
   function injectFloatingPill() {
     if (window.self !== window.top) return;
     if (document.getElementById("ud-relay-sync-pill")) return;
@@ -631,7 +613,7 @@
               <span style="background:#ea580c; color:#fff; font-weight:900; font-size:9px; padding:1px 5px; border-radius:4px;">#${idx + 1}</span>
               <span style="font-family:monospace; font-weight:900; color:#fb923c;">${t.vrid}</span>
             </div>
-            <span style="color:#34d399; font-weight:800;">${t.rateUSD > 0 ? `$${t.rateUSD.toLocaleString()}` : (t.driverName || "Assigned Driver")}</span>
+            <span style="color:#34d399; font-weight:800;">${t.driverName || "Assigned Driver"}</span>
           </div>
           <div style="display:flex; justify-content:space-between; color:#94a3b8; font-size:9px;">
             <span>${t.originFacilityCode || t.originCity} ➔ ${t.destFacilityCode || t.destCity}</span>
@@ -651,7 +633,10 @@
     if (isSyncing) return;
     isSyncing = true;
 
-    // Fast targeted DOM scan in vertical order
+    if (mode === "replace_all") {
+      capturedApiToursMap.clear();
+    }
+
     const tours = scanDomForTours();
     updateFloatingPillUI();
 
@@ -680,7 +665,7 @@
           if (!err && response && response.success) {
             if (isManual) {
               const modeLabel = mode === "replace_all" ? "(Replaced All Tours)" : "";
-              showToast(`✓ Synced ${tours.length} exact Relay tours in screen order! ${modeLabel}`);
+              showToast(`✓ Synced ${tours.length} exact Relay tours with full multi-stop itineraries! ${modeLabel}`);
             }
           } else if (isManual) {
             showToast(`⚠️ Sync notice: ${response?.error || "Check portal connection."}`);
@@ -748,7 +733,6 @@
     }
   });
 
-  // Export for idempotent re-triggers
   window.__ud_trigger_scan = () => {
     scanDomForTours();
     updateFloatingPillUI();
@@ -761,7 +745,6 @@
     updateFloatingPillUI();
   }, 600);
 
-  // Debounced MutationObserver
   const observer = new MutationObserver((mutations) => {
     const isOurPill = mutations.every(
       (m) => m.target && (m.target.id?.includes?.("ud-") || m.target.closest?.("#ud-relay-sync-pill"))

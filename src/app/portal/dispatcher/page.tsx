@@ -61,7 +61,7 @@ export default function DispatcherOperationsBoardPage() {
   const [loads, setLoads] = useState<Load[]>([]);
   const [loading, setLoading] = useState(true);
   const [isClearing, setIsClearing] = useState(false);
-  const [currentShift, setCurrentShift] = useState<ShiftType>("morning");
+  const [currentShift, setCurrentShift] = useState<ShiftType | "all">("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [criticalOnly, setCriticalOnly] = useState(false);
@@ -282,9 +282,6 @@ export default function DispatcherOperationsBoardPage() {
       if (res.ok) {
         const data = await res.json();
         setCurrentUser(data.user);
-        if (data.user?.assignedShift) {
-          setCurrentShift(data.user.assignedShift);
-        }
       } else {
         // Fallback user
         setCurrentUser({
@@ -306,7 +303,7 @@ export default function DispatcherOperationsBoardPage() {
   const fetchLoads = useCallback(async () => {
     try {
       const params = new URLSearchParams();
-      if (currentShift) params.set("shift", currentShift);
+      if (currentShift && currentShift !== "all") params.set("shift", currentShift);
       if (statusFilter !== "all") params.set("status", statusFilter);
       if (searchQuery) params.set("search", searchQuery);
       if (criticalOnly) params.set("critical", "true");
