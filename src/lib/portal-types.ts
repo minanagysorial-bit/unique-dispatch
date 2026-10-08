@@ -106,6 +106,35 @@ export interface IncidentReport {
   resolutionNotes?: string;
 }
 
+export type StopActivityType =
+  | "pickup"
+  | "drop_empty"
+  | "hook_loaded"
+  | "drop_loaded"
+  | "hook_empty"
+  | "live_load"
+  | "live_unload"
+  | "delivery"
+  | "intermediate"
+  | string;
+
+export interface TourStop {
+  sequenceNumber: number; // 1, 2, 3...
+  type: "pickup" | "delivery" | "intermediate" | "drop_hook";
+  activity?: StopActivityType;
+  facilityCode?: string; // e.g. JFK8, TEB9, ABE8
+  facilityName?: string;
+  address?: string;
+  city: string;
+  state: string;
+  postalCode?: string;
+  appointmentTime?: string; // ISO 8601 string
+  arrivalTimeWindowStart?: string;
+  arrivalTimeWindowEnd?: string;
+  status?: "pending" | "en_route" | "arrived" | "completed" | "delayed";
+  notes?: string;
+}
+
 export interface Load {
   id: string;
   vrid: string; // e.g. VRID-9482710 or AMZ-883921
@@ -113,6 +142,8 @@ export interface Load {
   equipment: EquipmentType;
   rateUSD: number;
   weightLbs: number;
+  distanceMiles?: number;
+  totalStopsCount?: number;
   
   // Locations & Schedule
   originCity: string;
@@ -126,6 +157,9 @@ export interface Load {
   destAddress?: string;
   destFacilityCode?: string; // e.g. CLT4, DFW7
   deliveryTime: string; // ISO 8601 string
+
+  // Full Multi-Stop Itinerary / Journey Route
+  stops?: TourStop[];
 
   // Driver & Vehicle
   driverName: string;
@@ -211,6 +245,8 @@ export interface BatchSyncPayload {
     equipment?: EquipmentType;
     rateUSD?: number;
     weightLbs?: number;
+    distanceMiles?: number;
+    totalStopsCount?: number;
     originCity: string;
     originState: string;
     originAddress?: string;
@@ -221,6 +257,7 @@ export interface BatchSyncPayload {
     destAddress?: string;
     destFacilityCode?: string;
     deliveryTime: string;
+    stops?: TourStop[];
     driverName?: string;
     driverPhone?: string;
     tractorNumber?: string;

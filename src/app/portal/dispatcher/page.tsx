@@ -11,6 +11,7 @@ import TemplateEditorModal from "@/components/portal/TemplateEditorModal";
 import EmergencyAlertCenter from "@/components/portal/EmergencyAlertCenter";
 import IssueEscalationModal from "@/components/portal/IssueEscalationModal";
 import MilestoneMessageModal from "@/components/portal/MilestoneMessageModal";
+import TourJourneyDetailModal from "@/components/portal/TourJourneyDetailModal";
 import {
   Truck,
   AlertTriangle,
@@ -77,6 +78,7 @@ export default function DispatcherOperationsBoardPage() {
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [isCreateLoadOpen, setIsCreateLoadOpen] = useState(false);
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
+  const [selectedJourneyLoad, setSelectedJourneyLoad] = useState<Load | null>(null);
   const [escalationLoad, setEscalationLoad] = useState<Load | null>(null);
   const [messageLoad, setMessageLoad] = useState<Load | null>(null);
   const [messageMilestone, setMessageMilestone] = useState<MilestoneType>("in_transit_checkin");
@@ -1110,6 +1112,7 @@ export default function DispatcherOperationsBoardPage() {
                 key={load.id}
                 load={load}
                 onLoadUpdated={handleLoadUpdated}
+                onViewDetails={(l) => setSelectedJourneyLoad(l)}
               />
             ))}
           </div>
@@ -1130,7 +1133,12 @@ export default function DispatcherOperationsBoardPage() {
               </div>
               <div className="space-y-3">
                 {kanbanUpcoming.map((l) => (
-                  <LoadGridCard key={l.id} load={l} onLoadUpdated={handleLoadUpdated} />
+                  <LoadGridCard
+                    key={l.id}
+                    load={l}
+                    onLoadUpdated={handleLoadUpdated}
+                    onViewDetails={(loadItem) => setSelectedJourneyLoad(loadItem)}
+                  />
                 ))}
                 {kanbanUpcoming.length === 0 && (
                   <p className="text-center text-slate-400 text-xs py-8 font-medium">No upcoming tours</p>
@@ -1151,7 +1159,12 @@ export default function DispatcherOperationsBoardPage() {
               </div>
               <div className="space-y-3">
                 {kanbanActive.map((l) => (
-                  <LoadGridCard key={l.id} load={l} onLoadUpdated={handleLoadUpdated} />
+                  <LoadGridCard
+                    key={l.id}
+                    load={l}
+                    onLoadUpdated={handleLoadUpdated}
+                    onViewDetails={(loadItem) => setSelectedJourneyLoad(loadItem)}
+                  />
                 ))}
                 {kanbanActive.length === 0 && (
                   <p className="text-center text-slate-400 text-xs py-8 font-medium">No tours in transit</p>
@@ -1172,7 +1185,12 @@ export default function DispatcherOperationsBoardPage() {
               </div>
               <div className="space-y-3">
                 {kanbanCritical.map((l) => (
-                  <LoadGridCard key={l.id} load={l} onLoadUpdated={handleLoadUpdated} />
+                  <LoadGridCard
+                    key={l.id}
+                    load={l}
+                    onLoadUpdated={handleLoadUpdated}
+                    onViewDetails={(loadItem) => setSelectedJourneyLoad(loadItem)}
+                  />
                 ))}
                 {kanbanCritical.length === 0 && (
                   <p className="text-center text-slate-400 text-xs py-8 font-medium">No critical alerts</p>
@@ -1193,7 +1211,12 @@ export default function DispatcherOperationsBoardPage() {
               </div>
               <div className="space-y-3">
                 {kanbanDelivered.map((l) => (
-                  <LoadGridCard key={l.id} load={l} onLoadUpdated={handleLoadUpdated} />
+                  <LoadGridCard
+                    key={l.id}
+                    load={l}
+                    onLoadUpdated={handleLoadUpdated}
+                    onViewDetails={(loadItem) => setSelectedJourneyLoad(loadItem)}
+                  />
                 ))}
                 {kanbanDelivered.length === 0 && (
                   <p className="text-center text-slate-400 text-xs py-8 font-medium">No delivered tours</p>
@@ -1210,6 +1233,7 @@ export default function DispatcherOperationsBoardPage() {
                 key={load.id}
                 load={load}
                 onLoadUpdated={handleLoadUpdated}
+                onViewDetails={(l) => setSelectedJourneyLoad(l)}
               />
             ))}
           </div>
@@ -1604,6 +1628,20 @@ export default function DispatcherOperationsBoardPage() {
 
           </div>
         </div>
+      )}
+
+      {/* Multi-Stop Visual Tour Journey Detail Modal */}
+      {selectedJourneyLoad && (
+        <TourJourneyDetailModal
+          load={selectedJourneyLoad}
+          isOpen={Boolean(selectedJourneyLoad)}
+          onClose={() => setSelectedJourneyLoad(null)}
+          onLoadUpdated={(updated) => {
+            handleLoadUpdated(updated);
+            setSelectedJourneyLoad(updated);
+            fetchLoads();
+          }}
+        />
       )}
 
       {/* Direct Issue Escalation Modal */}

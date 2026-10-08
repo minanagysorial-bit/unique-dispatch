@@ -275,6 +275,27 @@
         const pickupTime = parseDateFromText(text, false);
         const deliveryTime = parseDateFromText(text, true);
 
+        // Build structured stops list from clean facilities if available
+        const stopsList = [];
+        if (cleanFacilities.length >= 2) {
+          cleanFacilities.forEach((fac, idx) => {
+            const isFirst = idx === 0;
+            const isLast = idx === cleanFacilities.length - 1;
+            const stopCity = isFirst ? originCity : isLast ? destCity : fac;
+            const stopState = isFirst ? originState : isLast ? destState : "US";
+            stopsList.push({
+              sequenceNumber: idx + 1,
+              type: isFirst ? "pickup" : isLast ? "delivery" : "intermediate",
+              activity: isFirst ? "pickup" : isLast ? "delivery" : "drop_hook",
+              facilityCode: fac,
+              city: stopCity,
+              state: stopState,
+              appointmentTime: isFirst ? pickupTime : isLast ? deliveryTime : new Date(new Date(pickupTime).getTime() + idx * 3 * 3600000).toISOString(),
+              status: isFirst && status === "in_transit" ? "completed" : status === "delivered" ? "completed" : "pending",
+            });
+          });
+        }
+
         seenIds.add(tripId);
         const tourObj = {
           vrid: tripId,
@@ -290,6 +311,8 @@
           destState,
           destFacilityCode: destFacility,
           deliveryTime,
+          stops: stopsList.length > 0 ? stopsList : undefined,
+          totalStopsCount: stopsList.length > 0 ? stopsList.length : 2,
           status,
           driverName: "Assigned Driver",
           driverPhone: "+1 (555) 000-0000",

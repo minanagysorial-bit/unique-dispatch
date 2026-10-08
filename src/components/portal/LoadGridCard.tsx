@@ -16,6 +16,7 @@ import {
   ExternalLink,
   DollarSign,
   ChevronRight,
+  Navigation,
 } from "lucide-react";
 import { Load, MilestoneType, LoadStatus } from "@/lib/portal-types";
 import LiveCountdownTimer from "./LiveCountdownTimer";
@@ -26,17 +27,22 @@ import { getSavedTemplates, renderTemplateWithLoad, buildWhatsAppLink } from "@/
 interface LoadGridCardProps {
   load: Load;
   onLoadUpdated: (updatedLoad: Load) => void;
+  onViewDetails?: (load: Load) => void;
 }
 
 export default function LoadGridCard({
   load,
   onLoadUpdated,
+  onViewDetails,
 }: LoadGridCardProps) {
   const [activeMilestone, setActiveMilestone] = useState<MilestoneType | null>(null);
   const [isEscalateOpen, setIsEscalateOpen] = useState(false);
   const [copiedQuickMsg, setCopiedQuickMsg] = useState(false);
   const [copiedVrid, setCopiedVrid] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
+  // Stop count
+  const stopsCount = load.stops?.length || load.totalStopsCount || 2;
 
   // Time calculations
   const pickupTimeMs = new Date(load.pickupTime).getTime();
@@ -212,6 +218,12 @@ export default function LoadGridCard({
             <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[10px] font-black uppercase border border-slate-200">
               {load.source.replace("_", " ")}
             </span>
+
+            {stopsCount > 2 && (
+              <span className="px-2 py-0.5 rounded-md bg-orange-100 text-orange-800 text-[10px] font-black border border-orange-300">
+                ⚡ {stopsCount} Stops
+              </span>
+            )}
           </div>
 
           <span className={`px-2.5 py-1 rounded-full text-[11px] font-black uppercase border tracking-wider ${statusBadge}`}>
@@ -230,9 +242,23 @@ export default function LoadGridCard({
           />
         </div>
 
-        {/* Route Details Box */}
-        <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 space-y-2">
-          
+        {/* Route Details Box (Clickable to open visual multi-stop journey) */}
+        <div
+          onClick={() => onViewDetails?.(load)}
+          className="p-3 rounded-2xl bg-slate-50 hover:bg-orange-50/40 border border-slate-200/80 hover:border-orange-300 transition-all cursor-pointer group space-y-2 shadow-2xs"
+          title="Click to view full multi-stop journey timeline"
+        >
+          {/* Stops Count Header */}
+          <div className="flex items-center justify-between border-b border-slate-200/60 pb-1.5 text-[10px]">
+            <span className="font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
+              <span>{stopsCount} Stops Route</span>
+            </span>
+            <span className="text-orange-600 group-hover:text-orange-700 font-bold inline-flex items-center gap-0.5">
+              View Route <ChevronRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+            </span>
+          </div>
+
           {/* Origin */}
           <div className="flex items-start justify-between text-xs">
             <div className="flex items-start gap-1.5">
@@ -351,6 +377,17 @@ export default function LoadGridCard({
       <div className="p-3 bg-slate-50 border-t border-slate-100 space-y-2">
         
         <div className="flex items-center gap-1.5">
+          {/* View Details Modal Button */}
+          <button
+            type="button"
+            onClick={() => onViewDetails?.(load)}
+            className="flex-1 inline-flex items-center justify-center gap-1 py-1.5 px-2.5 rounded-xl bg-[#0a1128] hover:bg-slate-800 text-orange-400 text-[11px] font-black shadow-xs transition-colors border border-slate-700"
+            title="Open complete multi-stop journey stepper and details"
+          >
+            <Navigation className="w-3.5 h-3.5 text-orange-400" />
+            <span>View Stops ({stopsCount})</span>
+          </button>
+
           {/* 1-Click Copy Template */}
           <button
             type="button"
@@ -366,10 +403,10 @@ export default function LoadGridCard({
           <button
             type="button"
             onClick={() => setActiveMilestone(is30mDeliveryAlert ? "delivery_checkin_30m" : "pickup_checkin_3_5h")}
-            className="flex-1 inline-flex items-center justify-center gap-1 py-1.5 px-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-[11px] font-black shadow transition-colors"
+            className="p-1.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-[11px] font-black shadow transition-colors"
+            title="Message Templates"
           >
             <Send className="w-3.5 h-3.5" />
-            <span>Templates</span>
           </button>
         </div>
 

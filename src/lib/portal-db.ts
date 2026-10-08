@@ -463,8 +463,54 @@ export const portalDb = {
   getLoadById: (id: string): Load | undefined => loads.find((l) => l.id === id || l.vrid === id),
 
   createLoad: (loadData: Omit<Load, "id" | "createdAt" | "updatedAt">, actor?: { id: string; name: string; role: any }): Load => {
+    const synthesizedStops =
+      Array.isArray(loadData.stops) && loadData.stops.length > 0
+        ? loadData.stops
+        : [
+            {
+              sequenceNumber: 1,
+              type: "pickup" as const,
+              activity: "pickup",
+              facilityCode: loadData.originFacilityCode,
+              address: loadData.originAddress,
+              city: loadData.originCity,
+              state: loadData.originState,
+              appointmentTime: loadData.pickupTime,
+              status:
+                loadData.status === "en_route_pickup"
+                  ? ("en_route" as const)
+                  : loadData.status === "at_pickup"
+                  ? ("arrived" as const)
+                  : loadData.status === "in_transit" ||
+                    loadData.status === "at_delivery" ||
+                    loadData.status === "delivered"
+                  ? ("completed" as const)
+                  : ("pending" as const),
+            },
+            {
+              sequenceNumber: 2,
+              type: "delivery" as const,
+              activity: "delivery",
+              facilityCode: loadData.destFacilityCode,
+              address: loadData.destAddress,
+              city: loadData.destCity,
+              state: loadData.destState,
+              appointmentTime: loadData.deliveryTime,
+              status:
+                loadData.status === "delivered"
+                  ? ("completed" as const)
+                  : loadData.status === "at_delivery"
+                  ? ("arrived" as const)
+                  : loadData.status === "in_transit"
+                  ? ("en_route" as const)
+                  : ("pending" as const),
+            },
+          ];
+
     const newLoad: Load = {
       ...loadData,
+      stops: synthesizedStops,
+      totalStopsCount: loadData.totalStopsCount || synthesizedStops.length,
       id: `load-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -543,6 +589,9 @@ export const portalDb = {
       if (existing) {
         portalDb.updateLoad(existing.id, {
           ...item,
+          stops: item.stops && item.stops.length > 0 ? item.stops : existing.stops,
+          distanceMiles: item.distanceMiles || existing.distanceMiles,
+          totalStopsCount: item.totalStopsCount || item.stops?.length || existing.totalStopsCount,
           updatedAt: new Date().toISOString(),
         });
         updated++;
@@ -554,6 +603,8 @@ export const portalDb = {
           equipment: item.equipment || "Dry Van (53')",
           rateUSD: item.rateUSD || 2800.0,
           weightLbs: item.weightLbs || 36000,
+          distanceMiles: item.distanceMiles,
+          totalStopsCount: item.totalStopsCount || item.stops?.length,
           originCity: item.originCity,
           originState: item.originState,
           originAddress: item.originAddress,
@@ -564,6 +615,7 @@ export const portalDb = {
           destAddress: item.destAddress,
           destFacilityCode: item.destFacilityCode,
           deliveryTime: item.deliveryTime,
+          stops: item.stops,
           driverName: item.driverName || "Assigned Driver",
           driverPhone: item.driverPhone || "+1 (555) 000-0000",
           tractorNumber: item.tractorNumber || "UD-TBD",

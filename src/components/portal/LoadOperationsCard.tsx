@@ -18,6 +18,7 @@ import {
   UserCheck,
   Copy,
   Check,
+  Navigation,
 } from "lucide-react";
 import { Load, MilestoneType, LoadStatus } from "@/lib/portal-types";
 import LiveCountdownTimer from "./LiveCountdownTimer";
@@ -27,16 +28,21 @@ import IssueEscalationModal from "./IssueEscalationModal";
 interface LoadOperationsCardProps {
   load: Load;
   onLoadUpdated: (updatedLoad: Load) => void;
+  onViewDetails?: (load: Load) => void;
 }
 
 export default function LoadOperationsCard({
   load,
   onLoadUpdated,
+  onViewDetails,
 }: LoadOperationsCardProps) {
   const [activeMilestone, setActiveMilestone] = useState<MilestoneType | null>(null);
   const [isEscalateOpen, setIsEscalateOpen] = useState(false);
   const [copiedVrid, setCopiedVrid] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
+  // Stop count
+  const stopsCount = load.stops?.length || load.totalStopsCount || 2;
 
   // Time calculations for milestone alerts
   const pickupTimeMs = new Date(load.pickupTime).getTime();
@@ -199,6 +205,12 @@ export default function LoadOperationsCard({
             </span>
           )}
 
+          {stopsCount > 2 && (
+            <span className="px-2 py-0.5 rounded bg-orange-100 text-orange-800 border border-orange-300 text-[10px] font-black uppercase">
+              ⚡ {stopsCount} Stops Route
+            </span>
+          )}
+
           {load.rateUSD && (
             <span className="text-xs font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
               ${load.rateUSD.toLocaleString()}
@@ -220,11 +232,15 @@ export default function LoadOperationsCard({
       {/* Route & Driver Details */}
       <div className="p-4 sm:p-5 space-y-4">
         
-        {/* Route Line: Origin -> Destination */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Route Line: Origin -> Destination (Clickable to open visual multi-stop journey) */}
+        <div
+          onClick={() => onViewDetails?.(load)}
+          className="grid grid-cols-1 md:grid-cols-2 gap-4 p-2 rounded-2xl hover:bg-orange-50/30 transition-all cursor-pointer border border-transparent hover:border-orange-200 group"
+          title="Click to view complete multi-stop journey timeline"
+        >
           
           {/* Origin */}
-          <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
+          <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 group-hover:bg-white border border-slate-100 group-hover:border-slate-200 transition-all">
             <div className="w-8 h-8 rounded-lg bg-orange-100 text-orange-700 flex items-center justify-center shrink-0 font-bold text-xs">
               PU
             </div>
@@ -257,7 +273,7 @@ export default function LoadOperationsCard({
           </div>
 
           {/* Destination */}
-          <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
+          <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 group-hover:bg-white border border-slate-100 group-hover:border-slate-200 transition-all">
             <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 font-bold text-xs">
               DEL
             </div>
@@ -423,6 +439,16 @@ export default function LoadOperationsCard({
 
         {/* Quick Action Buttons */}
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onViewDetails?.(load)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0a1128] hover:bg-slate-800 text-orange-400 font-bold text-xs border border-slate-700 transition-colors shadow-xs"
+            title="Open full multi-stop journey stepper and itinerary details"
+          >
+            <Navigation className="w-3.5 h-3.5 text-orange-400" />
+            <span>View Stops ({stopsCount})</span>
+          </button>
+
           <button
             type="button"
             onClick={async () => {

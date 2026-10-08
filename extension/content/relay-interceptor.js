@@ -72,7 +72,7 @@
     }
 
     // 3. Extract Stops / Legs
-    const stops = Array.isArray(item.stops)
+    const rawStops = Array.isArray(item.stops)
       ? item.stops
       : Array.isArray(item.legs)
       ? item.legs
@@ -80,6 +80,8 @@
       ? item.workOpportunityLegs
       : Array.isArray(item.tourLegs)
       ? item.tourLegs
+      : Array.isArray(item.itinerary)
+      ? item.itinerary
       : [];
 
     let originFacility = item.originFacilityCode || item.originFacility || "";
@@ -92,9 +94,9 @@
     let destState = item.destState || "US";
     let deliveryTime = item.deliveryTime || item.endTime || item.endDate || "";
 
-    if (stops.length > 0) {
-      const firstStop = stops[0];
-      const lastStop = stops[stops.length - 1];
+    if (rawStops.length > 0) {
+      const firstStop = rawStops[0];
+      const lastStop = rawStops[rawStops.length - 1];
 
       originFacility =
         firstStop.facilityCode ||
@@ -166,6 +168,108 @@
     pickupTime = normalizeDate(pickupTime, 2);
     deliveryTime = normalizeDate(deliveryTime, 16);
 
+    // Normalize each stop into structured TourStop
+    const normalizedStops = [];
+    if (rawStops.length > 0) {
+      rawStops.forEach((s, idx) => {
+        if (!s || typeof s !== "object") return;
+        const facCode =
+          s.facilityCode ||
+          s.facilityId ||
+          s.locationCode ||
+          s.nodeCode ||
+          s.originFacilityCode ||
+          s.destFacilityCode ||
+          s.facility?.code ||
+          s.facility?.facilityCode ||
+          "";
+
+        const c =
+          s.city ||
+          s.address?.city ||
+          s.location?.city ||
+          s.facility?.city ||
+          (idx === 0 ? originCity : idx === rawStops.length - 1 ? destCity : "") ||
+          facCode ||
+          `Stop ${idx + 1}`;
+
+        const st =
+          s.state ||
+          s.address?.state ||
+          s.location?.state ||
+          s.facility?.state ||
+          (idx === 0 ? originState : idx === rawStops.length - 1 ? destState : "US");
+
+        const rawActivity = String(
+          s.activity || s.activityType || s.workType || s.stopType || s.type || ""
+        ).toLowerCase();
+
+        let stopType = idx === 0 ? "pickup" : idx === rawStops.length - 1 ? "delivery" : "intermediate";
+        if (rawActivity.includes("drop") || rawActivity.includes("hook")) {
+          stopType = "drop_hook";
+        } else if (rawActivity.includes("pickup") || rawActivity.includes("load")) {
+          stopType = "pickup";
+        } else if (rawActivity.includes("delivery") || rawActivity.includes("unload")) {
+          stopType = "delivery";
+        }
+
+        const rawStopStatus = String(s.status || s.executionStatus || s.stopStatus || "").toUpperCase();
+        let stopStatus = "pending";
+        if (rawStopStatus.includes("COMPLET") || rawStopStatus.includes("DONE") || rawStopStatus.includes("FINISHED")) {
+          stopStatus = "completed";
+        } else if (rawStopStatus.includes("ARRIV") || rawStopStatus.includes("DOCK")) {
+          stopStatus = "arrived";
+        } else if (rawStopStatus.includes("TRANSIT") || rawStopStatus.includes("EN_ROUTE") || rawStopStatus.includes("ACTIVE")) {
+          stopStatus = "en_route";
+        } else if (rawStopStatus.includes("DELAY") || rawStopStatus.includes("LATE")) {
+          stopStatus = "delayed";
+        }
+
+        const apptTime =
+          s.plannedDepartureTime ||
+          s.plannedArrivalTime ||
+          s.appointmentTime ||
+          s.arrivalTimeWindow?.start ||
+          s.windowStart ||
+          s.departureEarliest ||
+          s.arrivalEarliest ||
+          s.startTime ||
+          s.plannedTime ||
+          "";
+
+        normalizedStops.push({
+          sequenceNumber: idx + 1,
+          type: stopType,
+          activity: rawActivity || (idx === 0 ? "pickup" : idx === rawStops.length - 1 ? "delivery" : "intermediate"),
+          facilityCode: facCode || undefined,
+          facilityName: s.facilityName || s.locationName || s.name || s.facility?.name || undefined,
+          address: typeof s.address === "string" ? s.address : (s.address?.streetAddress || s.address?.addressLine1 || s.location?.addressLine1 || undefined),
+          city: c,
+          state: st,
+          postalCode: s.postalCode || s.zip || s.address?.postalCode || s.address?.zipCode || undefined,
+          appointmentTime: normalizeDate(apptTime, idx === 0 ? 2 : idx * 3 + 2),
+          arrivalTimeWindowStart: s.arrivalTimeWindow?.start || s.windowStart || undefined,
+          arrivalTimeWindowEnd: s.arrivalTimeWindow?.end || s.windowEnd || undefined,
+          status: stopStatus,
+          notes: s.instructions || s.notes || s.specialInstructions || undefined,
+        });
+      });
+    }
+
+    // Distance in miles
+    let distanceMiles = undefined;
+    if (typeof item.distanceMiles === "number") {
+      distanceMiles = Math.round(item.distanceMiles);
+    } else if (typeof item.totalDistance === "number") {
+      distanceMiles = Math.round(item.totalDistance);
+    } else if (item.totalDistance && typeof item.totalDistance.value === "number") {
+      distanceMiles = Math.round(item.totalDistance.value);
+    } else if (item.distance && typeof item.distance.value === "number") {
+      distanceMiles = Math.round(item.distance.value);
+    } else if (typeof item.loadedDistance === "number") {
+      distanceMiles = Math.round(item.loadedDistance + (item.emptyDistance || 0));
+    }
+
     // 4. Equipment
     const rawEquipment =
       item.equipmentType ||
@@ -206,6 +310,8 @@
       equipment,
       rateUSD: rateUSD > 0 ? rateUSD : 0,
       weightLbs,
+      distanceMiles: distanceMiles || undefined,
+      totalStopsCount: normalizedStops.length > 0 ? normalizedStops.length : undefined,
       originCity: originCity || originFacility || "Amazon Origin",
       originState,
       originFacilityCode: originFacility || undefined,
@@ -214,13 +320,14 @@
       destState,
       destFacilityCode: destFacility || undefined,
       deliveryTime,
+      stops: normalizedStops.length > 0 ? normalizedStops : undefined,
       status,
-      driverName: item.driverName || item.assignedDriver?.name || "Assigned Driver",
-      driverPhone: item.driverPhone || item.assignedDriver?.phone || "+1 (555) 000-0000",
-      tractorNumber: item.tractorNumber || item.vehicleId || "UD-AMZ",
-      trailerNumber: item.trailerNumber || "TR-5300",
-      carrierName: item.carrierName || "Unique Dispatch Fleet",
-      carrierMcDot: item.carrierMcDot || "MC-ACTIVE",
+      driverName: item.driverName || item.driver?.name || item.assignedDriver?.name || item.assignedDriver?.driverName || "Assigned Driver",
+      driverPhone: item.driverPhone || item.driver?.phone || item.driver?.phoneNumber || item.assignedDriver?.phone || item.assignedDriver?.driverPhone || "+1 (555) 000-0000",
+      tractorNumber: item.tractorNumber || item.tractorId || item.vehicleId || item.powerUnitId || "UD-AMZ",
+      trailerNumber: item.trailerNumber || item.trailerId || "TR-5300",
+      carrierName: item.carrierName || item.carrier?.name || "Unique Dispatch Fleet",
+      carrierMcDot: item.carrierMcDot || item.carrier?.dot || "MC-ACTIVE",
       notes: `Captured via Amazon Relay API Interceptor on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}`,
     };
   }
