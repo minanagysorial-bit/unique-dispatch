@@ -234,8 +234,8 @@ export default function TourJourneyDetailModal({
       const packetText = `🚚 UNIQUE DISPATCH — TRIP ROUTE PACKET
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Trip ID: ${load.vrid}
-Source: Amazon Relay
-Equipment: ${load.equipment}
+Source: Amazon Relay${load.contractCode ? ` | Contract: ${load.contractCode}` : ""}${load.driverMode ? ` | Mode: ${load.driverMode}` : ""}
+${load.arnNumbers && load.arnNumbers.length > 0 ? `ARN Reference Numbers: ${load.arnNumbers.join(", ")}\n` : ""}${load.appointmentId ? `Appointment ID: ${load.appointmentId}\n` : ""}${load.cptTime ? `⚠️ Critical Pull Time (CPT Cutoff): ${load.cptTime}\n` : ""}Equipment: ${load.equipment}
 Assigned Driver: ${load.driverName} (${load.driverPhone})
 Tractor: ${load.tractorNumber} | Trailer: ${load.trailerNumber}
 Gross Rate: $${load.rateUSD.toLocaleString()} | Total Stops: ${stops.length}
@@ -277,7 +277,7 @@ ${stopsText}
   };
 
   // WhatsApp link with pre-filled multi-stop overview
-  const whatsappMsg = `Hello ${load.driverName}, here are the details for Trip #${load.vrid} (${stops.length} stops):\nFrom: ${load.originFacilityCode || load.originCity} -> To: ${load.destFacilityCode || load.destCity}.\nPlease reply with your confirmation and current ETA.`;
+  const whatsappMsg = `Hello ${load.driverName}, here are the details for Trip #${load.vrid} (${stops.length} stops):\n${load.arnNumbers && load.arnNumbers.length > 0 ? `ARN Reference: ${load.arnNumbers[0]}\n` : ""}From: ${load.originFacilityCode || load.originCity} -> To: ${load.destFacilityCode || load.destCity}.\nPlease reply with your confirmation and current ETA.`;
   const whatsappUrl = buildWhatsAppLink(load.driverPhone, whatsappMsg);
 
   return (
@@ -310,9 +310,29 @@ ${stopsText}
               </button>
             </div>
 
-            <span className="px-3 py-1 rounded-xl bg-orange-500/20 text-orange-300 border border-orange-500/30 text-xs font-bold uppercase">
-              {load.source.replace("_", " ")}
-            </span>
+            {load.contractCode && (
+              <span className="px-3 py-1 rounded-xl bg-slate-800 text-orange-400 border border-slate-700 text-xs font-bold font-mono">
+                {load.contractCode}
+              </span>
+            )}
+
+            {load.startsIn && (
+              <span className="px-3 py-1 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold">
+                Starts in {load.startsIn}
+              </span>
+            )}
+
+            {load.expiresIn && (
+              <span className="px-3 py-1 rounded-xl bg-red-500/20 text-red-300 border border-red-500/30 text-xs font-bold animate-pulse">
+                Expires in {load.expiresIn}
+              </span>
+            )}
+
+            {load.driverMode && (
+              <span className="px-3 py-1 rounded-xl bg-slate-800 text-slate-200 border border-slate-700 text-xs font-bold">
+                👤 {load.driverMode}
+              </span>
+            )}
 
             <span className="px-3 py-1 rounded-xl bg-slate-800 text-slate-200 border border-slate-700 text-xs font-bold">
               {load.equipment}
@@ -362,6 +382,54 @@ ${stopsText}
               >
                 Manage Issue
               </button>
+            </div>
+          )}
+
+          {/* CPT Warning Banner if detected */}
+          {load.cptTime && (
+            <div className="bg-amber-500 text-slate-950 p-3 rounded-2xl flex items-center justify-between gap-3 shadow-xs border border-amber-600 font-bold text-xs">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-slate-950 shrink-0" />
+                <span>⚠️ AMAZON CRITICAL PULL TIME (CPT CUTOFF): <span className="font-black font-mono">{load.cptTime}</span></span>
+              </div>
+              <span className="bg-slate-950 text-white text-[10px] px-2 py-0.5 rounded font-bold uppercase">Mandatory Departure</span>
+            </div>
+          )}
+
+          {/* Amazon Reference #'s (ARN) Card */}
+          {((load.arnNumbers && load.arnNumbers.length > 0) || load.appointmentId || (load.endorsements && load.endorsements.length > 0)) && (
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-3">
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Amazon Relay Reference #'s &amp; Credentials
+                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  {load.arnNumbers?.map((arn, aIdx) => (
+                    <button
+                      key={aIdx}
+                      type="button"
+                      onClick={() => navigator.clipboard.writeText(arn)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-orange-50 border border-orange-200 text-orange-800 text-xs font-mono font-bold hover:bg-orange-100 transition-colors"
+                      title="Click to copy ARN"
+                    >
+                      <Copy className="w-3 h-3 text-orange-600" />
+                      <span>ARN #{arn}</span>
+                    </button>
+                  ))}
+
+                  {load.appointmentId && (
+                    <span className="px-2.5 py-1 rounded-lg bg-blue-50 border border-blue-200 text-blue-800 text-xs font-mono font-bold">
+                      Appt ID: {load.appointmentId}
+                    </span>
+                  )}
+
+                  {load.endorsements?.map((end, eIdx) => (
+                    <span key={eIdx} className="px-2 py-0.5 rounded-lg bg-slate-100 border border-slate-300 text-slate-700 text-[11px] font-black">
+                      {end}
+                    </span>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 

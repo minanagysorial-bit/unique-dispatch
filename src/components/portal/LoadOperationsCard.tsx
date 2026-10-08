@@ -220,6 +220,31 @@ export default function LoadOperationsCard({
             </span>
           )}
 
+          {load.driverMode && (
+            <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-200 border border-slate-700 text-[10px] font-black uppercase">
+              👤 {load.driverMode}
+            </span>
+          )}
+
+          {load.arnNumbers && load.arnNumbers.length > 0 && (
+            <span
+              onClick={(e) => {
+                e.stopPropagation();
+                navigator.clipboard.writeText(load.arnNumbers![0]);
+              }}
+              className="px-2 py-0.5 rounded bg-orange-50 text-orange-800 border border-orange-200 text-[10px] font-mono font-bold hover:bg-orange-100 cursor-pointer"
+              title="Click to copy ARN"
+            >
+              ARN #{load.arnNumbers[0]}
+            </span>
+          )}
+
+          {load.cptTime && (
+            <span className="px-2 py-0.5 rounded bg-amber-500 text-slate-950 text-[10px] font-black uppercase">
+              ⚠️ CPT: {load.cptTime}
+            </span>
+          )}
+
           {load.rateUSD > 0 ? (
             <span className="text-xs font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
               ${load.rateUSD.toLocaleString()}

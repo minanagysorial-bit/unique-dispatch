@@ -227,6 +227,25 @@ export default function LoadGridCard({
               {load.source.replace("_", " ")}
             </span>
 
+            {load.driverMode && (
+              <span className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-200 text-[10px] font-black border border-slate-700">
+                👤 {load.driverMode}
+              </span>
+            )}
+
+            {load.arnNumbers && load.arnNumbers.length > 0 && (
+              <span
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigator.clipboard.writeText(load.arnNumbers![0]);
+                }}
+                className="px-2 py-0.5 rounded-md bg-orange-50 text-orange-800 text-[10px] font-mono font-bold border border-orange-200 cursor-pointer hover:bg-orange-100"
+                title="Click to copy ARN"
+              >
+                ARN #{load.arnNumbers[0]}
+              </span>
+            )}
+
             {stopsCount > 2 && (
               <span className="px-2 py-0.5 rounded-md bg-orange-100 text-orange-800 text-[10px] font-black border border-orange-300">
                 ⚡ {stopsCount} Stops
@@ -238,6 +257,14 @@ export default function LoadGridCard({
             {load.status.replace("_", " ")}
           </span>
         </div>
+
+        {/* CPT Alert Ribbon if present */}
+        {load.cptTime && (
+          <div className="bg-amber-500 text-slate-950 px-3 py-1 rounded-xl text-[10px] font-black flex items-center justify-between shadow-2xs">
+            <span>⚠️ CPT CUTOFF: {load.cptTime}</span>
+            <span className="bg-slate-950 text-white px-1.5 py-0.2 rounded text-[9px] uppercase">Mandatory</span>
+          </div>
+        )}
 
         {/* Live Countdown Clock Badge */}
         <div className="flex items-center justify-between p-2 rounded-xl bg-slate-900 text-white">

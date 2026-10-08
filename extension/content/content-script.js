@@ -187,8 +187,8 @@
       });
     }
 
-    // 3. Extract Addresses e.g. "111 Gembler Rd, San Antonio, TX 78219", "6806 Cal Turner Dr, San Antonio, TX 78220"
-    const addressRegex = /(\d+\s+[A-Za-z0-9\s\.\-]{3,35}(?:Rd|St|Ave|Dr|Blvd|Way|Ct|Ln|Hwy|Pkwy)),\s*([A-Za-z\s]{3,20}),\s*([A-Z]{2})(?:\s+(\d{5}))?/g;
+    // 3. Extract Addresses e.g. "111 Gembler Rd, San Antonio, TX 78219", "PVT ST AT 10384 W US HIGHWAY 90, San Antonio, TX 78245"
+    const addressRegex = /((?:PVT\s+ST\s+AT\s+)?\d+\s+[A-Za-z0-9\s\.\-]{2,45}(?:Rd|St|Ave|Dr|Blvd|Way|Ct|Ln|Hwy|Pkwy|Highway\s*\d+|Loop\s*\d+|Parkway|Boulevard|Lane|Drive|Road|Street)),\s*([A-Za-z\s]{3,20}),\s*([A-Z]{2})(?:\s+(\d{5}))?/gi;
     const foundAddresses = [];
     let addrMatch;
     while ((addrMatch = addressRegex.exec(text)) !== null) {
@@ -200,7 +200,16 @@
       });
     }
 
-    // 4. Extract Total Miles (sum of legs or stated miles)
+    // 4. Extract ARN numbers & Reference IDs
+    const arnMatches = Array.from(text.matchAll(/ARN\s*#?\s*(\d{8,14})/gi)).map((m) => m[1]);
+    const apptMatch = text.match(/Appointment\s*Id\s*(\d{8,16})/i);
+    const appointmentId = apptMatch ? apptMatch[1] : undefined;
+
+    // 5. Extract CPT (Critical Pull Time)
+    const cptMatch = text.match(/CPT\s+([A-Za-z0-9\s,:]+(?:AM|PM|CDT|CST|EDT|EST)?)/i);
+    const cptTime = cptMatch ? cptMatch[1].trim() : undefined;
+
+    // 6. Extract Total Miles (sum of legs or stated miles)
     let totalMiles = 0;
     if (subLegs.length > 0) {
       totalMiles = subLegs.reduce((acc, l) => acc + (l.miles || 0), 0);
@@ -210,7 +219,7 @@
       if (milesMatch) totalMiles = parseInt(milesMatch[1].replace(/,/g, ""), 10);
     }
 
-    // 5. Build Ordered Stops Array
+    // 7. Build Ordered Stops Array
     const stopsList = [];
     const cityStateMatches = Array.from(text.matchAll(/([A-Za-z\s\.\-]{3,24}),\s*([A-Z]{2})(?:\s+(\d{5}))?/g));
 
@@ -219,6 +228,7 @@
       subLegs.forEach((leg, idx) => {
         const isFirst = idx === 0;
         const isLast = idx === subLegs.length - 1;
+        const legArn = arnMatches[idx] || (arnMatches.length === 1 ? arnMatches[0] : undefined);
 
         // Add Origin of leg (for first leg or distinct stop)
         if (isFirst || stopsList.length === 0) {
@@ -235,8 +245,11 @@
             postalCode: addr?.zip || (cityStateMatches[0] && cityStateMatches[0][3]) || undefined,
             address: addr?.street ? `${addr.street}, ${oCity}, ${oState}` : `Amazon Logistics Facility [${leg.fromFac}]`,
             appointmentTime: parentPickupTime,
+            arnNumber: legArn,
+            cptTime: isFirst ? cptTime : undefined,
+            isBobtail: /bobtail/i.test(text),
             status: "pending",
-            notes: `Sub-Shipment Leg: ${leg.subId} (Origin)`,
+            notes: `Sub-Shipment Leg: ${leg.subId} (Origin)${legArn ? ` | ARN #${legArn}` : ""}`,
           });
         }
 
@@ -258,8 +271,10 @@
           postalCode: nextAddr?.zip || undefined,
           address: nextAddr?.street ? `${nextAddr.street}, ${dCity}, ${dState}` : `Amazon Facility [${leg.toFac}]`,
           appointmentTime: isLast ? parentDeliveryTime : stepTime,
+          arnNumber: legArn,
+          isBobtail: /bobtail/i.test(text),
           status: "pending",
-          notes: `Sub-Shipment Leg: ${leg.subId} (${leg.miles > 0 ? `${leg.miles} mi` : "Drop"})`,
+          notes: `Sub-Shipment Leg: ${leg.subId} (${leg.miles > 0 ? `${leg.miles} mi` : "Drop"})${legArn ? ` | ARN #${legArn}` : ""}`,
         });
       });
     } else {
@@ -288,6 +303,9 @@
         postalCode: cityStateMatches[0] && cityStateMatches[0][3] ? cityStateMatches[0][3] : undefined,
         address: foundAddresses[0] ? `${foundAddresses[0].street}, ${foundAddresses[0].city}` : (oFac ? `Amazon Logistics [${oFac}]` : `${oCity}, ${oState}`),
         appointmentTime: parentPickupTime,
+        arnNumber: arnMatches[0] || undefined,
+        cptTime: cptTime || undefined,
+        isBobtail: /bobtail/i.test(text),
         status: "pending",
       });
 
@@ -301,6 +319,8 @@
         postalCode: dMatch && dMatch[3] ? dMatch[3] : undefined,
         address: foundAddresses[1] ? `${foundAddresses[1].street}, ${foundAddresses[1].city}` : (dFac ? `Amazon Logistics [${dFac}]` : `${dCity}, ${dState}`),
         appointmentTime: parentDeliveryTime,
+        arnNumber: arnMatches[1] || arnMatches[0] || undefined,
+        isBobtail: /bobtail/i.test(text),
         status: "pending",
       });
     }
@@ -323,6 +343,9 @@
       distanceMiles: totalMiles > 0 ? totalMiles : undefined,
       subLegsCount: subLegs.length,
       subLegsIds: subLegs.map((l) => l.subId),
+      arnNumbers: arnMatches,
+      appointmentId,
+      cptTime,
     };
   }
 
@@ -427,6 +450,30 @@
         const contractMatch = text.match(/\b(C-[0-9A-Za-z]{6,14})\b/);
         const contractCode = contractMatch ? contractMatch[1] : "C-0003CBSPY";
 
+        // Extract Driver Mode (e.g. Solo 38h, Solo 14h, Team)
+        const driverModeMatch = text.match(/\b(Solo|Team)\s*(?:👤|👤👤)?\s*(\d{1,2}h)?\b/i);
+        const driverMode = driverModeMatch ? `${driverModeMatch[1]} ${driverModeMatch[2] || ""}`.trim() : undefined;
+
+        // Extract Endorsements / Requirements
+        const endorsements = [];
+        if (/\bCDL\b/i.test(text)) endorsements.push("CDL");
+        if (/\bBNSF_UIIA_EPA\b/i.test(text)) endorsements.push("BNSF_UIIA_EPA");
+        if (/\bUIIA_MC\b/i.test(text)) endorsements.push("UIIA_MC");
+        if (/\bTWIC\b/i.test(text)) endorsements.push("TWIC");
+        if (/\bFAST\b/i.test(text)) endorsements.push("FAST");
+        if (/\bTTA\b/i.test(text)) endorsements.push("TTA");
+        if (/\bLCV\b/i.test(text)) endorsements.push("LCV");
+
+        // Extract Starts in / Expires in
+        const startsMatch = text.match(/Starts\s*in\s*(\d+h\s*\d+m|\d+h|\d+m)/i);
+        const startsIn = startsMatch ? startsMatch[1] : undefined;
+
+        const expiresMatch = text.match(/Expires\s*in\s*(\d+h\s*\d+m|\d+h|\d+m)/i);
+        const expiresIn = expiresMatch ? expiresMatch[1] : undefined;
+
+        const isAcceptable = /Accept\b/.test(text) && !/Accepted\b/.test(text);
+        const acceptanceStatus = isAcceptable ? "pending_acceptance" : "confirmed";
+
         // Status
         let status = "upcoming";
         if (/in\s*transit|en\s*route|on\s*road/i.test(text)) status = "in_transit";
@@ -439,7 +486,7 @@
         const tourObj = {
           vrid: tripId,
           source: "amazon_relay",
-          equipment: "Dry Van (53')",
+          equipment: /53'\s*Trailer/i.test(text) ? "53' Trailer" : "Dry Van (53')",
           rateUSD: 0,
           weightLbs: 38000,
           distanceMiles: blockStructure.distanceMiles,
@@ -455,6 +502,16 @@
           deliveryTime: blockStructure.deliveryTime,
           stops: blockStructure.stops,
           totalStopsCount: blockStructure.stops.length,
+          contractCode,
+          arnNumbers: blockStructure.arnNumbers,
+          appointmentId: blockStructure.appointmentId,
+          cptTime: blockStructure.cptTime,
+          driverMode,
+          endorsements: endorsements.length > 0 ? endorsements : undefined,
+          acceptanceStatus,
+          startsIn,
+          expiresIn,
+          isBobtail: /bobtail/i.test(text),
           status,
           screenIndex: currentScreenIndex++,
           driverName: driverName,
@@ -463,7 +520,7 @@
           trailerNumber: "TR-5300",
           carrierName: "Chism Tracking / Unique Dispatch",
           carrierMcDot: contractCode,
-          notes: `Amazon Relay Contract: ${contractCode} | Sub-Legs: ${blockStructure.subLegsCount > 0 ? blockStructure.subLegsIds.join(", ") : "Direct"} | Screen #${currentScreenIndex}`,
+          notes: `Amazon Relay Contract: ${contractCode} | Sub-Legs: ${blockStructure.subLegsCount > 0 ? blockStructure.subLegsIds.join(", ") : "Direct"} | Screen #${currentScreenIndex}${blockStructure.arnNumbers && blockStructure.arnNumbers.length > 0 ? ` | ARN: ${blockStructure.arnNumbers.join(", ")}` : ""}`,
         };
 
         foundTours.push(tourObj);

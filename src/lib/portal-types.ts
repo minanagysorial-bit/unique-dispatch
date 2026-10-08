@@ -132,6 +132,9 @@ export interface TourStop {
   arrivalTimeWindowStart?: string;
   arrivalTimeWindowEnd?: string;
   status?: "pending" | "en_route" | "arrived" | "completed" | "delayed";
+  arnNumber?: string;
+  cptTime?: string;
+  isBobtail?: boolean;
   notes?: string;
 }
 
@@ -168,6 +171,18 @@ export interface Load {
   trailerNumber: string;
   carrierName?: string;
   carrierMcDot?: string;
+
+  // Enterprise Amazon Relay Properties
+  contractCode?: string;
+  arnNumbers?: string[];
+  appointmentId?: string;
+  cptTime?: string;
+  driverMode?: string; // e.g. "Solo 38h" | "Solo 14h" | "Team"
+  endorsements?: string[]; // e.g. ["CDL", "BNSF_UIIA_EPA", "UIIA_MC"]
+  acceptanceStatus?: "confirmed" | "pending_acceptance" | "expired";
+  expiresIn?: string;
+  startsIn?: string;
+  isBobtail?: boolean;
 
   // Operational state
   status: LoadStatus;
@@ -268,6 +283,16 @@ export interface BatchSyncPayload {
     trailerNumber?: string;
     carrierName?: string;
     carrierMcDot?: string;
+    contractCode?: string;
+    arnNumbers?: string[];
+    appointmentId?: string;
+    cptTime?: string;
+    driverMode?: string;
+    endorsements?: string[];
+    acceptanceStatus?: "confirmed" | "pending_acceptance" | "expired";
+    expiresIn?: string;
+    startsIn?: string;
+    isBobtail?: boolean;
     status?: LoadStatus;
     screenIndex?: number;
     notes?: string;
