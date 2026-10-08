@@ -4,17 +4,33 @@
  */
 
 const DEFAULT_CONFIG = {
-  portalUrl: "http://localhost:3000",
+  portalUrl: "https://uniquedispatch.com",
   apiKey: "ud_live_sync_8892f038c1a9",
   currentShift: "morning",
   autoSyncEnabled: true,
   syncIntervalMinutes: 1,
 };
 
-// Initialize settings on install
+function normalizePortalUrl(rawUrl) {
+  let url = (rawUrl || DEFAULT_CONFIG.portalUrl).trim();
+  if (!url.startsWith("http://") && !url.startsWith("https://")) {
+    if (url.includes("localhost") || url.startsWith("127.0.0.1")) {
+      url = `http://${url}`;
+    } else {
+      url = `https://${url}`;
+    }
+  }
+  if (url.startsWith("http://") && !url.includes("localhost") && !url.includes("127.0.0.1")) {
+    url = url.replace(/^http:\/\//i, "https://");
+  }
+  return url.replace(/\/$/, "");
+}
+
+// Initialize settings on install or reload
 chrome.runtime.onInstalled.addListener(async () => {
   const existing = await chrome.storage.local.get(Object.keys(DEFAULT_CONFIG));
-  const toSave = { ...DEFAULT_CONFIG, ...existing };
+  const normalizedUrl = normalizePortalUrl(existing.portalUrl || DEFAULT_CONFIG.portalUrl);
+  const toSave = { ...DEFAULT_CONFIG, ...existing, portalUrl: normalizedUrl };
   await chrome.storage.local.set(toSave);
 
   // Setup periodic sync alarm
@@ -22,7 +38,7 @@ chrome.runtime.onInstalled.addListener(async () => {
     periodInMinutes: toSave.syncIntervalMinutes || 1,
   });
 
-  console.log("🚚 [Unique Dispatch Engine] Service Worker Initialized");
+  console.log("🚚 [Unique Dispatch Engine] Service Worker Initialized at:", normalizedUrl);
 });
 
 // Alarm trigger for periodic refresh check
@@ -70,21 +86,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 });
-
-function normalizePortalUrl(rawUrl) {
-  let url = (rawUrl || DEFAULT_CONFIG.portalUrl).trim();
-  if (!url.startsWith("http://") && !url.startsWith("https://")) {
-    if (url.includes("localhost") || url.startsWith("127.0.0.1")) {
-      url = `http://${url}`;
-    } else {
-      url = `https://${url}`;
-    }
-  }
-  if (url.startsWith("http://") && !url.includes("localhost") && !url.includes("127.0.0.1")) {
-    url = url.replace(/^http:\/\//i, "https://");
-  }
-  return url.replace(/\/$/, "");
-}
 
 /**
  * Handle and dispatch Relay tour payload to Unique Dispatch portal
@@ -178,15 +179,19 @@ async function testPortalConnection(portalUrl, apiKey) {
  * Find active Amazon Relay tab and request extraction
  */
 async function triggerContentSyncOnActiveTab() {
-  const tabs = await chrome.tabs.query({
-    url: ["https://relay.amazon.com/*"],
-  });
+  try {
+    const tabs = await chrome.tabs.query({
+      url: ["https://relay.amazon.com/*", "https://*.relay.amazon.com/*"],
+    });
 
-  for (const tab of tabs) {
-    if (tab.id) {
-      chrome.tabs.sendMessage(tab.id, { type: "EXTRACT_NOW" }).catch(() => {
-        // Tab might not be ready or injected
-      });
+    for (const tab of tabs) {
+      if (tab.id) {
+        chrome.tabs.sendMessage(tab.id, { type: "EXTRACT_NOW" }).catch(() => {
+          // Tab might not have content script ready yet
+        });
+      }
     }
+  } catch (e) {
+    console.warn("Trigger sync tabs query error:", e);
   }
 }

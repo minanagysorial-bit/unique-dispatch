@@ -15,7 +15,7 @@ document.addEventListener("DOMContentLoaded", async () => {
    * Helper: Normalize user-entered Portal URL to prevent CORS preflight redirect errors
    */
   function normalizePortalUrl(rawUrl) {
-    let url = (rawUrl || "http://localhost:3000").trim();
+    let url = (rawUrl || "https://uniquedispatch.com").trim();
     if (!url.startsWith("http://") && !url.startsWith("https://")) {
       if (url.includes("localhost") || url.startsWith("127.0.0.1")) {
         url = `http://${url}`;
@@ -30,7 +30,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     return url.replace(/\/$/, "");
   }
 
-  // Load stored configuration
+  // Load stored configuration & sanitize immediately
   const config = await chrome.storage.local.get([
     "portalUrl",
     "apiKey",
@@ -39,10 +39,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     "lastSyncRecord",
   ]);
 
-  portalUrlInput.value = config.portalUrl || "http://localhost:3000";
+  const cleanPortalUrl = normalizePortalUrl(config.portalUrl || "https://uniquedispatch.com");
+  portalUrlInput.value = cleanPortalUrl;
   apiKeyInput.value = config.apiKey || "ud_live_sync_8892f038c1a9";
   shiftSelect.value = config.currentShift || "morning";
   autoSyncToggle.checked = config.autoSyncEnabled !== false;
+
+  // Persist cleaned URL back to storage immediately if it had http://
+  if (config.portalUrl !== cleanPortalUrl) {
+    await chrome.storage.local.set({ portalUrl: cleanPortalUrl });
+  }
 
   if (config.lastSyncRecord && config.lastSyncRecord.lastSyncedAt) {
     const d = new Date(config.lastSyncRecord.lastSyncedAt);
@@ -86,7 +92,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     alertBox.className = `alert-box ${isSuccess ? "alert-success" : "alert-error"}`;
     setTimeout(() => {
       alertBox.className = "alert-box hidden";
-    }, 4000);
+    }, 4500);
   }
 
   // Save Settings
@@ -115,16 +121,26 @@ document.addEventListener("DOMContentLoaded", async () => {
     btnSyncNow.innerText = "Extracting...";
 
     try {
-      // 1. First check if current tab is Amazon Relay
+      // 1. First check if current tab or open tab is Amazon Relay
       let targetTab = null;
-      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (activeTab && activeTab.url && activeTab.url.includes("relay.amazon.com")) {
-        targetTab = activeTab;
-      } else {
-        // 2. Otherwise find any open Amazon Relay tab
-        const relayTabs = await chrome.tabs.query({ url: ["https://relay.amazon.com/*", "https://*.relay.amazon.com/*"] });
-        if (relayTabs && relayTabs.length > 0) {
-          targetTab = relayTabs[0];
+
+      try {
+        const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (activeTab && activeTab.url && activeTab.url.includes("relay.amazon.com")) {
+          targetTab = activeTab;
+        }
+      } catch (tabErr) {
+        console.warn("Active tab query notice:", tabErr);
+      }
+
+      if (!targetTab) {
+        try {
+          const relayTabs = await chrome.tabs.query({ url: ["https://relay.amazon.com/*", "https://*.relay.amazon.com/*"] });
+          if (relayTabs && relayTabs.length > 0) {
+            targetTab = relayTabs[0];
+          }
+        } catch (tabErr2) {
+          console.warn("Relay tabs query notice:", tabErr2);
         }
       }
 
@@ -135,39 +151,48 @@ document.addEventListener("DOMContentLoaded", async () => {
         return;
       }
 
-      // 3. Send message or inject content script if needed
+      // 2. Send message to content script
       chrome.tabs.sendMessage(targetTab.id, { type: "EXTRACT_NOW" }, async (res) => {
-        if (chrome.runtime.lastError || !res) {
-          try {
-            // Programmatically inject script if tab wasn't ready
-            await chrome.scripting.executeScript({
-              target: { tabId: targetTab.id },
-              files: ["content/content-script.js"],
-            });
-            setTimeout(() => {
-              chrome.tabs.sendMessage(targetTab.id, { type: "EXTRACT_NOW" });
-            }, 600);
-          } catch (injErr) {
-            console.warn("Script injection note:", injErr);
+        const hasError = chrome.runtime.lastError || !res;
+
+        if (hasError) {
+          // Attempt script injection if chrome.scripting is supported
+          if (chrome.scripting && typeof chrome.scripting.executeScript === "function") {
+            try {
+              await chrome.scripting.executeScript({
+                target: { tabId: targetTab.id },
+                files: ["content/content-script.js"],
+              });
+              setTimeout(() => {
+                chrome.tabs.sendMessage(targetTab.id, { type: "EXTRACT_NOW" }, () => {
+                  showAlert("✓ Sync attached & extracted from Amazon Relay!");
+                });
+              }, 400);
+            } catch (injErr) {
+              showAlert("⚠️ Please refresh (F5) the Amazon Relay tab once to attach sync.", false);
+            }
+          } else {
+            showAlert("⚠️ Please refresh (F5) the Amazon Relay tab once to attach sync.", false);
           }
+        } else {
+          showAlert("✓ Extracted tours from Amazon Relay tab!");
         }
 
         btnSyncNow.disabled = false;
         btnSyncNow.innerText = "⚡ Sync Active Relay Screen";
-        showAlert("✓ Extracted tours from Amazon Relay tab!");
-        
+
         setTimeout(async () => {
           const updated = await chrome.storage.local.get(["lastSyncRecord"]);
           if (updated.lastSyncRecord && updated.lastSyncRecord.lastSyncedAt) {
             const d = new Date(updated.lastSyncRecord.lastSyncedAt);
             lastSyncTimeEl.innerText = `${d.toLocaleTimeString()} (${updated.lastSyncRecord.totalLoads || 0} loads)`;
           }
-        }, 1500);
+        }, 1200);
       });
     } catch (e) {
       btnSyncNow.disabled = false;
       btnSyncNow.innerText = "⚡ Sync Active Relay Screen";
-      showAlert("Sync error: " + e.message, false);
+      showAlert("⚠️ Please refresh (F5) the Amazon Relay tab once.", false);
     }
   });
 });

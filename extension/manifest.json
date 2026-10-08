@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Unique Dispatch - Relay Sync Engine",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Enterprise real-time trip synchronization from Amazon Relay to Unique Dispatch Operations Portal",
   "icons": {
     "16": "icons/icon16.png",
@@ -17,7 +17,8 @@
     "storage",
     "alarms",
     "scripting",
-    "activeTab"
+    "activeTab",
+    "tabs"
   ],
   "host_permissions": [
     "https://relay.amazon.com/*",
@@ -45,7 +46,6 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "content/relay-interceptor.js",
         "icons/*"
       ],
       "matches": [
