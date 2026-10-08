@@ -1,15 +1,29 @@
 export type UserRole = "super_admin" | "dispatcher";
 
-export type ShiftType = "morning" | "night";
+export type ShiftType = "morning" | "afternoon" | "night" | "custom" | string;
+
+export interface ShiftDefinition {
+  id: string;
+  name: string;
+  startTime: string; // "06:00"
+  endTime: string; // "14:00"
+  timezone?: string; // "EST"
+  color?: string; // "amber" | "blue" | "indigo" | "emerald" | "purple"
+  description?: string;
+}
 
 export interface User {
   id: string;
   name: string;
   email: string;
   passwordHash?: string;
+  rawPassword?: string; // Stored for Super Admin credential distribution
   role: UserRole;
   avatar?: string;
   assignedShift?: ShiftType;
+  shiftStartTime?: string; // e.g. "06:00"
+  shiftEndTime?: string; // e.g. "14:00"
+  shiftTimeRange?: string; // e.g. "06:00 AM - 02:00 PM EST"
   isActive: boolean;
   phone?: string;
   lastLoginAt?: string;

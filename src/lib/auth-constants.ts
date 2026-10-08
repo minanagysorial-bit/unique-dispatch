@@ -13,6 +13,7 @@ export interface SessionPayload {
   email: string;
   name: string;
   role: UserRole;
-  assignedShift?: "morning" | "night";
+  assignedShift?: string;
+  shiftTimeRange?: string;
   exp: number;
 }

@@ -125,10 +125,25 @@ export default function PortalNavbar({
                   ? "bg-amber-500 text-slate-950 font-black shadow-sm"
                   : "text-slate-400 hover:text-white"
               }`}
+              title="Morning Shift (06:00 - 14:00 EST)"
             >
               <Sun className="w-3 h-3" />
-              <span>Day (06-18)</span>
+              <span>Day (06-14)</span>
             </button>
+
+            <button
+              onClick={() => onShiftChange("afternoon")}
+              className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider transition-colors ${
+                currentShift === "afternoon"
+                  ? "bg-blue-500 text-white font-black shadow-sm"
+                  : "text-slate-400 hover:text-white"
+              }`}
+              title="Afternoon Shift (14:00 - 22:00 EST)"
+            >
+              <Clock className="w-3 h-3" />
+              <span>Aft (14-22)</span>
+            </button>
+
             <button
               onClick={() => onShiftChange("night")}
               className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider transition-colors ${
@@ -136,9 +151,22 @@ export default function PortalNavbar({
                   ? "bg-indigo-600 text-white font-black shadow-sm"
                   : "text-slate-400 hover:text-white"
               }`}
+              title="Night Shift (22:00 - 06:00 EST)"
             >
               <Moon className="w-3 h-3" />
-              <span>Night (18-06)</span>
+              <span>Night (22-06)</span>
+            </button>
+
+            <button
+              onClick={() => onShiftChange("all")}
+              className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider transition-colors ${
+                currentShift === "all"
+                  ? "bg-slate-700 text-white font-black shadow-sm"
+                  : "text-slate-400 hover:text-white"
+              }`}
+              title="View all loads across all shifts"
+            >
+              <span>All</span>
             </button>
           </div>
         </div>

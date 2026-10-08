@@ -6,6 +6,7 @@ import {
   ArrowRightLeft,
   Sun,
   Moon,
+  Clock,
   CheckSquare,
   AlertTriangle,
   Send,
@@ -140,31 +141,44 @@ export default function ShiftHandoverModal({
             <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
               Handover To Incoming Shift:
             </label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={() => setToShift("morning")}
-                className={`p-3 rounded-xl border flex items-center justify-center gap-2 font-bold text-xs uppercase tracking-wider transition-colors ${
+                className={`p-2.5 rounded-xl border flex items-center justify-center gap-1.5 font-bold text-xs uppercase tracking-wider transition-colors ${
                   toShift === "morning"
                     ? "bg-amber-500 text-white border-amber-600 shadow-sm"
                     : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
                 }`}
               >
-                <Sun className="w-4 h-4" />
-                <span>Morning Shift (06:00 - 18:00 EST)</span>
+                <Sun className="w-3.5 h-3.5" />
+                <span>Morning (06-14)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setToShift("afternoon")}
+                className={`p-2.5 rounded-xl border flex items-center justify-center gap-1.5 font-bold text-xs uppercase tracking-wider transition-colors ${
+                  toShift === "afternoon"
+                    ? "bg-blue-600 text-white border-blue-700 shadow-sm"
+                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                <Clock className="w-3.5 h-3.5" />
+                <span>Afternoon (14-22)</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setToShift("night")}
-                className={`p-3 rounded-xl border flex items-center justify-center gap-2 font-bold text-xs uppercase tracking-wider transition-colors ${
+                className={`p-2.5 rounded-xl border flex items-center justify-center gap-1.5 font-bold text-xs uppercase tracking-wider transition-colors ${
                   toShift === "night"
                     ? "bg-indigo-900 text-white border-indigo-950 shadow-sm"
                     : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
                 }`}
               >
-                <Moon className="w-4 h-4" />
-                <span>Night Shift (18:00 - 06:00 EST)</span>
+                <Moon className="w-3.5 h-3.5" />
+                <span>Night (22-06)</span>
               </button>
             </div>
           </div>

@@ -7,6 +7,7 @@ import {
   AuditLog,
   DispatcherKpi,
   ShiftType,
+  ShiftDefinition,
   LoadStatus,
   MilestoneType,
   IncidentCategory,
@@ -14,15 +15,48 @@ import {
   BatchSyncPayload,
 } from "./portal-types";
 
-// Seed Users with high-grade PBKDF2 cryptographic password hashes
+// Seed Shift Definitions (Customizable Time Ranges)
+const SEED_SHIFTS: ShiftDefinition[] = [
+  {
+    id: "shift-morning",
+    name: "Morning Shift",
+    startTime: "06:00",
+    endTime: "14:00",
+    timezone: "EST",
+    color: "amber",
+    description: "Early morning carrier check-ins, load assignments & pre-trip validations.",
+  },
+  {
+    id: "shift-afternoon",
+    name: "Afternoon Shift",
+    startTime: "14:00",
+    endTime: "22:00",
+    timezone: "EST",
+    color: "blue",
+    description: "Peak transit tracking, broker ETA adjustments & delivery check-ins.",
+  },
+  {
+    id: "shift-night",
+    name: "Night Shift",
+    startTime: "22:00",
+    endTime: "06:00",
+    timezone: "EST",
+    color: "indigo",
+    description: "Overnight long-haul monitoring, breakdown support & ROC escalation.",
+  },
+];
+
+// Seed Users with high-grade PBKDF2 cryptographic password hashes and rawPassword for Super Admin distribution
 const SEED_USERS: User[] = [
   {
     id: "usr-admin-01",
     name: "Marven Awad",
     email: "admin@uniquedispatch.com",
-    passwordHash: "a841a939a0b4c890d234bf460b14b14f:91391129a1e3a83a511f05ef99cee84ea711b2f283cc8c9358a86018fd35c3a1c4fedc4769344b9f72113f29928f3ad9773e3e0ad6cb4cda369772eb35c359aa", // UniqueAdmin2026!
+    passwordHash: "a841a939a0b4c890d234bf460b14b14f:91391129a1e3a83a511f05ef99cee84ea711b2f283cc8c9358a86018fd35c3a1c4fedc4769344b9f72113f29928f3ad9773e3e0ad6cb4cda369772eb35c359aa",
+    rawPassword: "UniqueAdmin2026!",
     role: "super_admin",
     phone: "+1 (332) 244-5532",
+    shiftTimeRange: "24/7 Governance",
     isActive: true,
     lastLoginAt: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
     createdAt: "2026-01-01T00:00:00.000Z",
@@ -31,9 +65,11 @@ const SEED_USERS: User[] = [
     id: "usr-admin-02",
     name: "Marven Awad",
     email: "uniquedispatchh@gmail.com",
-    passwordHash: "a841a939a0b4c890d234bf460b14b14f:91391129a1e3a83a511f05ef99cee84ea711b2f283cc8c9358a86018fd35c3a1c4fedc4769344b9f72113f29928f3ad9773e3e0ad6cb4cda369772eb35c359aa", // UniqueAdmin2026!
+    passwordHash: "a841a939a0b4c890d234bf460b14b14f:91391129a1e3a83a511f05ef99cee84ea711b2f283cc8c9358a86018fd35c3a1c4fedc4769344b9f72113f29928f3ad9773e3e0ad6cb4cda369772eb35c359aa",
+    rawPassword: "UniqueAdmin2026!",
     role: "super_admin",
     phone: "+1 (332) 244-5532",
+    shiftTimeRange: "24/7 Governance",
     isActive: true,
     lastLoginAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
     createdAt: "2026-01-01T00:00:00.000Z",
@@ -42,9 +78,11 @@ const SEED_USERS: User[] = [
     id: "usr-admin-03",
     name: "Marven Awad",
     email: "marvengerges2008@gmail.com",
-    passwordHash: "a841a939a0b4c890d234bf460b14b14f:91391129a1e3a83a511f05ef99cee84ea711b2f283cc8c9358a86018fd35c3a1c4fedc4769344b9f72113f29928f3ad9773e3e0ad6cb4cda369772eb35c359aa", // UniqueAdmin2026!
+    passwordHash: "a841a939a0b4c890d234bf460b14b14f:91391129a1e3a83a511f05ef99cee84ea711b2f283cc8c9358a86018fd35c3a1c4fedc4769344b9f72113f29928f3ad9773e3e0ad6cb4cda369772eb35c359aa",
+    rawPassword: "UniqueAdmin2026!",
     role: "super_admin",
     phone: "+1 (332) 244-5532",
+    shiftTimeRange: "24/7 Governance",
     isActive: true,
     lastLoginAt: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
     createdAt: "2026-01-01T00:00:00.000Z",
@@ -53,9 +91,13 @@ const SEED_USERS: User[] = [
     id: "usr-disp-01",
     name: "Alex Reed",
     email: "dispatcher@uniquedispatch.com",
-    passwordHash: "20c9ff94222d0c5b6513b7694c14db4b:273ca94bfe3114ef795d3d13be2d66fb74b07edb9e3ad37a7378ca516acffe60958bd20b480dbacd595a2255defa491ccc35be300fdeed4a45910db1d64db169", // Dispatch2026!
+    passwordHash: "20c9ff94222d0c5b6513b7694c14db4b:273ca94bfe3114ef795d3d13be2d66fb74b07edb9e3ad37a7378ca516acffe60958bd20b480dbacd595a2255defa491ccc35be300fdeed4a45910db1d64db169",
+    rawPassword: "Dispatch2026!",
     role: "dispatcher",
     assignedShift: "morning",
+    shiftStartTime: "06:00",
+    shiftEndTime: "14:00",
+    shiftTimeRange: "06:00 AM - 02:00 PM EST",
     phone: "+1 (332) 244-5533",
     isActive: true,
     lastLoginAt: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
@@ -65,9 +107,13 @@ const SEED_USERS: User[] = [
     id: "usr-disp-02",
     name: "Samir Vance",
     email: "nightops@uniquedispatch.com",
-    passwordHash: "20c9ff94222d0c5b6513b7694c14db4b:273ca94bfe3114ef795d3d13be2d66fb74b07edb9e3ad37a7378ca516acffe60958bd20b480dbacd595a2255defa491ccc35be300fdeed4a45910db1d64db169", // Dispatch2026!
+    passwordHash: "20c9ff94222d0c5b6513b7694c14db4b:273ca94bfe3114ef795d3d13be2d66fb74b07edb9e3ad37a7378ca516acffe60958bd20b480dbacd595a2255defa491ccc35be300fdeed4a45910db1d64db169",
+    rawPassword: "Dispatch2026!",
     role: "dispatcher",
     assignedShift: "night",
+    shiftStartTime: "22:00",
+    shiftEndTime: "06:00",
+    shiftTimeRange: "10:00 PM - 06:00 AM EST",
     phone: "+1 (332) 244-5534",
     isActive: true,
     lastLoginAt: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
@@ -77,9 +123,13 @@ const SEED_USERS: User[] = [
     id: "usr-disp-03",
     name: "Elena Rostova",
     email: "elena@uniquedispatch.com",
-    passwordHash: "20c9ff94222d0c5b6513b7694c14db4b:273ca94bfe3114ef795d3d13be2d66fb74b07edb9e3ad37a7378ca516acffe60958bd20b480dbacd595a2255defa491ccc35be300fdeed4a45910db1d64db169", // Dispatch2026!
+    passwordHash: "20c9ff94222d0c5b6513b7694c14db4b:273ca94bfe3114ef795d3d13be2d66fb74b07edb9e3ad37a7378ca516acffe60958bd20b480dbacd595a2255defa491ccc35be300fdeed4a45910db1d64db169",
+    rawPassword: "Dispatch2026!",
     role: "dispatcher",
-    assignedShift: "morning",
+    assignedShift: "afternoon",
+    shiftStartTime: "14:00",
+    shiftEndTime: "22:00",
+    shiftTimeRange: "02:00 PM - 10:00 PM EST",
     phone: "+1 (332) 244-5535",
     isActive: true,
     lastLoginAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
@@ -498,6 +548,7 @@ const SEED_AUDIT_LOGS: AuditLog[] = [
 
 // Global in-memory storage (persisted across warm server requests in memory)
 let users: User[] = [...SEED_USERS];
+let shifts: ShiftDefinition[] = [...SEED_SHIFTS];
 let loads: Load[] = [...SEED_LOADS];
 let incidents: IncidentReport[] = [...SEED_INCIDENTS];
 let messages: MessageLog[] = [...SEED_MESSAGES];
@@ -527,7 +578,7 @@ export const portalDb = {
       action: "USER_CREATED",
       targetType: "user",
       targetId: newUser.id,
-      details: `Created new user ${newUser.name} (${newUser.email}) with role '${newUser.role}'.`,
+      details: `Created new user ${newUser.name} (${newUser.email}) with role '${newUser.role}' and shift '${newUser.shiftTimeRange || newUser.assignedShift || "unassigned"}'.`,
     });
 
     return newUser;
@@ -549,6 +600,102 @@ export const portalDb = {
     });
 
     return users[idx];
+  },
+
+  deleteUser: (id: string, actor: { id: string; name: string; role: any }): { success: boolean; error?: string } => {
+    const idx = users.findIndex((u) => u.id === id);
+    if (idx === -1) {
+      return { success: false, error: "User not found" };
+    }
+
+    if (actor.id === id) {
+      return { success: false, error: "Security restriction: You cannot delete your own active Super Admin session." };
+    }
+
+    const removed = users.splice(idx, 1)[0];
+
+    // Reassign any non-delivered loads from deleted user to a remaining dispatcher or admin
+    const fallbackDispatcher = users.find((u) => u.role === "dispatcher") || users[0];
+    if (fallbackDispatcher) {
+      loads.forEach((l) => {
+        if (l.assignedDispatcherId === id) {
+          l.assignedDispatcherId = fallbackDispatcher.id;
+          l.assignedDispatcherName = fallbackDispatcher.name;
+        }
+      });
+    }
+
+    portalDb.addAuditLog({
+      actorId: actor.id,
+      actorName: actor.name,
+      actorRole: actor.role,
+      action: "USER_DELETED",
+      targetType: "user",
+      targetId: removed.id,
+      details: `Permanently removed user ${removed.name} (${removed.email}, role: ${removed.role}) by Super Admin ${actor.name}.`,
+    });
+
+    return { success: true };
+  },
+
+  // Shifts (Customizable Time Windows)
+  getShifts: (): ShiftDefinition[] => [...shifts],
+  getShiftById: (id: string): ShiftDefinition | undefined => shifts.find((s) => s.id === id),
+  
+  createShift: (shiftData: Omit<ShiftDefinition, "id">, actor: { id: string; name: string; role: any }): ShiftDefinition => {
+    const newShift: ShiftDefinition = {
+      ...shiftData,
+      id: `shift-${Date.now()}`,
+    };
+    shifts.push(newShift);
+
+    portalDb.addAuditLog({
+      actorId: actor.id,
+      actorName: actor.name,
+      actorRole: actor.role,
+      action: "SHIFT_CREATED",
+      targetType: "shift",
+      targetId: newShift.id,
+      details: `Created new custom shift '${newShift.name}' (${newShift.startTime} - ${newShift.endTime} ${newShift.timezone || "EST"}).`,
+    });
+
+    return newShift;
+  },
+
+  updateShift: (id: string, updates: Partial<ShiftDefinition>, actor: { id: string; name: string; role: any }): ShiftDefinition | null => {
+    const idx = shifts.findIndex((s) => s.id === id);
+    if (idx === -1) return null;
+    shifts[idx] = { ...shifts[idx], ...updates };
+
+    portalDb.addAuditLog({
+      actorId: actor.id,
+      actorName: actor.name,
+      actorRole: actor.role,
+      action: "SHIFT_UPDATED",
+      targetType: "shift",
+      targetId: id,
+      details: `Updated shift ${shifts[idx].name} schedule to ${shifts[idx].startTime} - ${shifts[idx].endTime}.`,
+    });
+
+    return shifts[idx];
+  },
+
+  deleteShift: (id: string, actor: { id: string; name: string; role: any }): boolean => {
+    const idx = shifts.findIndex((s) => s.id === id);
+    if (idx === -1) return false;
+    const removed = shifts.splice(idx, 1)[0];
+
+    portalDb.addAuditLog({
+      actorId: actor.id,
+      actorName: actor.name,
+      actorRole: actor.role,
+      action: "SHIFT_DELETED",
+      targetType: "shift",
+      targetId: removed.id,
+      details: `Deleted shift '${removed.name}' (${removed.startTime} - ${removed.endTime}).`,
+    });
+
+    return true;
   },
 
   // Loads

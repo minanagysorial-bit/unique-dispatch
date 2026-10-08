@@ -8,6 +8,7 @@ import AuditTrailViewer from "@/components/portal/AuditTrailViewer";
 import UserManagementModal from "@/components/portal/UserManagementModal";
 import ChromeExtensionGuide from "@/components/portal/ChromeExtensionGuide";
 import TemplateEditorModal from "@/components/portal/TemplateEditorModal";
+import TeamManagementPanel from "@/components/portal/TeamManagementPanel";
 import {
   LayoutDashboard,
   ShieldAlert,
@@ -18,13 +19,14 @@ import {
   Layers,
   UserPlus,
   ShieldCheck,
+  Key,
 } from "lucide-react";
 import { User, DispatcherKpi, IncidentReport, AuditLog, ShiftType } from "@/lib/portal-types";
 
 export default function SuperAdminDashboardPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentShift, setCurrentShift] = useState<ShiftType>("morning");
-  const [activeTab, setActiveTab] = useState<"kpi" | "incidents" | "audit" | "users">("kpi");
+  const [activeTab, setActiveTab] = useState<"kpi" | "incidents" | "audit" | "team">("kpi");
   const [loading, setLoading] = useState(true);
 
   // Data States
@@ -181,7 +183,7 @@ export default function SuperAdminDashboardPage() {
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+        <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-2">
           <button
             onClick={() => setActiveTab("kpi")}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-colors ${
@@ -192,6 +194,18 @@ export default function SuperAdminDashboardPage() {
           >
             <Award className="w-4 h-4 text-orange-400" />
             <span>Dispatcher KPIs &amp; Performance</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("team")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-colors ${
+              activeTab === "team"
+                ? "bg-slate-900 text-white shadow"
+                : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-200"
+            }`}
+          >
+            <Users className="w-4 h-4 text-emerald-400" />
+            <span>Team &amp; Passwords Management ({users.length})</span>
           </button>
 
           <button
@@ -234,6 +248,14 @@ export default function SuperAdminDashboardPage() {
               />
             )}
 
+            {activeTab === "team" && (
+              <TeamManagementPanel
+                users={users}
+                onDataChanged={fetchDashboardData}
+                onOpenUserModal={() => setIsUserModalOpen(true)}
+              />
+            )}
+
             {activeTab === "incidents" && (
               <IncidentFeedTable
                 incidents={incidents}
@@ -256,6 +278,7 @@ export default function SuperAdminDashboardPage() {
           isOpen={isUserModalOpen}
           onClose={() => setIsUserModalOpen(false)}
           onUserCreated={fetchDashboardData}
+          onUserDeleted={fetchDashboardData}
         />
       )}
 

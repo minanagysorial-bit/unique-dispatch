@@ -12,7 +12,8 @@ export interface SessionPayload {
   email: string;
   name: string;
   role: UserRole;
-  assignedShift?: "morning" | "night";
+  assignedShift?: string;
+  shiftTimeRange?: string;
   exp: number;
 }
 
@@ -43,6 +44,7 @@ export function createSessionToken(user: User): string {
     name: user.name,
     role: user.role,
     assignedShift: user.assignedShift,
+    shiftTimeRange: user.shiftTimeRange,
     exp: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days expiration
   };
 
