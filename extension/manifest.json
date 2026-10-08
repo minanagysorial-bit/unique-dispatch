@@ -46,9 +46,27 @@
         "https://*.amazon.ca/*"
       ],
       "js": [
+        "content/relay-interceptor.js"
+      ],
+      "world": "MAIN",
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "https://relay.amazon.com/*",
+        "https://*.relay.amazon.com/*",
+        "https://*.amazon.com/*",
+        "https://*.amazon.co.uk/*",
+        "https://*.amazon.de/*",
+        "https://*.amazon.ca/*"
+      ],
+      "js": [
         "content/content-script.js"
       ],
-      "run_at": "document_idle"
+      "world": "ISOLATED",
+      "run_at": "document_idle",
+      "all_frames": true
     }
   ],
   "web_accessible_resources": [

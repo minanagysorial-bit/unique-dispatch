@@ -7,7 +7,16 @@
 (function () {
   "use strict";
 
-  console.log("🚚 [Unique Dispatch] Relay High-Fidelity Content Script Active");
+  // Prevent multiple double listeners in same frame
+  if (window.__ud_content_script_initialized) {
+    if (typeof window.__ud_trigger_scan === "function") {
+      window.__ud_trigger_scan();
+    }
+    return;
+  }
+  window.__ud_content_script_initialized = true;
+
+  console.log("🚚 [Unique Dispatch] Relay High-Fidelity Content Script Active in frame:", window.location.href);
 
   // In-memory pool of captured tours and intercepted API tours
   const capturedApiToursMap = new Map();
@@ -15,25 +24,7 @@
   let isSyncing = false;
   let debounceScanTimer = null;
 
-  // 1. Inject Main-World API Interceptor
-  function injectMainWorldInterceptor() {
-    try {
-      if (document.getElementById("ud-relay-interceptor-script")) return;
-      const script = document.createElement("script");
-      script.id = "ud-relay-interceptor-script";
-      script.src = chrome.runtime.getURL("content/relay-interceptor.js");
-      script.onload = function () {
-        this.remove();
-      };
-      (document.head || document.documentElement).appendChild(script);
-    } catch (e) {
-      console.warn("[Unique Dispatch] Interceptor injection notice:", e);
-    }
-  }
-
-  injectMainWorldInterceptor();
-
-  // 2. Listen for messages from Main-World API Interceptor (Rich Authentic Payloads)
+  // 1. Listen for messages from Main-World API Interceptor (Rich Authentic Payloads)
   window.addEventListener("message", (event) => {
     if (event.source !== window || !event.data) return;
 
@@ -54,7 +45,7 @@
     }
   });
 
-  // 3. Helper: Parse Real Dates from Amazon Relay Text (Today, Tomorrow, Specific Dates)
+  // 2. Helper: Parse Real Dates from Amazon Relay Text (Today, Tomorrow, Specific Dates)
   function parseDateFromText(text, isDelivery = false) {
     const now = new Date();
     let targetDate = new Date(now);
@@ -114,7 +105,7 @@
     return targetDate.toISOString();
   }
 
-  // 4. Extract Real Trip ID with Multi-Strategy Adaptability (Zero Drops)
+  // 3. Extract Real Trip ID with Multi-Strategy Adaptability (Zero Drops)
   function extractExactTripIdFromNode(node, cardText) {
     if (!node) return null;
 
@@ -131,7 +122,7 @@
       const pathMatch = href.match(/\/(?:tours|trips|loads|work-opportunities|execution|loadboard|carrier-tours|program-trips)(?:\/details)?\/([A-Za-z0-9\-_]{3,32})/i);
       if (pathMatch && pathMatch[1]) {
         const c = pathMatch[1].trim();
-        const forbidden = ["SEARCH", "HISTORY", "FILTER", "CREATE", "VIEW", "DETAILS", "SAVED", "TRIPS", "TOURS", "LOADS"];
+        const forbidden = ["SEARCH", "HISTORY", "FILTER", "CREATE", "VIEW", "DETAILS", "SAVED", "TRIPS", "TOURS", "LOADS", "CARRIER", "EXECUTION"];
         if (!forbidden.includes(c.toUpperCase())) {
           return c;
         }
@@ -226,7 +217,7 @@
     return null;
   }
 
-  // 5. Targeted Screen Scanner strictly preserving vertical top-to-bottom Relay Screen Order
+  // 4. Targeted Screen Scanner strictly preserving vertical top-to-bottom Relay Screen Order
   function scanDomForTours() {
     const candidateElementSet = new Set();
     const candidateNodes = [];
@@ -460,8 +451,9 @@
     return latestOrderedTours;
   }
 
-  // 6. Floating Inspector Pill UI
+  // 5. Floating Inspector Pill UI (Only in top frame)
   function injectFloatingPill() {
+    if (window.self !== window.top) return;
     if (document.getElementById("ud-relay-sync-pill")) return;
 
     const pill = document.createElement("div");
@@ -606,7 +598,7 @@
       .join("");
   }
 
-  // 7. Extraction & Dispatch in Strict Screen Order
+  // 6. Extraction & Dispatch in Strict Screen Order
   function extractAndSyncAll(isManual = false, mode = "upsert") {
     if (isSyncing) return;
     isSyncing = true;
@@ -654,6 +646,7 @@
 
   // Toast
   function showToast(msg) {
+    if (window.self !== window.top) return;
     const toast = document.createElement("div");
     toast.innerText = msg;
     toast.style.cssText = `
@@ -680,7 +673,7 @@
     }, 4000);
   }
 
-  // 8. Message Listener
+  // 7. Message Listener
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.type === "EXTRACT_NOW") {
       const mode = request.mode || "upsert";
@@ -707,13 +700,13 @@
     updateFloatingPillUI();
   };
 
-  // 9. Startup & Observers
+  // 8. Startup & Observers
   setTimeout(() => {
     injectFloatingPill();
     scanDomForTours();
     updateFloatingPillUI();
     extractAndSyncAll(false, "upsert");
-  }, 800);
+  }, 600);
 
   // Debounced MutationObserver
   const observer = new MutationObserver((mutations) => {
@@ -726,7 +719,7 @@
     debounceScanTimer = setTimeout(() => {
       scanDomForTours();
       updateFloatingPillUI();
-    }, 1200);
+    }, 1000);
   });
 
   observer.observe(document.body || document.documentElement, {

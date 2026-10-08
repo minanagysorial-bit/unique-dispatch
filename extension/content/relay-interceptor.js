@@ -504,7 +504,7 @@
     return origOpen.apply(this, arguments);
   };
 
-  XMLHttpRequest.prototype.send = function () {
+    XMLHttpRequest.prototype.send = function () {
     this.addEventListener("load", function () {
       try {
         const url = this._ud_url || "";
@@ -519,4 +519,27 @@
     });
     return origSend.apply(this, arguments);
   };
+
+  // 3. Scan Global Window State Objects (Redux / Apollo / Initial Data)
+  function scanWindowState() {
+    try {
+      const candidates = [
+        window.__INITIAL_STATE__,
+        window.__APOLLO_STATE__,
+        window.__REDUX_STATE__,
+        window.__NEXT_DATA__?.props?.pageProps,
+        window.__DATA__,
+        window.relayData,
+      ];
+      candidates.forEach((st) => {
+        if (st) {
+          handlePossibleRelayData(st, "window_state");
+        }
+      });
+    } catch (e) {}
+  }
+
+  scanWindowState();
+  setTimeout(scanWindowState, 1000);
+  setTimeout(scanWindowState, 3000);
 })();
