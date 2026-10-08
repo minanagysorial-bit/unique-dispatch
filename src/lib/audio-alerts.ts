@@ -116,6 +116,39 @@ export function playUrgentAlert(): void {
 }
 
 /**
+ * High-Impact Emergency Siren (Dual Alternating High-Low Frequencies)
+ */
+export function playEmergencySiren(): void {
+  if (!isAudioEnabled()) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  try {
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = "sawtooth";
+    osc.frequency.setValueAtTime(650, now);
+    osc.frequency.linearRampToValueAtTime(950, now + 0.25);
+    osc.frequency.linearRampToValueAtTime(650, now + 0.5);
+    osc.frequency.linearRampToValueAtTime(950, now + 0.75);
+    osc.frequency.linearRampToValueAtTime(650, now + 1.0);
+
+    gain.gain.setValueAtTime(0.22, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 1.05);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 1.05);
+  } catch (e) {
+    // ignore
+  }
+}
+
+/**
  * Upbeat harmonic chime for successful sync or load creation
  */
 export function playSuccessChime(): void {

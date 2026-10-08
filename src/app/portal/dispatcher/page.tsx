@@ -8,6 +8,9 @@ import ShiftHandoverModal from "@/components/portal/ShiftHandoverModal";
 import CsvImportModal from "@/components/portal/CsvImportModal";
 import ChromeExtensionGuide from "@/components/portal/ChromeExtensionGuide";
 import TemplateEditorModal from "@/components/portal/TemplateEditorModal";
+import EmergencyAlertCenter from "@/components/portal/EmergencyAlertCenter";
+import IssueEscalationModal from "@/components/portal/IssueEscalationModal";
+import MilestoneMessageModal from "@/components/portal/MilestoneMessageModal";
 import {
   Truck,
   AlertTriangle,
@@ -30,9 +33,10 @@ import {
   Zap,
   Activity,
   Package,
+  BellRing,
 } from "lucide-react";
-import { Load, User, ShiftType, EquipmentType } from "@/lib/portal-types";
-import { playMilestoneChime, playUrgentAlert } from "@/lib/audio-alerts";
+import { Load, User, ShiftType, EquipmentType, MilestoneType } from "@/lib/portal-types";
+import { playMilestoneChime, playUrgentAlert, playEmergencySiren } from "@/lib/audio-alerts";
 
 type ViewMode = "grid" | "list" | "kanban";
 type ActionFilterType = "all" | "critical" | "needs_pickup_3_5h" | "needs_delivery_30m" | "amazon_relay" | "dat_spot";
@@ -66,6 +70,9 @@ export default function DispatcherOperationsBoardPage() {
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [isCreateLoadOpen, setIsCreateLoadOpen] = useState(false);
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
+  const [escalationLoad, setEscalationLoad] = useState<Load | null>(null);
+  const [messageLoad, setMessageLoad] = useState<Load | null>(null);
+  const [messageMilestone, setMessageMilestone] = useState<MilestoneType>("in_transit_checkin");
 
   // New Load Form State
   const [newVrid, setNewVrid] = useState("");
@@ -276,9 +283,30 @@ export default function DispatcherOperationsBoardPage() {
     (l) => l.status === "delivered"
   );
 
+  // Critical loads list for Emergency Alert Center
+  const criticalLoadsList = loads.filter(
+    (l) => l.isCriticalAlert || l.hasActiveIncident || l.status === "delayed" || l.status === "critical_alert"
+  );
+
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col">
+    <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col relative">
       
+      {/* Live Emergency Alert System (Top Ambient Strobe Bar, Bouncing Beacon Orb & Full-Screen Center Overlay) */}
+      <EmergencyAlertCenter
+        criticalLoads={criticalLoadsList}
+        onSelectLoad={(load) => {
+          setActionFilter("critical");
+          setSearchQuery(load.vrid);
+        }}
+        onOpenEscalation={(load) => {
+          setEscalationLoad(load);
+        }}
+        onOpenMessage={(load) => {
+          setMessageLoad(load);
+          setMessageMilestone("in_transit_checkin");
+        }}
+      />
+
       {/* Portal Navbar Header */}
       <PortalNavbar
         currentUser={currentUser}
@@ -979,6 +1007,35 @@ export default function DispatcherOperationsBoardPage() {
 
           </div>
         </div>
+      )}
+
+      {/* Direct Issue Escalation Modal */}
+      {escalationLoad && (
+        <IssueEscalationModal
+          load={escalationLoad}
+          isOpen={Boolean(escalationLoad)}
+          onClose={() => setEscalationLoad(null)}
+          onEscalatedSuccess={(updated) => {
+            handleLoadUpdated(updated);
+            setEscalationLoad(null);
+            fetchLoads();
+          }}
+        />
+      )}
+
+      {/* Direct Milestone / Custom Message Modal */}
+      {messageLoad && (
+        <MilestoneMessageModal
+          load={messageLoad}
+          milestone={messageMilestone}
+          isOpen={Boolean(messageLoad)}
+          onClose={() => setMessageLoad(null)}
+          onLoggedSuccess={(updated) => {
+            handleLoadUpdated(updated);
+            setMessageLoad(null);
+            fetchLoads();
+          }}
+        />
       )}
 
     </div>

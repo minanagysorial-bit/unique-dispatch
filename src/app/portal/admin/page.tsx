@@ -9,6 +9,7 @@ import UserManagementModal from "@/components/portal/UserManagementModal";
 import ChromeExtensionGuide from "@/components/portal/ChromeExtensionGuide";
 import TemplateEditorModal from "@/components/portal/TemplateEditorModal";
 import TeamManagementPanel from "@/components/portal/TeamManagementPanel";
+import EmergencyAlertCenter from "@/components/portal/EmergencyAlertCenter";
 import {
   LayoutDashboard,
   ShieldAlert,
@@ -21,13 +22,14 @@ import {
   ShieldCheck,
   Key,
 } from "lucide-react";
-import { User, DispatcherKpi, IncidentReport, AuditLog, ShiftType } from "@/lib/portal-types";
+import { User, DispatcherKpi, IncidentReport, AuditLog, ShiftType, Load } from "@/lib/portal-types";
 
 export default function SuperAdminDashboardPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentShift, setCurrentShift] = useState<ShiftType>("morning");
   const [activeTab, setActiveTab] = useState<"kpi" | "incidents" | "audit" | "team">("kpi");
   const [loading, setLoading] = useState(true);
+  const [criticalLoads, setCriticalLoads] = useState<Load[]>([]);
 
   // Data States
   const [kpiOverview, setKpiOverview] = useState({
@@ -96,6 +98,13 @@ export default function SuperAdminDashboardPage() {
         const usersData = await usersRes.json();
         setUsers(usersData.users || []);
       }
+
+      // 6. Fetch Critical Loads for Emergency Alert Center
+      const loadsRes = await fetch("/api/loads?critical=true");
+      if (loadsRes.ok) {
+        const loadsData = await loadsRes.json();
+        setCriticalLoads(loadsData.loads || []);
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -110,8 +119,16 @@ export default function SuperAdminDashboardPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col">
+    <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col relative">
       
+      {/* Live Emergency Alert System (Top Ambient Strobe Bar, Bouncing Beacon Orb & Full-Screen Center Overlay) */}
+      <EmergencyAlertCenter
+        criticalLoads={criticalLoads}
+        onSelectLoad={(load) => {
+          window.location.href = `/portal/dispatcher`;
+        }}
+      />
+
       {/* Top Navbar */}
       <PortalNavbar
         currentUser={currentUser}
