@@ -23,7 +23,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         url = `https://${url}`;
       }
     }
-    // If user typed http:// for a remote domain (e.g. http://uniquedispatch.com), upgrade to https:// to prevent preflight redirect
+    // Upgrade http to https for remote domains
     if (url.startsWith("http://") && !url.includes("localhost") && !url.includes("127.0.0.1")) {
       url = url.replace(/^http:\/\//i, "https://");
     }
@@ -45,7 +45,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   shiftSelect.value = config.currentShift || "morning";
   autoSyncToggle.checked = config.autoSyncEnabled !== false;
 
-  // Persist cleaned URL back to storage immediately if it had http://
+  // Persist cleaned URL back to storage immediately if needed
   if (config.portalUrl !== cleanPortalUrl) {
     await chrome.storage.local.set({ portalUrl: cleanPortalUrl });
   }
@@ -56,7 +56,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // Test Connectivity
-  async function checkConnectivity() {
+  function checkConnectivity() {
     statusBadge.className = "badge badge-checking";
     statusText.innerText = "Checking...";
 
@@ -70,7 +70,8 @@ document.addEventListener("DOMContentLoaded", async () => {
           apiKey: apiKeyInput.value.trim(),
         },
         (res) => {
-          if (res && res.success && res.data && (res.data.status === 200 || res.data.ok)) {
+          const err = chrome.runtime.lastError;
+          if (!err && res && res.success && res.data && (res.data.status === 200 || res.data.ok)) {
             statusBadge.className = "badge badge-connected";
             statusText.innerText = "Connected 🟢";
           } else {
@@ -132,30 +133,35 @@ document.addEventListener("DOMContentLoaded", async () => {
     countBadge.style.color = "#38bdf8";
 
     listEl.innerHTML = tours
-      .map(
-        (t) => `
-        <div style="background:#050914; padding:5px 8px; border-radius:6px; border:1px solid #1e293b; display:flex; justify-content:space-between; align-items:center;">
+      .map((t) => {
+        const pDate = new Date(t.pickupTime);
+        const isTomorrow = pDate.getDate() === new Date(Date.now() + 24 * 3600 * 1000).getDate();
+        const dateTag = isTomorrow ? "Tomorrow" : `${pDate.getMonth() + 1}/${pDate.getDate()}`;
+
+        return `
+        <div style="background:#050914; padding:6px 8px; border-radius:6px; border:1px solid #1e293b; display:flex; justify-content:space-between; align-items:center;">
           <div>
             <div style="font-family:monospace; font-weight:800; color:#fb923c;">${t.vrid}</div>
             <div style="font-size:9px; color:#94a3b8;">${t.originFacilityCode || t.originCity} ➔ ${t.destFacilityCode || t.destCity}</div>
           </div>
           <div style="text-align:right;">
             <div style="color:#34d399; font-weight:800;">${t.rateUSD > 0 ? `$${t.rateUSD.toLocaleString()}` : "TBD"}</div>
-            <div style="font-size:8px; color:#64748b; text-transform:uppercase;">${t.equipment.split(" ")[0]}</div>
+            <div style="font-size:8px; color:#38bdf8; font-weight:700;">📅 ${dateTag}</div>
           </div>
         </div>
-      `
-      )
+      `;
+      })
       .join("");
   }
 
-  // Poll detected tours from active Amazon Relay tab
+  // Poll detected tours from active Amazon Relay tab with safe lastError handling
   async function fetchActiveRelayTours() {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (tab && tab.id && tab.url && tab.url.includes("relay.amazon.com")) {
         chrome.tabs.sendMessage(tab.id, { type: "GET_DETECTED_TOURS" }, (res) => {
-          if (res && Array.isArray(res.tours)) {
+          const err = chrome.runtime.lastError; // Read and suppress unhandled connection error
+          if (!err && res && Array.isArray(res.tours)) {
             renderDetectedTours(res.tours);
           }
         });
@@ -165,13 +171,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   fetchActiveRelayTours();
 
-  // Manual Sync Now
+  // Manual Sync Now with safe script injection and lastError checks
   btnSyncNow.addEventListener("click", async () => {
     btnSyncNow.disabled = true;
     btnSyncNow.innerText = "Extracting...";
 
     try {
-      // 1. First check if current tab or open tab is Amazon Relay
       let targetTab = null;
 
       try {
@@ -179,9 +184,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (activeTab && activeTab.url && activeTab.url.includes("relay.amazon.com")) {
           targetTab = activeTab;
         }
-      } catch (tabErr) {
-        console.warn("Active tab query notice:", tabErr);
-      }
+      } catch (tabErr) {}
 
       if (!targetTab) {
         try {
@@ -189,9 +192,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           if (relayTabs && relayTabs.length > 0) {
             targetTab = relayTabs[0];
           }
-        } catch (tabErr2) {
-          console.warn("Relay tabs query notice:", tabErr2);
-        }
+        } catch (tabErr2) {}
       }
 
       if (!targetTab) {
@@ -201,12 +202,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         return;
       }
 
-      // 2. Send message to content script
+      // Send message with lastError safety
       chrome.tabs.sendMessage(targetTab.id, { type: "EXTRACT_NOW" }, async (res) => {
-        const hasError = chrome.runtime.lastError || !res;
+        const lastErr = chrome.runtime.lastError;
+        const hasError = Boolean(lastErr) || !res;
 
         if (hasError) {
-          // Attempt script injection if chrome.scripting is supported
           if (chrome.scripting && typeof chrome.scripting.executeScript === "function") {
             try {
               await chrome.scripting.executeScript({
@@ -215,7 +216,8 @@ document.addEventListener("DOMContentLoaded", async () => {
               });
               setTimeout(() => {
                 chrome.tabs.sendMessage(targetTab.id, { type: "EXTRACT_NOW" }, (res2) => {
-                  if (res2 && Array.isArray(res2.tours)) {
+                  const subErr = chrome.runtime.lastError;
+                  if (!subErr && res2 && Array.isArray(res2.tours)) {
                     renderDetectedTours(res2.tours);
                   }
                   showAlert("✓ Sync attached & extracted from Amazon Relay!");

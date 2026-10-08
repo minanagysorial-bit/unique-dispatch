@@ -186,8 +186,8 @@ async function triggerContentSyncOnActiveTab() {
 
     for (const tab of tabs) {
       if (tab.id) {
-        chrome.tabs.sendMessage(tab.id, { type: "EXTRACT_NOW" }).catch(() => {
-          // Tab might not have content script ready yet
+        chrome.tabs.sendMessage(tab.id, { type: "EXTRACT_NOW" }, () => {
+          const err = chrome.runtime.lastError; // Consume error safely
         });
       }
     }
