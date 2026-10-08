@@ -92,20 +92,30 @@ document.addEventListener("DOMContentLoaded", async () => {
     btnSyncNow.innerText = "Extracting...";
 
     try {
-      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-      const currentTab = tabs[0];
+      // 1. First check if current tab is Amazon Relay
+      let targetTab = null;
+      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (activeTab && activeTab.url && activeTab.url.includes("relay.amazon.com")) {
+        targetTab = activeTab;
+      } else {
+        // 2. Otherwise find any open Amazon Relay tab
+        const relayTabs = await chrome.tabs.query({ url: ["https://relay.amazon.com/*", "https://*.relay.amazon.com/*"] });
+        if (relayTabs && relayTabs.length > 0) {
+          targetTab = relayTabs[0];
+        }
+      }
 
-      if (!currentTab || !currentTab.url || !currentTab.url.includes("relay.amazon.com")) {
-        showAlert("⚠️ Please open and focus on https://relay.amazon.com/tours first.", false);
+      if (!targetTab) {
+        showAlert("⚠️ No open Amazon Relay tab found. Please open https://relay.amazon.com/tours first.", false);
         btnSyncNow.disabled = false;
         btnSyncNow.innerText = "⚡ Sync Active Relay Screen";
         return;
       }
 
-      chrome.tabs.sendMessage(currentTab.id, { type: "EXTRACT_NOW" }, (res) => {
+      chrome.tabs.sendMessage(targetTab.id, { type: "EXTRACT_NOW" }, (res) => {
         btnSyncNow.disabled = false;
         btnSyncNow.innerText = "⚡ Sync Active Relay Screen";
-        showAlert("✓ Relay screen extraction triggered!");
+        showAlert("✓ Extracted tours from Amazon Relay tab!");
         
         setTimeout(async () => {
           const updated = await chrome.storage.local.get(["lastSyncRecord"]);

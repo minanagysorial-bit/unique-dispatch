@@ -304,6 +304,7 @@ export default function SuperAdminDashboardPage() {
         <ChromeExtensionGuide
           isOpen={isGuideOpen}
           onClose={() => setIsGuideOpen(false)}
+          onImportComplete={fetchDashboardData}
         />
       )}
 

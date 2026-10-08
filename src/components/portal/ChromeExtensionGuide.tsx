@@ -20,20 +20,100 @@ import { DEFAULT_API_KEY } from "@/lib/auth-constants";
 interface ChromeExtensionGuideProps {
   isOpen: boolean;
   onClose: () => void;
+  onImportComplete?: () => void;
 }
 
 export default function ChromeExtensionGuide({
   isOpen,
   onClose,
+  onImportComplete,
 }: ChromeExtensionGuideProps) {
   const [copiedKey, setCopiedKey] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [copiedPath, setCopiedPath] = useState(false);
+  const [isIngestingDemo, setIsIngestingDemo] = useState(false);
+  const [demoSuccess, setDemoSuccess] = useState(false);
 
   if (!isOpen) return null;
 
-  const portalUrl = typeof window !== "undefined" ? window.location.origin : "https://uniquedispatch.com";
+  const portalUrl = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
   const extensionFolderPath = "extension";
+
+  const handleIngestDemoRelay = async () => {
+    setIsIngestingDemo(true);
+    try {
+      const res = await fetch("/api/loads/sync", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-unique-dispatch-key": DEFAULT_API_KEY,
+        },
+        body: JSON.stringify({
+          apiKey: DEFAULT_API_KEY,
+          source: "chrome_extension_amazon_relay",
+          shift: "morning",
+          loads: [
+            {
+              vrid: `VRID-${Math.floor(1000000 + Math.random() * 9000000)}`,
+              source: "amazon_relay",
+              equipment: "Dry Van (53')",
+              rateUSD: 3450.0,
+              weightLbs: 39500,
+              originCity: "Staten Island",
+              originState: "NY",
+              originFacilityCode: "JFK8",
+              pickupTime: new Date(Date.now() + 2.5 * 3600 * 1000).toISOString(),
+              destCity: "Joliet",
+              destState: "IL",
+              destFacilityCode: "MDW2",
+              deliveryTime: new Date(Date.now() + 19 * 3600 * 1000).toISOString(),
+              driverName: "Dmitri Volkov",
+              driverPhone: "+1 (917) 555-0182",
+              tractorNumber: "UD-701",
+              trailerNumber: "TR-5390",
+              carrierName: "Unique Dispatch Fleet",
+              status: "upcoming",
+              notes: "Ingested via Amazon Relay Sync Engine Test",
+            },
+            {
+              vrid: `VRID-${Math.floor(1000000 + Math.random() * 9000000)}`,
+              source: "amazon_relay",
+              equipment: "Reefer (53')",
+              rateUSD: 4100.0,
+              weightLbs: 41000,
+              originCity: "Dallas",
+              originState: "TX",
+              originFacilityCode: "DFW7",
+              pickupTime: new Date(Date.now() - 4 * 3600 * 1000).toISOString(),
+              destCity: "Atlanta",
+              destState: "GA",
+              destFacilityCode: "ATL8",
+              deliveryTime: new Date(Date.now() + 25 * 60 * 1000).toISOString(),
+              driverName: "Dave Kowalski",
+              driverPhone: "+1 (214) 555-0841",
+              tractorNumber: "UD-209",
+              trailerNumber: "RF-8821",
+              carrierName: "Kowalski Express",
+              status: "in_transit",
+              notes: "Expedited Relay Block. Approaching receiver gate.",
+            },
+          ],
+        }),
+      });
+
+      if (res.ok) {
+        setDemoSuccess(true);
+        if (onImportComplete) {
+          onImportComplete();
+        }
+        setTimeout(() => setDemoSuccess(false), 3000);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsIngestingDemo(false);
+    }
+  };
 
   const copyKey = () => {
     navigator.clipboard.writeText(DEFAULT_API_KEY);
@@ -196,10 +276,26 @@ export default function ChromeExtensionGuide({
         </div>
 
         {/* Footer */}
-        <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex items-center justify-between">
-          <span className="text-[11px] text-slate-500 font-medium">
-            Manifest V3 Compliant &bull; Zero Server Resource Burden
-          </span>
+        <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
+          <button
+            onClick={handleIngestDemoRelay}
+            disabled={isIngestingDemo}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black transition-all ${
+              demoSuccess
+                ? "bg-emerald-600 text-white"
+                : "bg-orange-600 hover:bg-orange-500 text-white shadow-xs"
+            }`}
+          >
+            <Zap className="w-3.5 h-3.5" />
+            <span>
+              {isIngestingDemo
+                ? "Ingesting Test Tours..."
+                : demoSuccess
+                ? "✓ Test Tours Ingested!"
+                : "⚡ Test Ingest Sample Relay Tours"}
+            </span>
+          </button>
+
           <button
             onClick={onClose}
             className="px-5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-colors"

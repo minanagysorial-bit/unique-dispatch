@@ -145,14 +145,18 @@ async function testPortalConnection(portalUrl, apiKey) {
   const url = (portalUrl || DEFAULT_CONFIG.portalUrl).replace(/\/$/, "");
   const key = apiKey || DEFAULT_CONFIG.apiKey;
 
-  const res = await fetch(`${url}/api/auth/me`, {
-    method: "GET",
-    headers: {
-      "x-unique-dispatch-key": key,
-    },
-  });
+  try {
+    const res = await fetch(`${url}/api/loads/sync`, {
+      method: "GET",
+      headers: {
+        "x-unique-dispatch-key": key,
+      },
+    });
 
-  return { status: res.status, ok: res.ok };
+    return { status: res.status, ok: res.ok };
+  } catch (e) {
+    return { status: 500, ok: false, error: e.message };
+  }
 }
 
 /**

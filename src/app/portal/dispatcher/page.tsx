@@ -852,6 +852,7 @@ export default function DispatcherOperationsBoardPage() {
         <ChromeExtensionGuide
           isOpen={isGuideOpen}
           onClose={() => setIsGuideOpen(false)}
+          onImportComplete={fetchLoads}
         />
       )}
 
