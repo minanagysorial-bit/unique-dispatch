@@ -137,14 +137,14 @@ export default function LoadGridCard({
         <div className="bg-red-600 text-white px-3.5 py-1.5 flex items-center justify-between text-[11px] font-bold gap-1 animate-in slide-in-from-top-1">
           <div className="flex items-center gap-1.5 line-clamp-1">
             <AlertTriangle className="w-3.5 h-3.5 text-amber-300 shrink-0" />
-            <span className="font-black uppercase">عطل / تأخير:</span>
-            <span className="line-clamp-1 font-normal text-red-100">{load.alertReason || "Incident"}</span>
+            <span className="font-black uppercase">CRITICAL ALERT:</span>
+            <span className="line-clamp-1 font-normal text-red-100">{load.alertReason || "Incident Reported"}</span>
           </div>
           <button
             onClick={() => setIsEscalateOpen(true)}
             className="px-2 py-0.5 rounded bg-black/40 hover:bg-black text-[10px] uppercase font-bold shrink-0"
           >
-            إدارة
+            Manage
           </button>
         </div>
       )}
@@ -154,13 +154,13 @@ export default function LoadGridCard({
         <div className="bg-amber-500 text-slate-950 px-3.5 py-1.5 flex items-center justify-between text-[11px] font-bold">
           <div className="flex items-center gap-1.5">
             <Clock className="w-3.5 h-3.5 shrink-0 animate-spin" />
-            <span>تنبيه 3.5h: فحص قبل التحميل مطلوب!</span>
+            <span>3.5h Alert: Pre-Trip Check-In Required!</span>
           </div>
           <button
             onClick={() => setActiveMilestone("pickup_checkin_3_5h")}
             className="px-2 py-0.5 rounded bg-slate-950 text-white text-[10px] font-black uppercase shadow"
           >
-            إرسال الآن
+            Send Now
           </button>
         </div>
       )}
@@ -169,13 +169,13 @@ export default function LoadGridCard({
         <div className="bg-blue-600 text-white px-3.5 py-1.5 flex items-center justify-between text-[11px] font-bold">
           <div className="flex items-center gap-1.5">
             <Clock className="w-3.5 h-3.5 shrink-0 animate-pulse" />
-            <span>تنبيه 30m: اقترب من التسليم (BOL)!</span>
+            <span>30m Alert: Approaching Delivery (BOL)!</span>
           </div>
           <button
             onClick={() => setActiveMilestone("delivery_checkin_30m")}
             className="px-2 py-0.5 rounded bg-white text-blue-900 text-[10px] font-black uppercase shadow"
           >
-            إرسال الآن
+            Send Now
           </button>
         </div>
       )}
@@ -202,7 +202,7 @@ export default function LoadGridCard({
         {/* Live Countdown Clock Badge */}
         <div className="flex items-center justify-between p-2 rounded-xl bg-slate-900 text-white">
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-            {load.status === "en_route_pickup" || load.status === "upcoming" ? "وقت التحميل:" : "وقت التسليم:"}
+            {load.status === "en_route_pickup" || load.status === "upcoming" ? "Target Pickup:" : "Target Delivery:"}
           </span>
           <LiveCountdownTimer
             targetTimeIso={load.status === "en_route_pickup" || load.status === "upcoming" ? load.pickupTime : load.deliveryTime}
@@ -258,12 +258,12 @@ export default function LoadGridCard({
         {/* Equipment & Financials */}
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div className="p-2 rounded-xl bg-slate-100/70 border border-slate-200">
-            <span className="text-[10px] text-slate-500 font-bold uppercase block">المعدة</span>
+            <span className="text-[10px] text-slate-500 font-bold uppercase block">Equipment</span>
             <span className="font-bold text-slate-900 truncate block">{load.equipment}</span>
           </div>
 
           <div className="p-2 rounded-xl bg-emerald-50/70 border border-emerald-200">
-            <span className="text-[10px] text-emerald-700 font-bold uppercase block">النولون (Rate)</span>
+            <span className="text-[10px] text-emerald-700 font-bold uppercase block">Rate (Gross)</span>
             <span className="font-black text-emerald-900 text-sm block">${load.rateUSD.toLocaleString()}</span>
           </div>
         </div>
@@ -310,10 +310,10 @@ export default function LoadGridCard({
             type="button"
             onClick={handleQuickCopyDefault}
             className="flex-1 inline-flex items-center justify-center gap-1 py-1.5 px-2.5 rounded-xl bg-white border border-slate-300 hover:border-orange-500 hover:bg-orange-50 text-slate-800 text-[11px] font-bold shadow-xs transition-colors"
-            title="نسخ الرسالة الجاهزة للشحنة فوراً"
+            title="Copy pre-configured milestone template for this tour"
           >
             {copiedQuickMsg ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-orange-600" />}
-            <span>{copiedQuickMsg ? "تم النسخ!" : "نسخ الرسالة"}</span>
+            <span>{copiedQuickMsg ? "Copied!" : "Copy Msg"}</span>
           </button>
 
           {/* Milestone Modal Trigger */}
@@ -323,7 +323,7 @@ export default function LoadGridCard({
             className="flex-1 inline-flex items-center justify-center gap-1 py-1.5 px-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-[11px] font-black shadow transition-colors"
           >
             <Send className="w-3.5 h-3.5" />
-            <span>رسائل القوالب</span>
+            <span>Templates</span>
           </button>
         </div>
 
@@ -349,7 +349,7 @@ export default function LoadGridCard({
             onClick={() => setIsEscalateOpen(true)}
             className="px-2 py-1 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 text-[10px] font-bold"
           >
-            بلاغ عطل
+            Report Issue
           </button>
         </div>
 

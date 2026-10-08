@@ -395,17 +395,17 @@ export default function LoadOperationsCard({
                 if (matched) {
                   const txt = renderTemplateWithLoad(matched.templateText, load);
                   await navigator.clipboard.writeText(txt);
-                  alert("✓ تم نسخ رسالة الشحنة بنجاح إلى الحافظة!");
+                  alert("✓ Load milestone message copied to clipboard!");
                 }
               } catch (e) {
                 console.error(e);
               }
             }}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-50 hover:bg-orange-100 text-orange-800 font-bold text-xs border border-orange-200 transition-colors"
-            title="نسخ الرسالة الجاهزة للشحنة فوراً"
+            title="Copy milestone message to clipboard immediately"
           >
             <Send className="w-3.5 h-3.5 text-orange-600" />
-            <span>نسخ الرسالة</span>
+            <span>Copy Msg</span>
           </button>
 
           <button

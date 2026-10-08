@@ -339,10 +339,10 @@ export default function DispatcherOperationsBoardPage() {
                   ? "bg-white text-orange-600 shadow-xs"
                   : "text-slate-600 hover:text-slate-900"
               }`}
-              title="عرض الكروت المتجاورة (Grid Cards)"
+              title="Grid Cards Layout"
             >
               <LayoutGrid className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">كروت جنب بعض</span>
+              <span className="hidden sm:inline">Grid Cards</span>
             </button>
 
             <button
@@ -353,10 +353,10 @@ export default function DispatcherOperationsBoardPage() {
                   ? "bg-white text-orange-600 shadow-xs"
                   : "text-slate-600 hover:text-slate-900"
               }`}
-              title="عرض القائمة المفصل (Detailed Rows)"
+              title="Detailed Rows Layout"
             >
               <List className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">قائمة مفصلة</span>
+              <span className="hidden sm:inline">Detailed List</span>
             </button>
 
             <button
@@ -367,10 +367,10 @@ export default function DispatcherOperationsBoardPage() {
                   ? "bg-white text-orange-600 shadow-xs"
                   : "text-slate-600 hover:text-slate-900"
               }`}
-              title="عرض الأعمدة (Kanban Columns)"
+              title="Kanban Columns Board"
             >
               <Columns3 className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">أعمدة</span>
+              <span className="hidden sm:inline">Kanban</span>
             </button>
           </div>
 
@@ -380,10 +380,10 @@ export default function DispatcherOperationsBoardPage() {
             <button
               onClick={() => setIsTemplatesOpen(true)}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 text-xs font-bold border border-orange-200 transition-colors shadow-xs"
-              title="تعديل وتثبيت قوالب الرسائل الجاهزة"
+              title="Message Templates Manager"
             >
               <FileText className="w-4 h-4 text-orange-600" />
-              <span>قوالب الرسائل</span>
+              <span>Templates</span>
             </button>
 
             <button
@@ -445,7 +445,7 @@ export default function DispatcherOperationsBoardPage() {
             </div>
           </div>
         ) : viewMode === "grid" ? (
-          /* View 1: Grid Cards View (كروت كدة جنب بعض) */
+          /* View 1: Grid Cards View */
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-in fade-in duration-200">
             {loads.map((load) => (
               <LoadGridCard
@@ -464,7 +464,7 @@ export default function DispatcherOperationsBoardPage() {
               <div className="flex items-center justify-between px-1">
                 <span className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5 text-amber-600" />
-                  <span>قبل التحميل ({kanbanUpcoming.length})</span>
+                  <span>Upcoming &amp; Pre-Trip ({kanbanUpcoming.length})</span>
                 </span>
                 <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full">
                   Upcoming
@@ -475,7 +475,7 @@ export default function DispatcherOperationsBoardPage() {
                   <LoadGridCard key={l.id} load={l} onLoadUpdated={handleLoadUpdated} />
                 ))}
                 {kanbanUpcoming.length === 0 && (
-                  <p className="text-center text-slate-400 text-xs py-8 font-medium">لا توجد رحلات قادمة</p>
+                  <p className="text-center text-slate-400 text-xs py-8 font-medium">No upcoming tours</p>
                 )}
               </div>
             </div>
@@ -485,7 +485,7 @@ export default function DispatcherOperationsBoardPage() {
               <div className="flex items-center justify-between px-1">
                 <span className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                   <Truck className="w-3.5 h-3.5 text-blue-600" />
-                  <span>في الطريق ({kanbanActive.length})</span>
+                  <span>In Transit ({kanbanActive.length})</span>
                 </span>
                 <span className="text-[10px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full">
                   In Transit
@@ -496,7 +496,7 @@ export default function DispatcherOperationsBoardPage() {
                   <LoadGridCard key={l.id} load={l} onLoadUpdated={handleLoadUpdated} />
                 ))}
                 {kanbanActive.length === 0 && (
-                  <p className="text-center text-slate-400 text-xs py-8 font-medium">لا توجد رحلات في الطريق</p>
+                  <p className="text-center text-slate-400 text-xs py-8 font-medium">No tours in transit</p>
                 )}
               </div>
             </div>
@@ -506,7 +506,7 @@ export default function DispatcherOperationsBoardPage() {
               <div className="flex items-center justify-between px-1">
                 <span className="text-xs font-black text-red-800 uppercase tracking-wider flex items-center gap-1.5">
                   <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
-                  <span>أعطال وتأخير ({kanbanCritical.length})</span>
+                  <span>Critical &amp; Delayed ({kanbanCritical.length})</span>
                 </span>
                 <span className="text-[10px] bg-red-600 text-white font-bold px-2 py-0.5 rounded-full">
                   Urgent
@@ -517,7 +517,7 @@ export default function DispatcherOperationsBoardPage() {
                   <LoadGridCard key={l.id} load={l} onLoadUpdated={handleLoadUpdated} />
                 ))}
                 {kanbanCritical.length === 0 && (
-                  <p className="text-center text-slate-400 text-xs py-8 font-medium">لا توجد بلاغات أعطال حرجة</p>
+                  <p className="text-center text-slate-400 text-xs py-8 font-medium">No critical alerts</p>
                 )}
               </div>
             </div>
@@ -527,7 +527,7 @@ export default function DispatcherOperationsBoardPage() {
               <div className="flex items-center justify-between px-1">
                 <span className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>تم التسليم ({kanbanDelivered.length})</span>
+                  <span>Delivered &amp; BOL ({kanbanDelivered.length})</span>
                 </span>
                 <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
                   Delivered
@@ -538,7 +538,7 @@ export default function DispatcherOperationsBoardPage() {
                   <LoadGridCard key={l.id} load={l} onLoadUpdated={handleLoadUpdated} />
                 ))}
                 {kanbanDelivered.length === 0 && (
-                  <p className="text-center text-slate-400 text-xs py-8 font-medium">لا توجد رحلات منتهية</p>
+                  <p className="text-center text-slate-400 text-xs py-8 font-medium">No delivered tours</p>
                 )}
               </div>
             </div>

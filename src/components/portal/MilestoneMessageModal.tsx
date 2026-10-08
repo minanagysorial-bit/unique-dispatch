@@ -123,10 +123,10 @@ export default function MilestoneMessageModal({
               </div>
               <div>
                 <h3 className="text-base font-black tracking-tight">
-                  {currentTemplate?.name || "إرسال رسالة للسائق"}
+                  {currentTemplate?.name || "Driver Milestone Dispatch"}
                 </h3>
                 <p className="text-xs text-slate-400">
-                  شحنة: <strong className="text-orange-400 font-mono">{load.vrid}</strong> | السائق: {load.driverName}
+                  Load: <strong className="text-orange-400 font-mono">{load.vrid}</strong> | Driver: {load.driverName}
                 </p>
               </div>
             </div>
@@ -136,10 +136,10 @@ export default function MilestoneMessageModal({
                 type="button"
                 onClick={() => setIsEditorOpen(true)}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 transition-colors"
-                title="تعديل وتثبيت نص القالب"
+                title="Edit and customize this template"
               >
                 <Edit3 className="w-3.5 h-3.5 text-orange-400" />
-                <span>تعديل القالب</span>
+                <span>Edit Template</span>
               </button>
 
               <button
@@ -159,11 +159,11 @@ export default function MilestoneMessageModal({
               <div className="flex items-center gap-2">
                 <Phone className="w-4 h-4 text-orange-600" />
                 <span>
-                  رقم السائق: <strong className="text-slate-900 font-mono">{load.driverPhone}</strong>
+                  Driver Phone: <strong className="text-slate-900 font-mono">{load.driverPhone}</strong>
                 </span>
               </div>
               <div>
-                جرار / مقطورة: <strong className="text-slate-900">{load.tractorNumber} / {load.trailerNumber}</strong>
+                Tractor / Trailer: <strong className="text-slate-900">{load.tractorNumber} / {load.trailerNumber}</strong>
               </div>
             </div>
 
@@ -172,14 +172,14 @@ export default function MilestoneMessageModal({
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                   <Layers className="w-3.5 h-3.5 text-orange-600" />
-                  <span>اختر قالب الرسالة (Select Template):</span>
+                  <span>Select Message Template:</span>
                 </label>
                 <button
                   type="button"
                   onClick={() => setIsEditorOpen(true)}
                   className="text-[11px] font-bold text-orange-600 hover:text-orange-700 underline"
                 >
-                  + إضافة / تعديل القوالب
+                  + Add / Edit Templates
                 </button>
               </div>
 
@@ -190,7 +190,7 @@ export default function MilestoneMessageModal({
               >
                 {templates.map((t) => (
                   <option key={t.id} value={t.id}>
-                    {t.name} {t.isDefault ? "(افتراضي)" : "(مخصص)"}
+                    {t.name} {t.isDefault ? "(System)" : "(Custom)"}
                   </option>
                 ))}
               </select>
@@ -208,7 +208,7 @@ export default function MilestoneMessageModal({
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-orange-600" />
-                  <span>نص الرسالة المجهز تلقائياً (Ready to Send)</span>
+                  <span>Auto-Populated Dispatch Message</span>
                 </label>
                 
                 <button
@@ -217,7 +217,7 @@ export default function MilestoneMessageModal({
                   className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-xs font-black shadow transition-all active:scale-95"
                 >
                   {copied ? <Check className="w-3.5 h-3.5 text-white" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copied ? "تم النسخ بنجاح! ✓" : "نسخ الرسالة (Copy)"}</span>
+                  <span>{copied ? "Copied! ✓" : "Copy Message"}</span>
                 </button>
               </div>
 
@@ -231,7 +231,7 @@ export default function MilestoneMessageModal({
 
             {/* Communication Channel */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700">قناة التواصل المسجلة في السجل:</label>
+              <label className="text-xs font-bold text-slate-700">Audit Trail Channel:</label>
               <div className="grid grid-cols-4 gap-2">
                 {(["sms", "whatsapp", "openphone", "manual"] as const).map((ch) => (
                   <button
@@ -262,7 +262,7 @@ export default function MilestoneMessageModal({
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow transition-colors"
             >
               <MessageSquare className="w-4 h-4" />
-              <span>إرسال عبر WhatsApp Web</span>
+              <span>Launch WhatsApp Web</span>
             </a>
 
             {/* Action Buttons */}
@@ -272,7 +272,7 @@ export default function MilestoneMessageModal({
                 onClick={onClose}
                 className="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs font-bold"
               >
-                إلغاء
+                Cancel
               </button>
 
               <button
@@ -282,7 +282,7 @@ export default function MilestoneMessageModal({
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-black uppercase tracking-wider shadow-lg hover:shadow-xl transition-all disabled:opacity-50"
               >
                 <Send className="w-4 h-4" />
-                <span>{isSubmitting ? "جارِ التسجيل..." : "تأكيد وتوثيق الإرسال"}</span>
+                <span>{isSubmitting ? "Logging..." : "Confirm & Log Sent"}</span>
               </button>
             </div>
           </div>

@@ -26,7 +26,7 @@ import {
 } from "@/lib/custom-templates";
 import { Load } from "@/lib/portal-types";
 
-// Mock load for live preview
+// Mock load for live dynamic preview
 const PREVIEW_SAMPLE_LOAD: Load = {
   id: "preview-load",
   vrid: "VRID-9482710",
@@ -157,10 +157,10 @@ export default function TemplateEditorModal({
     const newId = `tpl-custom-${Date.now()}`;
     const newTpl: CustomTemplate = {
       id: newId,
-      name: "قالب رسالة مخصص جديد (Custom Template)",
+      name: "Custom Dispatch Message Template",
       category: "custom",
-      description: "رسالة مخصصة لعمليات الدسباتش والمتابعة مع السائقين",
-      templateText: `📢 UNIQUE DISPATCH NOTICE\nHey {driverName}, update for Load #{vrid}.\n\nPlease note: {originCity} -> {destCity}.\nReply to confirm.`,
+      description: "Custom message template for driver operational milestones and tracking.",
+      templateText: `📢 UNIQUE DISPATCH NOTICE\nHey {driverName}, tracking update for Load #{vrid}.\n\nPlease note: {originCity} -> {destCity}.\nReply to confirm.`,
       isDefault: false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -178,7 +178,7 @@ export default function TemplateEditorModal({
     if (!tpl) return;
 
     if (tpl.isDefault) {
-      alert("لا يمكن حذف القوالب الأساسية للنظام، يمكنك فقط تعديل نصها وتثبيته حسب رغبتك.");
+      alert("System default milestone templates cannot be deleted. You can edit and customize their text as needed.");
       return;
     }
 
@@ -192,7 +192,7 @@ export default function TemplateEditorModal({
   };
 
   const handleResetToDefaults = () => {
-    if (confirm("هل أنت متأكد من استعادة جميع القوالب إلى النصوص الافتراضية الأصلية؟")) {
+    if (confirm("Are you sure you want to reset all message templates to default factory versions?")) {
       setTemplates(DEFAULT_TEMPLATES);
       saveTemplates(DEFAULT_TEMPLATES);
       selectTemplate(DEFAULT_TEMPLATES[0].id, DEFAULT_TEMPLATES);
@@ -227,13 +227,13 @@ export default function TemplateEditorModal({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-black tracking-tight">مدير قوالب الرسائل الجاهزة (Message Templates)</h3>
+                <h3 className="text-base font-black tracking-tight">Message Templates Manager</h3>
                 <span className="px-2 py-0.5 rounded-full bg-orange-600/30 border border-orange-500/40 text-[10px] font-bold text-orange-400">
-                  تعديل وتثبيت
+                  Custom &amp; Persistent
                 </span>
               </div>
               <p className="text-xs text-slate-400">
-                عدّل نصوص الرسائل واثبتها مرة واحدة لتنسخها فوراً، أو أضف قوالب جديدة مخصصة مع المتغيرات الذكية.
+                Customize operational templates, insert smart tags, and save them permanently for instant 1-click dispatch.
               </p>
             </div>
           </div>
@@ -255,7 +255,7 @@ export default function TemplateEditorModal({
             <div className="p-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
               <span className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                 <Layers className="w-4 h-4 text-orange-600" />
-                <span>القوالب المتاحة ({templates.length})</span>
+                <span>Templates ({templates.length})</span>
               </span>
 
               <button
@@ -264,7 +264,7 @@ export default function TemplateEditorModal({
                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-[11px] font-bold shadow transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>+ قالب جديد</span>
+                <span>+ New Template</span>
               </button>
             </div>
 
@@ -288,16 +288,16 @@ export default function TemplateEditorModal({
                       </p>
                       {tpl.isDefault ? (
                         <span className="shrink-0 text-[9px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-bold">
-                          افتراضي
+                          System
                         </span>
                       ) : (
                         <span className="shrink-0 text-[9px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-bold">
-                          مخصص
+                          Custom
                         </span>
                       )}
                     </div>
                     <p className="text-[11px] text-slate-500 line-clamp-1 mt-1">
-                      {tpl.description || "قالب رسالة جاهز"}
+                      {tpl.description || "Operational dispatch message"}
                     </p>
                   </button>
                 );
@@ -312,7 +312,7 @@ export default function TemplateEditorModal({
                 className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-200/70 text-[11px] font-bold transition-colors"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-                <span>استعادة القوالب الافتراضية للأصل</span>
+                <span>Reset to Factory Defaults</span>
               </button>
             </div>
 
@@ -325,12 +325,12 @@ export default function TemplateEditorModal({
             <div className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex-1 min-w-[240px]">
-                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">اسم القالب (Template Name)</label>
+                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Template Name</label>
                   <input
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="مثال: رسالة قبل التحميل بـ 3.5 ساعات"
+                    placeholder="e.g. 3.5H Pre-Pickup Check-In"
                     className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-slate-900 font-bold text-sm focus:ring-2 focus:ring-orange-500 focus:outline-none mt-1"
                   />
                 </div>
@@ -342,18 +342,18 @@ export default function TemplateEditorModal({
                     className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-red-600 hover:bg-red-50 text-xs font-bold border border-red-200 transition-colors self-end"
                   >
                     <Trash2 className="w-4 h-4" />
-                    <span>حذف هذا القالب</span>
+                    <span>Delete Template</span>
                   </button>
                 )}
               </div>
 
               <div>
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">وصف القالب / التوقيت الموصى به</label>
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Operational Description &amp; Milestone Rule</label>
                 <input
                   type="text"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="مثال: يرسل قبل موعد التحميل للتأكد من جاهزية السائق"
+                  placeholder="e.g. Mandatory check-in sent 3.5 hours prior to pickup"
                   className="w-full px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 text-xs focus:ring-2 focus:ring-orange-500 focus:outline-none mt-1"
                 />
               </div>
@@ -364,10 +364,10 @@ export default function TemplateEditorModal({
               <div className="flex items-center justify-between">
                 <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
                   <Sparkles className="w-4 h-4 text-orange-600" />
-                  <span>انقر لإدراج المتغيرات الذكية داخل نص الرسالة (Click to Insert):</span>
+                  <span>Click to Insert Dynamic Placeholders:</span>
                 </span>
                 <span className="text-[10px] text-slate-500 font-medium hidden sm:inline">
-                  يتم استبدال المتغير تلقائياً ببيانات الشحنة والسائق
+                  Placeholders automatically resolve to actual load and driver properties
                 </span>
               </div>
 
@@ -377,13 +377,13 @@ export default function TemplateEditorModal({
                     key={v.tag}
                     type="button"
                     onClick={() => handleInsertVariable(v.tag)}
-                    title={`مثال: ${v.example}`}
+                    title={`Sample value: ${v.example}`}
                     className="px-2.5 py-1 rounded-lg bg-white hover:bg-orange-600 hover:text-white border border-orange-200 text-slate-800 text-[11px] font-mono font-bold transition-all shadow-xs flex items-center gap-1 group"
                   >
                     <Tag className="w-3 h-3 text-orange-500 group-hover:text-white" />
                     <span>{v.tag}</span>
                     <span className="text-[10px] text-slate-500 group-hover:text-orange-100 font-sans">
-                      ({v.label.split(" ")[0]})
+                      ({v.label})
                     </span>
                   </button>
                 ))}
@@ -393,9 +393,9 @@ export default function TemplateEditorModal({
             {/* Template Monospace Editor Textarea */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center justify-between">
-                <span>نص القالب (Template Body)</span>
+                <span>Template Body</span>
                 <span className="text-[11px] text-slate-400 font-normal">
-                  استخدم المتغيرات بين أقواس مثل: <code className="text-orange-600 bg-orange-50 px-1 py-0.5 rounded">&#123;driverName&#125;</code>
+                  Use tags inside braces e.g. <code className="text-orange-600 bg-orange-50 px-1 py-0.5 rounded">&#123;driverName&#125;</code>
                 </span>
               </label>
 
@@ -404,7 +404,7 @@ export default function TemplateEditorModal({
                 value={templateText}
                 onChange={(e) => setTemplateText(e.target.value)}
                 rows={7}
-                placeholder="اكتب نص الرسالة هنا مع المتغيرات..."
+                placeholder="Write your dispatch template message here..."
                 className="w-full font-mono text-xs p-4 rounded-2xl bg-slate-900 text-emerald-300 border border-slate-700 leading-relaxed focus:ring-2 focus:ring-orange-500 focus:outline-none"
               />
             </div>
@@ -414,7 +414,7 @@ export default function TemplateEditorModal({
               <div className="flex items-center justify-between">
                 <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
                   <Eye className="w-4 h-4 text-blue-600" />
-                  <span>معاينة الرسالة الحية على شحنة تجريبية (Live Dynamic Preview):</span>
+                  <span>Live Dynamic Preview (Sample Load):</span>
                 </span>
 
                 <button
@@ -423,7 +423,7 @@ export default function TemplateEditorModal({
                   className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 text-[11px] font-bold shadow-xs transition-colors"
                 >
                   {copiedPreview ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedPreview ? "تم النسخ!" : "نسخ المعاينة"}</span>
+                  <span>{copiedPreview ? "Copied!" : "Copy Preview"}</span>
                 </button>
               </div>
 
@@ -437,11 +437,11 @@ export default function TemplateEditorModal({
               {savedSuccess ? (
                 <div className="flex items-center gap-1.5 text-emerald-700 text-xs font-bold animate-in fade-in">
                   <Check className="w-4 h-4 text-emerald-600" />
-                  <span>تم حفظ وتثبيت القالب بنجاح في النظام! جاهز للاستخدام الدائم.</span>
+                  <span>Template saved and permanently fixed in system! Ready for immediate use.</span>
                 </div>
               ) : (
                 <p className="text-[11px] text-slate-400">
-                  احفظ القالب لتثبيته في النظام لجميع عمليات النسخ والإرسال القادمة.
+                  Click Save to permanently lock this template for all future load messages.
                 </p>
               )}
 
@@ -451,7 +451,7 @@ export default function TemplateEditorModal({
                   onClick={onClose}
                   className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs font-bold transition-colors"
                 >
-                  إغلاق
+                  Close
                 </button>
 
                 <button
@@ -460,7 +460,7 @@ export default function TemplateEditorModal({
                   className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-black uppercase tracking-wider shadow-lg hover:shadow-xl transition-all active:scale-[0.98]"
                 >
                   <Save className="w-4 h-4" />
-                  <span>تثبيت وحفظ القالب (Save Template)</span>
+                  <span>Save Template</span>
                 </button>
               </div>
             </div>

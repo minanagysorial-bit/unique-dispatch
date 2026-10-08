@@ -147,10 +147,10 @@ export default function SuperAdminDashboardPage() {
             <button
               onClick={() => setIsTemplatesOpen(true)}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 text-xs font-bold border border-orange-200 transition-colors shadow-xs"
-              title="تعديل وتثبيت قوالب الرسائل الجاهزة"
+              title="Message Templates Manager"
             >
               <FileText className="w-4 h-4 text-orange-600" />
-              <span>قوالب الرسائل</span>
+              <span>Templates</span>
             </button>
 
             <button

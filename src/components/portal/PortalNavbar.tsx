@@ -195,10 +195,10 @@ export default function PortalNavbar({
             <button
               onClick={onOpenTemplatesModal}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-600/20 hover:bg-orange-600/30 text-orange-400 text-xs font-bold border border-orange-500/40 transition-colors shadow"
-              title="Message Templates Manager (قوالب الرسائل)"
+              title="Message Templates Manager"
             >
               <FileText className="w-3.5 h-3.5 text-orange-400" />
-              <span>قوالب الرسائل</span>
+              <span>Templates</span>
             </button>
           )}
 
@@ -267,7 +267,7 @@ export default function PortalNavbar({
                     className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white text-left"
                   >
                     <FileText className="w-4 h-4 text-orange-400" />
-                    <span>مدير قوالب الرسائل</span>
+                    <span>Message Templates Manager</span>
                   </button>
                 )}
 

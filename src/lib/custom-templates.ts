@@ -13,15 +13,15 @@ export interface CustomTemplate {
   updatedAt: string;
 }
 
-export const TEMPLATES_STORAGE_KEY = "unique_dispatch_custom_templates_v1";
+export const TEMPLATES_STORAGE_KEY = "unique_dispatch_custom_templates_v2";
 
 export const DEFAULT_TEMPLATES: CustomTemplate[] = [
   {
     id: "tpl-pickup-3-5h",
-    name: "3.5H Pre-Pickup Check-In (قبل التحميل بـ 3.5 ساعات)",
+    name: "3.5H Pre-Pickup Check-In",
     milestoneKey: "pickup_checkin_3_5h",
     category: "pre_trip",
-    description: "فحص جاهزية السائق والتأكد من انطلاقه في الطريق قبل ميعاد التحميل",
+    description: "Verify driver readiness, rolling status, and ETA 3.5 hours before scheduled pickup.",
     templateText: `🚨 UNIQUE DISPATCH 3.5H CHECK-IN
 Hey {driverName}, checking in for Load #{vrid}.
 📍 Origin: {originFacility} ({originCity}, {originState})
@@ -35,10 +35,10 @@ Are you rolling and on-track for on-time arrival? Please reply with your current
   },
   {
     id: "tpl-at-pickup",
-    name: "At-Pickup / Door Check-In (الوصول لموقع التحميل)",
+    name: "At-Pickup / Dock Arrival Check-In",
     milestoneKey: "at_pickup_verify",
     category: "pickup",
-    description: "تأكيد وصول السائق للشيبر وطلب رقم الباب Dock/Door",
+    description: "Confirm driver arrival at shipper gate and request assigned dock/door number.",
     templateText: `📍 UNIQUE DISPATCH - ARRIVED PICKUP
 Hey {driverName}, confirming arrival at {originFacility} ({originCity}, {originState}) for Load #{vrid}.
 
@@ -49,10 +49,10 @@ Please reply with your Dock/Door # once assigned. If loading takes more than 1.5
   },
   {
     id: "tpl-in-transit",
-    name: "In-Transit Mid-Route Update (متابعة السائق في الطريق)",
+    name: "In-Transit Mid-Route Status Update",
     milestoneKey: "in_transit_checkin",
     category: "in_transit",
-    description: "متابعة خط سير الرحلة والتأكد من عدم وجود تأخير أو عطل",
+    description: "Track mid-route progress, weather conditions, and updated delivery ETA.",
     templateText: `🛣️ UNIQUE DISPATCH - IN-TRANSIT UPDATE
 Hey {driverName}, tracking update for Load #{vrid}.
 🎯 Destination: {destFacility} ({destCity}, {destState})
@@ -65,10 +65,10 @@ Please reply with your current city/mile marker and estimated delivery time. Dri
   },
   {
     id: "tpl-delivery-30m",
-    name: "30-Min Pre-Delivery Alert (قبل الوصول للتسليم بـ 30 دقيقة)",
+    name: "30-Minute Pre-Delivery Alert",
     milestoneKey: "delivery_checkin_30m",
     category: "delivery",
-    description: "تنبيه قرب الوصول وتجهيز أوراق الـ BOL وتأكيد التوقيع والختم",
+    description: "Alert receiver approaching, instruct driver on seal verification and BOL signing.",
     templateText: `📦 UNIQUE DISPATCH 30M DELIVERY ALERT
 Hey {driverName}, you are ~30 mins from delivery at {destFacility} ({destCity}, {destState}) for Load #{vrid}.
 
@@ -82,10 +82,10 @@ Hey {driverName}, you are ~30 mins from delivery at {destFacility} ({destCity}, 
   },
   {
     id: "tpl-at-delivery",
-    name: "At-Delivery Verification (الوصول لموقع التسليم)",
+    name: "At-Delivery / Receiver Gate Check-In",
     milestoneKey: "at_delivery_verify",
     category: "delivery",
-    description: "تأكيد وصول السائق للريسيفر ورقم رصيف التنزيل",
+    description: "Confirm driver arrival at receiver dock and remind about obtaining signed paperwork.",
     templateText: `🏁 UNIQUE DISPATCH - AT RECEIVER
 Hey {driverName}, confirming arrival at receiver {destFacility} ({destCity}, {destState}) for Load #{vrid}.
 
@@ -96,10 +96,10 @@ Let us know your dock number. Remember to get the signed BOL before pulling away
   },
   {
     id: "tpl-pod-bol",
-    name: "BOL / POD Paperwork Collection (طلب بوليصة الشحن الموقعة)",
+    name: "BOL / POD Paperwork Collection",
     milestoneKey: "pod_bol_collection",
     category: "paperwork",
-    description: "طلب صورة بوليصة الشحن (BOL) الموقعة فوراً لرفعها لشركة الفاكتورينج",
+    description: "Request photo/scan of stamped BOL/POD for same-day factoring funding submission.",
     templateText: `📑 UNIQUE DISPATCH - BOL / POD COLLECTION
 Hey {driverName}, congrats on completing Load #{vrid}!
 
@@ -110,13 +110,13 @@ Please send the clear photo/scan of the signed BOL/POD now so we can submit for 
   },
   {
     id: "tpl-detention-alert",
-    name: "Detention Pay Notice (تنبيه وقت الانتظار والـ Detention)",
+    name: "Detention Pay Tracking Notice",
     category: "custom",
-    description: "تنبيه السائق بتوثيق وقت الانتظار للمطالبة بفلوس الـ Detention",
+    description: "Notify driver of active detention clock and record in-time stamp.",
     templateText: `⏳ UNIQUE DISPATCH - DETENTION TRACKING
 Hey {driverName}, we have recorded your arrival at {originFacility}.
 
-If loading takes more than 2 hours, please take a photo of your signed in-time stamp on the BOL so we can claim your detention pay from the broker.`,
+If loading takes more than 2 hours, please take a photo of your signed in-time stamp on the BOL so we can claim your detention pay ($50-$75/hr) from the broker.`,
     isDefault: true,
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
@@ -124,25 +124,25 @@ If loading takes more than 2 hours, please take a photo of your signed in-time s
 ];
 
 export const TEMPLATE_VARIABLES = [
-  { tag: "{driverName}", label: "اسم السائق (Driver Name)", example: "John Doe" },
-  { tag: "{driverPhone}", label: "رقم السائق (Driver Phone)", example: "+1 (555) 019-2834" },
-  { tag: "{vrid}", label: "رقم الشحنة (VRID / Load #)", example: "VRID-9482710" },
-  { tag: "{originCity}", label: "مدينة التحميل (Origin City)", example: "Staten Island" },
-  { tag: "{originState}", label: "ولاية التحميل (Origin State)", example: "NY" },
-  { tag: "{originFacility}", label: "كود منشأة التحميل (Origin Facility)", example: "JFK8" },
-  { tag: "{pickupDate}", label: "تاريخ التحميل (Pickup Date)", example: "Oct 8" },
-  { tag: "{pickupTime}", label: "وقت التحميل (Pickup Time)", example: "02:30 PM EST" },
-  { tag: "{destCity}", label: "مدينة التسليم (Dest City)", example: "Joliet" },
-  { tag: "{destState}", label: "ولاية التسليم (Dest State)", example: "IL" },
-  { tag: "{destFacility}", label: "كود منشأة التسليم (Dest Facility)", example: "MDW2" },
-  { tag: "{deliveryDate}", label: "تاريخ التسليم (Delivery Date)", example: "Oct 9" },
-  { tag: "{deliveryTime}", label: "وقت التسليم (Delivery Time)", example: "08:00 AM EST" },
-  { tag: "{equipment}", label: "نوع المعدة (Equipment)", example: "Dry Van (53')" },
-  { tag: "{tractorNumber}", label: "رقم الجرار (Tractor #)", example: "UD-104" },
-  { tag: "{trailerNumber}", label: "رقم المقطورة (Trailer #)", example: "TR-5389" },
-  { tag: "{carrierName}", label: "اسم الشركة الناقلة (Carrier)", example: "Apex Logistics" },
-  { tag: "{rateUSD}", label: "سعر النولون (Rate USD)", example: "$3,450" },
-  { tag: "{dispatcherName}", label: "اسم الدسباتشر (Dispatcher)", example: "Alex Reed" },
+  { tag: "{driverName}", label: "Driver Name", example: "John Doe" },
+  { tag: "{driverPhone}", label: "Driver Phone", example: "+1 (555) 019-2834" },
+  { tag: "{vrid}", label: "VRID / Load #", example: "VRID-9482710" },
+  { tag: "{originCity}", label: "Origin City", example: "Staten Island" },
+  { tag: "{originState}", label: "Origin State", example: "NY" },
+  { tag: "{originFacility}", label: "Origin Facility Code", example: "JFK8" },
+  { tag: "{pickupDate}", label: "Pickup Date", example: "Oct 8" },
+  { tag: "{pickupTime}", label: "Pickup Time", example: "02:30 PM EST" },
+  { tag: "{destCity}", label: "Destination City", example: "Joliet" },
+  { tag: "{destState}", label: "Destination State", example: "IL" },
+  { tag: "{destFacility}", label: "Destination Facility Code", example: "MDW2" },
+  { tag: "{deliveryDate}", label: "Delivery Date", example: "Oct 9" },
+  { tag: "{deliveryTime}", label: "Delivery Time", example: "08:00 AM EST" },
+  { tag: "{equipment}", label: "Equipment Type", example: "Dry Van (53')" },
+  { tag: "{tractorNumber}", label: "Tractor #", example: "UD-104" },
+  { tag: "{trailerNumber}", label: "Trailer #", example: "TR-5389" },
+  { tag: "{carrierName}", label: "Carrier Company", example: "Apex Logistics" },
+  { tag: "{rateUSD}", label: "Rate (USD)", example: "$3,450" },
+  { tag: "{dispatcherName}", label: "Dispatcher Name", example: "Alex Reed" },
 ];
 
 /**
