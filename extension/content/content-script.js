@@ -134,13 +134,13 @@
   function extractRelayTripId(node, text) {
     if (!node) return null;
 
-    // Pattern 1: Tour ID (T-...) or Block ID (B-...) e.g. T-115M3SH6V, B-DZTBJZ841, B-0WM2TN02
+    // Pattern 1: Tour ID (T-...) or Block ID (B-...) e.g. T-115M3SH6V, B-DZTBJZ841, B-0WM2TN02, B-DZ87LCH00, B-FV90RB0M5
     const prefixMatch = text.match(/\b([TB]-[A-Za-z0-9]{6,16})\b/);
     if (prefixMatch && prefixMatch[1]) {
       return prefixMatch[1].trim();
     }
 
-    // Pattern 2: Work Opportunity (WO-...) or Tour Number
+    // Pattern 2: Work Opportunity (WO-...)
     const woMatch = text.match(/\b(WO-[A-Za-z0-9]{4,14})\b/i);
     if (woMatch && woMatch[1]) {
       return woMatch[1].trim();
@@ -212,7 +212,6 @@
     }
 
     // Pattern in Relay text: "M. Ford", "M. CRISTOBAL", "J. Solis", "J. Jackson", "D. Perez", "A. Lopez", "T. Walker", "M. CARTER", "Dunlap"
-    // Often follows endorsements like "CDL", "LCV, NC", "TWIC", "FAST"
     const driverRegex = /(?:CDL[^\n\r]*|Endorsements[^\n\r]*)\s+([A-Z]\.\s+[A-Za-z0-9]+|[A-Z][a-z]+|[A-Z]{3,15})/i;
     const dm = text.match(driverRegex);
     if (dm && dm[1]) {
@@ -255,7 +254,6 @@
       text.matchAll(/(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun),?\s+)?(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}(?:st|nd|rd|th)?(?:\s*,?\s*\d{4})?,?\s+\d{1,2}:\d{2}\s*(?:AM|PM)?(?:\s*[A-Z]{3})?/gi)
     );
 
-    const now = new Date();
     const defaultPickupTime = dateMatches[0] ? parseRelayDateTime(dateMatches[0][0], false) : parseRelayDateTime(text, false);
     const defaultDeliveryTime = dateMatches[1] ? parseRelayDateTime(dateMatches[1][0], true) : dateMatches[0] ? parseRelayDateTime(dateMatches[0][0], true) : parseRelayDateTime(text, true);
 
@@ -312,47 +310,47 @@
   // 6. Targeted Screen Scanner strictly preserving vertical top-to-bottom Relay Screen Order
   function scanDomForTours() {
     const candidateNodes = [];
-    const candidateElementSet = new Set();
 
-    function addCandidate(el) {
-      if (!el || candidateElementSet.has(el)) return;
+    // Specifically target full rows ONLY (do not select inner cells or sub-divs!)
+    const rowSelectors = [
+      'table tbody tr:not([class*="header" i])',
+      'div[role="row"]:not([role="columnheader" i])',
+      'li[class*="awsui-cards-card-item" i]',
+      'div[class*="awsui_card_" i]',
+      '[data-testid*="trip-row" i]',
+      '[data-testid*="tour-row" i]',
+      '[data-testid*="table-row" i]',
+    ];
+
+    const elements = document.querySelectorAll(rowSelectors.join(", "));
+    elements.forEach((el) => {
+      // Must not be an outer container or header
       if (el === document.body || el === document.documentElement || (el.id && el.id.includes("ud-"))) return;
-      candidateElementSet.add(el);
       candidateNodes.push(el);
-    }
-
-    // Selector Strategy 1: Table Rows (Cloudscape Table, HTML Table, Grid Rows)
-    document.querySelectorAll(
-      'table tbody tr:not([class*="header" i]), [role="row"]:not([role="columnheader" i]), [class*="awsui_row" i], [class*="awsui-table-row" i], [class*="awsui_table_row" i], [class*="TableRow" i], [class*="table-row" i], [class*="grid-row" i]'
-    ).forEach(addCandidate);
-
-    // Selector Strategy 2: Tour / Trip / Loadboard Links and their card containers
-    document.querySelectorAll(
-      'a[href*="/tours" i], a[href*="/tour" i], a[href*="/trips" i], a[href*="/trip" i], a[href*="/loads" i], a[href*="/load" i], a[href*="/work-opportunities" i], a[href*="/work-opportunity" i], a[href*="/execution" i], a[href*="/loadboard" i], a[href*="/carrier" i]'
-    ).forEach((link) => {
-      const container = link.closest(
-        'tr, [role="row"], [class*="card" i], [class*="row" i], [class*="item" i], [class*="tour" i], [class*="trip" i], li, article, section'
-      ) || link.parentElement?.parentElement || link;
-      addCandidate(container);
     });
 
-    // Selector Strategy 3: Cloudscape Cards, Card Grids, Tiles, and Item Wrappers
-    document.querySelectorAll(
-      '[class*="awsui_card" i], [class*="awsui-card" i], [class*="awsui-cards" i] li, [class*="TourCard" i], [class*="tour-card" i], [class*="TripCard" i], [class*="trip-card" i], [class*="WorkOpportunityCard" i], [class*="work-opportunity" i], [data-testid*="card" i], [data-testid*="row" i], [data-testid*="tour" i], [data-testid*="trip" i], [data-testid*="item" i]'
-    ).forEach(addCandidate);
-
-    // Filter out parent containers that contain other candidate child nodes (to avoid duplicate "wrapper" tours)
-    const filteredCandidateNodes = candidateNodes.filter((node) => {
-      for (const other of candidateNodes) {
-        if (other !== node && node.contains(other)) {
-          return false; // Discard outer container, keep inner row/card!
+    // Fallback: If standard row selectors found nothing, search for elements with Trip IDs
+    if (candidateNodes.length === 0) {
+      const allDivs = Array.from(document.querySelectorAll('div, tr, li, article, section'));
+      for (const d of allDivs) {
+        if (d.children.length <= 15 && d.textContent) {
+          const txt = d.textContent;
+          if (/\b([TB]-[A-Za-z0-9]{6,16})\b/.test(txt)) {
+            candidateNodes.push(d);
+          }
         }
       }
-      return true;
+    }
+
+    // Filter out parent containers that contain other candidate rows (keep only the actual single rows)
+    const validRows = candidateNodes.filter((node) => {
+      // If node contains other candidate rows, discard it (it's a table wrapper)
+      const hasChildRow = candidateNodes.some((other) => other !== node && node.contains(other));
+      return !hasChildRow;
     });
 
-    // Strictly sort candidate nodes by vertical top-to-bottom document position
-    filteredCandidateNodes.sort((a, b) => {
+    // Strictly sort candidate rows by vertical top-to-bottom document position
+    validRows.sort((a, b) => {
       const rectA = a.getBoundingClientRect();
       const rectB = b.getBoundingClientRect();
       const topA = rectA.top + (window.scrollY || window.pageYOffset || 0);
@@ -367,8 +365,8 @@
     const seenIds = new Set();
     let currentScreenIndex = 0;
 
-    for (let i = 0; i < filteredCandidateNodes.length; i++) {
-      const node = filteredCandidateNodes[i];
+    for (let i = 0; i < validRows.length; i++) {
+      const node = validRows[i];
       try {
         const text = (node.textContent || "").trim();
         if (!text || text.length < 10) continue;
@@ -386,13 +384,12 @@
           text.includes("Export") ||
           text.includes("Bulk action");
 
-        // Extract genuine Relay Trip ID
-        let tripId = extractRelayTripId(node, text);
-
-        // If no genuine Trip ID found and it looks like a header/wrapper, discard it immediately!
-        if (!tripId && isHeaderOrFilter) {
+        if (isHeaderOrFilter && !/\b([TB]-[A-Za-z0-9]{6,16})\b/.test(text)) {
           continue;
         }
+
+        // Extract genuine Relay Trip ID
+        let tripId = extractRelayTripId(node, text);
 
         // If no Trip ID found, but element contains real stop route (e.g. [SAT4] -> San Antonio, TX)
         if (!tripId) {
@@ -408,14 +405,6 @@
 
         if (seenIds.has(tripId)) continue;
         seenIds.add(tripId);
-
-        // If we already intercepted a richer JSON API payload for this tripId, merge and keep screenIndex!
-        if (capturedApiToursMap.has(tripId)) {
-          const richTour = { ...capturedApiToursMap.get(tripId) };
-          richTour.screenIndex = currentScreenIndex++;
-          foundTours.push(richTour);
-          continue;
-        }
 
         // Extract Stops, Locations & Exact Dates
         const routeData = extractStopsFromRelayRow(node, text);
@@ -494,18 +483,7 @@
       }
     }
 
-    // Append any API-intercepted tours that weren't found on the DOM
-    capturedApiToursMap.forEach((apiTour, id) => {
-      if (!seenIds.has(id)) {
-        seenIds.add(id);
-        foundTours.push({
-          ...apiTour,
-          screenIndex: currentScreenIndex++,
-        });
-      }
-    });
-
-    // Fallback: If DOM scan yielded 0 tours, but API map has tours, use all API tours!
+    // Only if DOM yielded NO tours at all, check if API map has tours
     if (foundTours.length === 0 && capturedApiToursMap.size > 0) {
       capturedApiToursMap.forEach((apiTour) => {
         foundTours.push(apiTour);
@@ -747,6 +725,9 @@
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.type === "EXTRACT_NOW") {
       const mode = request.mode || "upsert";
+      if (mode === "replace_all") {
+        capturedApiToursMap.clear();
+      }
       const tours = scanDomForTours();
       extractAndSyncAll(true, mode);
       sendResponse({ status: "done", count: tours.length, tours: tours });
@@ -778,7 +759,6 @@
     injectFloatingPill();
     scanDomForTours();
     updateFloatingPillUI();
-    extractAndSyncAll(false, "upsert");
   }, 600);
 
   // Debounced MutationObserver
@@ -799,8 +779,4 @@
     childList: true,
     subtree: true,
   });
-
-  setInterval(() => {
-    extractAndSyncAll(false, "upsert");
-  }, 30000);
 })();
