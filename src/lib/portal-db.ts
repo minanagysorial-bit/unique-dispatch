@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import {
   User,
   Load,
@@ -546,17 +548,120 @@ const SEED_AUDIT_LOGS: AuditLog[] = [
   },
 ];
 
-// Global in-memory storage (persisted across warm server requests in memory)
-let users: User[] = [...SEED_USERS];
-let shifts: ShiftDefinition[] = [...SEED_SHIFTS];
-let loads: Load[] = [...SEED_LOADS];
-let incidents: IncidentReport[] = [...SEED_INCIDENTS];
-let messages: MessageLog[] = [...SEED_MESSAGES];
-let handovers: ShiftHandover[] = [...SEED_HANDOVERS];
-let auditLogs: AuditLog[] = [...SEED_AUDIT_LOGS];
+const DATA_DIR = path.join(process.cwd(), "data");
+const STORAGE_FILE = path.join(DATA_DIR, "portal-storage.json");
+
+export interface SyncMeta {
+  lastSyncAt: string | null;
+  lastSyncSource: string | null;
+  totalSyncedCount: number;
+}
+
+interface PersistedStorage {
+  users: User[];
+  shifts: ShiftDefinition[];
+  loads: Load[];
+  incidents: IncidentReport[];
+  messages: MessageLog[];
+  handovers: ShiftHandover[];
+  auditLogs: AuditLog[];
+  syncMeta?: SyncMeta;
+}
+
+let syncMeta: SyncMeta = {
+  lastSyncAt: new Date(Date.now() - 1000 * 60 * 2).toISOString(),
+  lastSyncSource: "chrome_extension_amazon_relay",
+  totalSyncedCount: 6,
+};
+
+function loadStorage(): PersistedStorage {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    if (fs.existsSync(STORAGE_FILE)) {
+      const raw = fs.readFileSync(STORAGE_FILE, "utf-8");
+      if (raw && raw.trim().length > 0) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed.users) && parsed.users.length > 0) {
+          return parsed;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Could not read portal-storage.json, falling back to seed data:", err);
+  }
+
+  // Initial seed
+  const initial: PersistedStorage = {
+    users: SEED_USERS,
+    shifts: SEED_SHIFTS,
+    loads: SEED_LOADS,
+    incidents: SEED_INCIDENTS,
+    messages: SEED_MESSAGES,
+    handovers: SEED_HANDOVERS,
+    auditLogs: SEED_AUDIT_LOGS,
+    syncMeta,
+  };
+
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    fs.writeFileSync(STORAGE_FILE, JSON.stringify(initial, null, 2), "utf-8");
+  } catch (e) {
+    // ignore
+  }
+
+  return initial;
+}
+
+const initialData = loadStorage();
+let users: User[] = initialData.users || [...SEED_USERS];
+let shifts: ShiftDefinition[] = initialData.shifts || [...SEED_SHIFTS];
+let loads: Load[] = initialData.loads || [...SEED_LOADS];
+let incidents: IncidentReport[] = initialData.incidents || [...SEED_INCIDENTS];
+let messages: MessageLog[] = initialData.messages || [...SEED_MESSAGES];
+let handovers: ShiftHandover[] = initialData.handovers || [...SEED_HANDOVERS];
+let auditLogs: AuditLog[] = initialData.auditLogs || [...SEED_AUDIT_LOGS];
+if (initialData.syncMeta) syncMeta = initialData.syncMeta;
+
+function persist(): void {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    const dataToSave: PersistedStorage = {
+      users,
+      shifts,
+      loads,
+      incidents,
+      messages,
+      handovers,
+      auditLogs,
+      syncMeta,
+    };
+    fs.writeFileSync(STORAGE_FILE, JSON.stringify(dataToSave, null, 2), "utf-8");
+  } catch (err) {
+    console.error("Failed to write portal-storage.json to disk:", err);
+  }
+}
 
 // DB Operations
 export const portalDb = {
+  // Sync Health
+  getSyncHealth: () => {
+    const activeLoads = loads.filter((l) => l.status !== "delivered" && l.status !== "cancelled");
+    const relayLoads = activeLoads.filter((l) => l.source === "amazon_relay");
+    return {
+      status: "online",
+      lastSyncAt: syncMeta.lastSyncAt,
+      lastSyncSource: syncMeta.lastSyncSource || "chrome_extension_amazon_relay",
+      totalActiveLoads: activeLoads.length,
+      activeRelayLoads: relayLoads.length,
+    };
+  },
+
   // Users
   getUsers: (): User[] => [...users],
   getUserById: (id: string): User | undefined => users.find((u) => u.id === id),
@@ -581,6 +686,7 @@ export const portalDb = {
       details: `Created new user ${newUser.name} (${newUser.email}) with role '${newUser.role}' and shift '${newUser.shiftTimeRange || newUser.assignedShift || "unassigned"}'.`,
     });
 
+    persist();
     return newUser;
   },
 
@@ -599,6 +705,7 @@ export const portalDb = {
       details: `Updated user ${users[idx].name}: ${Object.keys(updates).join(", ")}.`,
     });
 
+    persist();
     return users[idx];
   },
 
@@ -635,6 +742,7 @@ export const portalDb = {
       details: `Permanently removed user ${removed.name} (${removed.email}, role: ${removed.role}) by Super Admin ${actor.name}.`,
     });
 
+    persist();
     return { success: true };
   },
 
@@ -659,6 +767,7 @@ export const portalDb = {
       details: `Created new custom shift '${newShift.name}' (${newShift.startTime} - ${newShift.endTime} ${newShift.timezone || "EST"}).`,
     });
 
+    persist();
     return newShift;
   },
 
@@ -677,6 +786,7 @@ export const portalDb = {
       details: `Updated shift ${shifts[idx].name} schedule to ${shifts[idx].startTime} - ${shifts[idx].endTime}.`,
     });
 
+    persist();
     return shifts[idx];
   },
 
@@ -695,6 +805,7 @@ export const portalDb = {
       details: `Deleted shift '${removed.name}' (${removed.startTime} - ${removed.endTime}).`,
     });
 
+    persist();
     return true;
   },
 
@@ -770,6 +881,7 @@ export const portalDb = {
       });
     }
 
+    persist();
     return newLoad;
   },
 
@@ -796,6 +908,7 @@ export const portalDb = {
       });
     }
 
+    persist();
     return loads[idx];
   },
 
@@ -814,6 +927,7 @@ export const portalDb = {
       details: `Deleted load ${removed.vrid} (${removed.originCity} -> ${removed.destCity}).`,
     });
 
+    persist();
     return true;
   },
 
@@ -869,6 +983,12 @@ export const portalDb = {
       }
     }
 
+    syncMeta = {
+      lastSyncAt: new Date().toISOString(),
+      lastSyncSource: payload.source,
+      totalSyncedCount: (syncMeta.totalSyncedCount || 0) + added + updated,
+    };
+
     portalDb.addAuditLog({
       actorId: "system-sync",
       actorName: actorName,
@@ -878,6 +998,7 @@ export const portalDb = {
       details: `Batch ingestion completed via ${payload.source}: ${added} loads created, ${updated} loads updated.`,
     });
 
+    persist();
     return { synced: added + updated, added, updated };
   },
 
@@ -933,6 +1054,7 @@ export const portalDb = {
       details: `Verified milestone '${data.milestone}' for driver ${load.driverName} on load ${load.vrid}.`,
     });
 
+    persist();
     return newLog;
   },
 
@@ -1002,6 +1124,7 @@ export const portalDb = {
       details: `Reported [${data.category.toUpperCase()}] severity=${data.severity} on load ${load.vrid}: ${data.description}`,
     });
 
+    persist();
     return newIncident;
   },
 
@@ -1046,6 +1169,7 @@ export const portalDb = {
       details: `Incident ${id} marked as '${data.status}'. Resolution: ${data.resolutionNotes}`,
     });
 
+    persist();
     return incidents[idx];
   },
 
@@ -1096,6 +1220,7 @@ export const portalDb = {
       details: `Submitted handover from ${data.fromShift.toUpperCase()} to ${data.toShift.toUpperCase()} shift with ${activeShiftLoads.length} active loads transferred.`,
     });
 
+    persist();
     return newHandover;
   },
 

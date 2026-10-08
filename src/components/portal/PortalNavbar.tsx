@@ -19,9 +19,12 @@ import {
   Layers,
   ChevronDown,
   FileText,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import Logo from "@/components/Logo";
 import { User, ShiftType } from "@/lib/portal-types";
+import { isAudioEnabled, setAudioEnabled, playMilestoneChime } from "@/lib/audio-alerts";
 
 interface PortalNavbarProps {
   currentUser: User | null;
@@ -31,6 +34,7 @@ interface PortalNavbarProps {
   onOpenImportModal?: () => void;
   onOpenNewLoadModal?: () => void;
   onOpenTemplatesModal?: () => void;
+  onOpenGuideModal?: () => void;
 }
 
 export default function PortalNavbar({
@@ -41,11 +45,26 @@ export default function PortalNavbar({
   onOpenImportModal,
   onOpenNewLoadModal,
   onOpenTemplatesModal,
+  onOpenGuideModal,
 }: PortalNavbarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [estTime, setEstTime] = useState("");
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const [audioActive, setAudioActive] = useState(true);
+
+  useEffect(() => {
+    setAudioActive(isAudioEnabled());
+  }, []);
+
+  const handleToggleAudio = () => {
+    const next = !audioActive;
+    setAudioActive(next);
+    setAudioEnabled(next);
+    if (next) {
+      playMilestoneChime();
+    }
+  };
 
   useEffect(() => {
     const updateTime = () => {
@@ -218,6 +237,29 @@ export default function PortalNavbar({
         {/* Right User & Actions Menu */}
         <div className="flex items-center gap-2 sm:gap-3">
           
+          {/* Audio Alert Chime Toggle */}
+          <button
+            onClick={handleToggleAudio}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors shadow ${
+              audioActive
+                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
+                : "bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200"
+            }`}
+            title={audioActive ? "Sound Alerts Active (Click to Mute)" : "Sound Alerts Muted (Click to Unmute)"}
+          >
+            {audioActive ? (
+              <>
+                <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="hidden xl:inline">Alerts On</span>
+              </>
+            ) : (
+              <>
+                <VolumeX className="w-3.5 h-3.5 text-slate-400" />
+                <span className="hidden xl:inline">Muted</span>
+              </>
+            )}
+          </button>
+
           {/* Quick Actions (Templates, Handover & Import) */}
           {onOpenTemplatesModal && (
             <button
@@ -227,6 +269,17 @@ export default function PortalNavbar({
             >
               <FileText className="w-3.5 h-3.5 text-orange-400" />
               <span>Templates</span>
+            </button>
+          )}
+
+          {onOpenGuideModal && (
+            <button
+              onClick={onOpenGuideModal}
+              className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 transition-colors shadow"
+              title="Amazon Relay Sync Engine Setup Guide"
+            >
+              <Layers className="w-3.5 h-3.5 text-orange-400" />
+              <span>Sync Engine</span>
             </button>
           )}
 

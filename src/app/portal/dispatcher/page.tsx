@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import PortalNavbar from "@/components/portal/PortalNavbar";
 import LoadOperationsCard from "@/components/portal/LoadOperationsCard";
 import LoadGridCard from "@/components/portal/LoadGridCard";
@@ -27,10 +27,23 @@ import {
   List,
   Columns3,
   FileText,
+  Zap,
+  Activity,
+  Package,
 } from "lucide-react";
 import { Load, User, ShiftType, EquipmentType } from "@/lib/portal-types";
+import { playMilestoneChime, playUrgentAlert } from "@/lib/audio-alerts";
 
 type ViewMode = "grid" | "list" | "kanban";
+type ActionFilterType = "all" | "critical" | "needs_pickup_3_5h" | "needs_delivery_30m" | "amazon_relay" | "dat_spot";
+
+interface SyncHealth {
+  status: string;
+  lastSyncAt: string | null;
+  lastSyncSource: string;
+  totalActiveLoads: number;
+  activeRelayLoads: number;
+}
 
 export default function DispatcherOperationsBoardPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -40,7 +53,12 @@ export default function DispatcherOperationsBoardPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [criticalOnly, setCriticalOnly] = useState(false);
+  const [actionFilter, setActionFilter] = useState<ActionFilterType>("all");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [syncHealth, setSyncHealth] = useState<SyncHealth | null>(null);
+
+  const prevCriticalCountRef = useRef<number>(0);
+  const isInitialLoadRef = useRef<boolean>(true);
 
   // Modals
   const [isHandoverOpen, setIsHandoverOpen] = useState(false);
@@ -123,7 +141,22 @@ export default function DispatcherOperationsBoardPage() {
       const res = await fetch(`/api/loads?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
-        setLoads(data.loads || []);
+        const fetchedLoads: Load[] = data.loads || [];
+        setLoads(fetchedLoads);
+        if (data.syncHealth) {
+          setSyncHealth(data.syncHealth);
+        }
+
+        // Live Audio Alert Trigger for newly escalated Critical / Delayed Incidents
+        const currentCritical = fetchedLoads.filter(
+          (l) => l.isCriticalAlert || l.hasActiveIncident || l.status === "delayed" || l.status === "critical_alert"
+        ).length;
+
+        if (!isInitialLoadRef.current && currentCritical > prevCriticalCountRef.current) {
+          playUrgentAlert();
+        }
+        prevCriticalCountRef.current = currentCritical;
+        isInitialLoadRef.current = false;
       }
     } catch (e) {
       console.error(e);
@@ -207,17 +240,39 @@ export default function DispatcherOperationsBoardPage() {
     return !l.deliveryCheckinSent && minsToDelivery <= 30 && minsToDelivery >= -60 && l.status !== "delivered";
   }).length;
 
-  // Kanban categorized loads
-  const kanbanUpcoming = loads.filter(
+  // Filtered loads by Smart Action Pills
+  const displayedLoads = loads.filter((l) => {
+    if (actionFilter === "critical") {
+      return l.isCriticalAlert || l.hasActiveIncident || l.status === "delayed" || l.status === "critical_alert";
+    }
+    if (actionFilter === "needs_pickup_3_5h") {
+      const hoursToPickup = (new Date(l.pickupTime).getTime() - Date.now()) / (3600 * 1000);
+      return !l.pickupCheckinSent && hoursToPickup <= 3.5 && hoursToPickup >= -4 && l.status !== "delivered";
+    }
+    if (actionFilter === "needs_delivery_30m") {
+      const minsToDelivery = (new Date(l.deliveryTime).getTime() - Date.now()) / (60 * 1000);
+      return !l.deliveryCheckinSent && minsToDelivery <= 30 && minsToDelivery >= -60 && l.status !== "delivered";
+    }
+    if (actionFilter === "amazon_relay") {
+      return l.source === "amazon_relay";
+    }
+    if (actionFilter === "dat_spot") {
+      return l.source !== "amazon_relay";
+    }
+    return true;
+  });
+
+  // Kanban categorized loads based on displayedLoads
+  const kanbanUpcoming = displayedLoads.filter(
     (l) => (l.status === "upcoming" || l.status === "en_route_pickup") && !l.isCriticalAlert && !l.hasActiveIncident
   );
-  const kanbanActive = loads.filter(
+  const kanbanActive = displayedLoads.filter(
     (l) => (l.status === "at_pickup" || l.status === "in_transit" || l.status === "at_delivery") && !l.isCriticalAlert && !l.hasActiveIncident
   );
-  const kanbanCritical = loads.filter(
+  const kanbanCritical = displayedLoads.filter(
     (l) => l.isCriticalAlert || l.hasActiveIncident || l.status === "delayed" || l.status === "critical_alert"
   );
-  const kanbanDelivered = loads.filter(
+  const kanbanDelivered = displayedLoads.filter(
     (l) => l.status === "delivered"
   );
 
@@ -232,10 +287,63 @@ export default function DispatcherOperationsBoardPage() {
         onOpenHandoverModal={() => setIsHandoverOpen(true)}
         onOpenImportModal={() => setIsImportOpen(true)}
         onOpenTemplatesModal={() => setIsTemplatesOpen(true)}
+        onOpenGuideModal={() => setIsGuideOpen(true)}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         
+        {/* Live Relay Sync Health Status Banner */}
+        <div className="bg-[#0b1329] text-white p-3.5 sm:p-4 rounded-2xl border border-slate-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="relative flex items-center justify-center">
+              <span className="w-3 h-3 rounded-full bg-emerald-400 animate-ping absolute opacity-75" />
+              <span className="w-3 h-3 rounded-full bg-emerald-500 relative" />
+            </div>
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black uppercase tracking-wider text-emerald-400">Amazon Relay Sync Engine</span>
+                <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 text-[10px] font-bold border border-emerald-500/30">
+                  ONLINE &amp; ACTIVE
+                </span>
+              </div>
+              <p className="text-xs text-slate-300">
+                Auto-ingesting live tour updates from Chrome Extension. Last sync:{" "}
+                <span className="font-bold text-white">
+                  {syncHealth?.lastSyncAt
+                    ? `${Math.max(1, Math.round((Date.now() - new Date(syncHealth.lastSyncAt).getTime()) / 60000))}m ago`
+                    : "Just now"}
+                </span>
+                {" • "}
+                <span className="text-slate-400 font-medium">
+                  Source: {syncHealth?.lastSyncSource === "chrome_extension_amazon_relay" ? "Chrome Extension (Relay V3)" : "API Sync"}
+                </span>
+                {" • "}
+                <span className="text-orange-400 font-bold">
+                  {syncHealth?.activeRelayLoads ?? loads.filter((l) => l.source === "amazon_relay").length} Relay Tours Loaded
+                </span>
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2 self-end sm:self-center">
+            <button
+              onClick={() => setIsGuideOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 transition-colors"
+            >
+              <Layers className="w-3.5 h-3.5 text-orange-400" />
+              <span>Extension Setup</span>
+            </button>
+            <button
+              onClick={fetchLoads}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold transition-colors"
+              title="Force sync check"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Sync Now</span>
+            </button>
+          </div>
+        </div>
+
         {/* Operations Desk Top Banner & Metrics */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           
@@ -252,7 +360,7 @@ export default function DispatcherOperationsBoardPage() {
 
           {/* Critical Alerts / Breakdowns */}
           <button
-            onClick={() => setCriticalOnly(!criticalOnly)}
+            onClick={() => setActionFilter(actionFilter === "critical" ? "all" : "critical")}
             className={`p-4 rounded-2xl border text-left shadow-sm flex items-center justify-between transition-all ${
               criticalCount > 0
                 ? "bg-red-50 border-red-300 ring-2 ring-red-500/20 animate-pulse"
@@ -272,7 +380,14 @@ export default function DispatcherOperationsBoardPage() {
           </button>
 
           {/* Pending 3.5h Pickup Check-ins */}
-          <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between">
+          <button
+            onClick={() => setActionFilter(actionFilter === "needs_pickup_3_5h" ? "all" : "needs_pickup_3_5h")}
+            className={`p-4 rounded-2xl border text-left shadow-sm flex items-center justify-between transition-all ${
+              pendingPickup3_5h > 0
+                ? "bg-amber-50/70 border-amber-300"
+                : "bg-white border-slate-200"
+            }`}
+          >
             <div>
               <p className="text-xs font-bold text-amber-600 uppercase tracking-wider">3.5h Pickup Alerts</p>
               <p className="text-2xl font-black text-amber-700 mt-0.5">{pendingPickup3_5h} Pending</p>
@@ -280,10 +395,17 @@ export default function DispatcherOperationsBoardPage() {
             <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
               <Clock className="w-5 h-5" />
             </div>
-          </div>
+          </button>
 
           {/* Pending 30m Delivery Alerts */}
-          <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between">
+          <button
+            onClick={() => setActionFilter(actionFilter === "needs_delivery_30m" ? "all" : "needs_delivery_30m")}
+            className={`p-4 rounded-2xl border text-left shadow-sm flex items-center justify-between transition-all ${
+              pendingDelivery30m > 0
+                ? "bg-blue-50/70 border-blue-300"
+                : "bg-white border-slate-200"
+            }`}
+          >
             <div>
               <p className="text-xs font-bold text-blue-600 uppercase tracking-wider">30m Delivery Alerts</p>
               <p className="text-2xl font-black text-blue-700 mt-0.5">{pendingDelivery30m} Pending</p>
@@ -291,7 +413,7 @@ export default function DispatcherOperationsBoardPage() {
             <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
               <CheckCircle2 className="w-5 h-5" />
             </div>
-          </div>
+          </button>
 
         </div>
 
@@ -414,40 +536,131 @@ export default function DispatcherOperationsBoardPage() {
 
         </div>
 
+        {/* Smart Action Quick-Pill Filters Bar */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none text-xs font-bold">
+          <button
+            type="button"
+            onClick={() => setActionFilter("all")}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border transition-all whitespace-nowrap ${
+              actionFilter === "all"
+                ? "bg-slate-900 text-white border-slate-900 shadow-sm"
+                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+            }`}
+          >
+            <Activity className="w-3.5 h-3.5" />
+            <span>All Active ({totalActiveLoads})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActionFilter("critical")}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border transition-all whitespace-nowrap ${
+              actionFilter === "critical"
+                ? "bg-red-600 text-white border-red-600 shadow-sm ring-2 ring-red-500/20"
+                : criticalCount > 0
+                ? "bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
+                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+            }`}
+          >
+            <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
+            <span>Critical &amp; Delays ({criticalCount})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActionFilter("needs_pickup_3_5h")}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border transition-all whitespace-nowrap ${
+              actionFilter === "needs_pickup_3_5h"
+                ? "bg-amber-600 text-white border-amber-600 shadow-sm"
+                : pendingPickup3_5h > 0
+                ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5 text-amber-500" />
+            <span>Needs 3.5h Check-in ({pendingPickup3_5h})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActionFilter("needs_delivery_30m")}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border transition-all whitespace-nowrap ${
+              actionFilter === "needs_delivery_30m"
+                ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                : pendingDelivery30m > 0
+                ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+            }`}
+          >
+            <Zap className="w-3.5 h-3.5 text-blue-500" />
+            <span>Approaching Delivery ({pendingDelivery30m})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActionFilter("amazon_relay")}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border transition-all whitespace-nowrap ${
+              actionFilter === "amazon_relay"
+                ? "bg-slate-900 text-white border-slate-900 shadow-sm"
+                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+            }`}
+          >
+            <Package className="w-3.5 h-3.5 text-orange-500" />
+            <span>Amazon Relay ({loads.filter((l) => l.source === "amazon_relay").length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActionFilter("dat_spot")}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border transition-all whitespace-nowrap ${
+              actionFilter === "dat_spot"
+                ? "bg-slate-900 text-white border-slate-900 shadow-sm"
+                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5 text-indigo-500" />
+            <span>DAT &amp; Spot ({loads.filter((l) => l.source !== "amazon_relay").length})</span>
+          </button>
+        </div>
+
         {/* Load Display Views */}
         {loading ? (
           <div className="py-20 text-center space-y-3">
             <RefreshCw className="w-8 h-8 text-orange-600 animate-spin mx-auto" />
             <p className="text-sm font-bold text-slate-600">Loading Live Operations Board...</p>
           </div>
-        ) : loads.length === 0 ? (
+        ) : displayedLoads.length === 0 ? (
           <div className="py-20 text-center bg-white rounded-3xl border border-slate-200 p-8 space-y-4">
             <Truck className="w-12 h-12 text-slate-300 mx-auto" />
             <div className="space-y-1">
-              <h3 className="text-base font-black text-slate-900">No Loads Found for Current Shift</h3>
+              <h3 className="text-base font-black text-slate-900">No Loads Match Current Filters</h3>
               <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                No active tours match your filters for the {currentShift.toUpperCase()} shift. Ingest tours from Amazon Relay or create one manually.
+                No active tours match your selected filter for the {currentShift.toUpperCase()} shift. Clear filters or create a new load.
               </p>
             </div>
             <div className="flex items-center justify-center gap-3 pt-2">
               <button
+                onClick={() => {
+                  setActionFilter("all");
+                  setStatusFilter("all");
+                  setSearchQuery("");
+                }}
+                className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold"
+              >
+                Reset All Filters
+              </button>
+              <button
                 onClick={() => setIsCreateLoadOpen(true)}
                 className="px-4 py-2 rounded-xl bg-orange-600 text-white text-xs font-bold"
               >
-                + Create First Load
-              </button>
-              <button
-                onClick={() => setIsImportOpen(true)}
-                className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold"
-              >
-                Import CSV / Relay Batch
+                + Create New Load
               </button>
             </div>
           </div>
         ) : viewMode === "grid" ? (
           /* View 1: Grid Cards View */
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-in fade-in duration-200">
-            {loads.map((load) => (
+            {displayedLoads.map((load) => (
               <LoadGridCard
                 key={load.id}
                 load={load}
@@ -547,7 +760,7 @@ export default function DispatcherOperationsBoardPage() {
         ) : (
           /* View 3: Detailed List Rows View */
           <div className="space-y-4 animate-in fade-in duration-200">
-            {loads.map((load) => (
+            {displayedLoads.map((load) => (
               <LoadOperationsCard
                 key={load.id}
                 load={load}

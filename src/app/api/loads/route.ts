@@ -20,7 +20,9 @@ export async function GET(req: Request) {
       criticalOnly,
     });
 
-    return NextResponse.json({ loads });
+    const syncHealth = portalDb.getSyncHealth();
+
+    return NextResponse.json({ loads, syncHealth });
   } catch (error: any) {
     console.error("GET /api/loads error:", error);
     return NextResponse.json({ error: "Failed to fetch loads" }, { status: 500 });

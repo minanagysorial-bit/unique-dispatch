@@ -37,3 +37,4 @@ public/audio_cache/
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+scratch/
