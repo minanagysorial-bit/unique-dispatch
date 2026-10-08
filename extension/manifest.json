@@ -1,0 +1,54 @@
+{
+  "manifest_version": 3,
+  "name": "Unique Dispatch - Relay Sync Engine",
+  "version": "1.0.0",
+  "description": "Enterprise real-time trip synchronization from Amazon Relay to Unique Dispatch Operations Portal",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "Unique Dispatch Relay Sync Settings",
+    "default_icon": "icons/icon48.png"
+  },
+  "permissions": [
+    "storage",
+    "alarms"
+  ],
+  "host_permissions": [
+    "https://relay.amazon.com/*",
+    "https://*.uniquedispatch.com/*",
+    "http://localhost:3000/*"
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://relay.amazon.com/tours*",
+        "https://relay.amazon.com/loadboard*",
+        "https://relay.amazon.com/trips*",
+        "https://relay.amazon.com/history*"
+      ],
+      "js": [
+        "content/content-script.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "content/relay-interceptor.js",
+        "icons/*"
+      ],
+      "matches": [
+        "https://relay.amazon.com/*"
+      ]
+    }
+  ]
+}

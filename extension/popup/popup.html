@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Unique Dispatch - Relay Sync Engine</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    
+    <!-- Header -->
+    <header class="header">
+      <div class="logo-area">
+        <div class="logo-icon">UD</div>
+        <div>
+          <h1 class="title">Unique Dispatch</h1>
+          <p class="subtitle">Amazon Relay Sync Engine v1.0</p>
+        </div>
+      </div>
+      <div id="status-badge" class="badge badge-checking">
+        <span class="dot"></span>
+        <span id="status-text">Checking</span>
+      </div>
+    </header>
+
+    <!-- Main Form -->
+    <main class="content">
+      
+      <!-- Live Sync Stats -->
+      <div class="stats-card">
+        <div class="stat-item">
+          <span class="stat-label">Active Relay Status</span>
+          <span id="relay-status" class="stat-val text-emerald">Monitoring 🟢</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Last Synced</span>
+          <span id="last-sync-time" class="stat-val">Not synced yet</span>
+        </div>
+      </div>
+
+      <!-- Settings Inputs -->
+      <div class="form-group">
+        <label for="portal-url">Portal Webhook URL</label>
+        <input type="text" id="portal-url" placeholder="https://uniquedispatch.com" />
+      </div>
+
+      <div class="form-group">
+        <label for="api-key">Ingestion Sync Key</label>
+        <input type="password" id="api-key" placeholder="ud_live_sync_..." />
+        <span class="input-hint">Obtain from Super Admin Governance Hub</span>
+      </div>
+
+      <div class="form-group">
+        <label for="shift-select">Assigned Shift Window</label>
+        <select id="shift-select">
+          <option value="morning">Morning Shift (06:00 - 14:00 EST)</option>
+          <option value="afternoon">Afternoon Shift (14:00 - 22:00 EST)</option>
+          <option value="night">Night Shift (22:00 - 06:00 EST)</option>
+        </select>
+      </div>
+
+      <div class="toggle-group">
+        <label class="toggle-label" for="auto-sync-toggle">
+          <span>Continuous Background Auto-Sync</span>
+          <span class="toggle-sub">Ingests new tours every 60 seconds</span>
+        </label>
+        <input type="checkbox" id="auto-sync-toggle" checked />
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="actions">
+        <button id="btn-sync-now" class="btn btn-primary">
+          <span>⚡ Sync Active Relay Screen</span>
+        </button>
+
+        <button id="btn-save" class="btn btn-secondary">
+          <span>Save Configuration</span>
+        </button>
+      </div>
+
+      <div id="alert-box" class="alert-box hidden"></div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <span>Zero-Scrape Human Ingestion Architecture</span>
+      <a href="https://uniquedispatch.com/portal" target="_blank">Open Ops Board ↗</a>
+    </footer>
+
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
