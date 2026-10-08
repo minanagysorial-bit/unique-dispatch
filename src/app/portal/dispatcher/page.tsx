@@ -62,6 +62,7 @@ export default function DispatcherOperationsBoardPage() {
   const [syncHealth, setSyncHealth] = useState<SyncHealth | null>(null);
 
   const prevCriticalCountRef = useRef<number>(0);
+  const prevMilestonesCountRef = useRef<number>(0);
   const isInitialLoadRef = useRef<boolean>(true);
 
   // Modals
@@ -154,7 +155,7 @@ export default function DispatcherOperationsBoardPage() {
           setSyncHealth(data.syncHealth);
         }
 
-        // Live Audio Alert Trigger for newly escalated Critical / Delayed Incidents
+        // 1. Live Audio Alert Trigger for newly escalated Critical / Delayed Incidents
         const currentCritical = fetchedLoads.filter(
           (l) => l.isCriticalAlert || l.hasActiveIncident || l.status === "delayed" || l.status === "critical_alert"
         ).length;
@@ -163,6 +164,24 @@ export default function DispatcherOperationsBoardPage() {
           playUrgentAlert();
         }
         prevCriticalCountRef.current = currentCritical;
+
+        // 2. Milestone Chime Trigger for 3.5h Pickup or 30m Delivery deadlines
+        const currentPending3_5h = fetchedLoads.filter((l) => {
+          const hoursToPickup = (new Date(l.pickupTime).getTime() - Date.now()) / (3600 * 1000);
+          return !l.pickupCheckinSent && hoursToPickup <= 3.5 && hoursToPickup >= -4 && l.status !== "delivered";
+        }).length;
+
+        const currentPending30m = fetchedLoads.filter((l) => {
+          const minsToDelivery = (new Date(l.deliveryTime).getTime() - Date.now()) / (60 * 1000);
+          return !l.deliveryCheckinSent && minsToDelivery <= 30 && minsToDelivery >= -60 && l.status !== "delivered";
+        }).length;
+
+        const totalPendingMilestones = currentPending3_5h + currentPending30m;
+
+        if (!isInitialLoadRef.current && totalPendingMilestones > prevMilestonesCountRef.current) {
+          playMilestoneChime();
+        }
+        prevMilestonesCountRef.current = totalPendingMilestones;
         isInitialLoadRef.current = false;
       }
     } catch (e) {
