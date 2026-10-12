@@ -115,13 +115,25 @@
   function extractBlockTripId(node, text) {
     if (!node) return null;
 
-    // Direct match for Block Tour ID (B-...) or Tour ID (T-...)
+    // 1. Primary authentic Tour / Block ID starting with B- or T-
+    // e.g. B-B278JZ641, B-BWM2T1N0Z, B-D287LCHD0, B-FV90RB0M3, T-113M3SH6V, T-115XPHX9F
     const prefixMatch = text.match(/\b([TB]-[A-Za-z0-9]{6,16})\b/);
     if (prefixMatch && prefixMatch[1]) {
       return prefixMatch[1].trim();
     }
 
-    // Direct match for standalone Tour token
+    // 2. Explicit VRID pattern
+    const vridMatch = text.match(/\bVRID-([A-Za-z0-9]{6,16})\b/i);
+    if (vridMatch && vridMatch[1]) {
+      return `VRID-${vridMatch[1].trim()}`;
+    }
+
+    // On Amazon Relay tours page, NEVER accept raw tokens (they are sub-legs/ARNs!)
+    if (typeof window !== "undefined" && window.location.href.includes("/tours")) {
+      return null;
+    }
+
+    // 3. Fallback for spot load board ONLY (where prefix might be absent)
     const tokenMatch = text.match(/\b([0-9][A-Z0-9]{8,11})\b/);
     if (tokenMatch && tokenMatch[1]) {
       return tokenMatch[1].trim();
@@ -351,48 +363,114 @@
 
   // 6. Targeted Screen Scanner strictly preserving vertical top-to-bottom Relay Screen Order
   function scanDomForTours() {
-    const candidateNodes = [];
+    const foundTours = [];
+    const seenIds = new Set();
+    let currentScreenIndex = 0;
 
-    // Target block containers and table rows
-    const selectors = [
-      'table tbody tr:not([class*="header" i])',
-      'div[role="row"]:not([role="columnheader" i])',
-      'li[class*="awsui-cards-card-item" i]',
-      'div[class*="awsui_card_" i]',
-      '[class*="block-tour" i]',
-      '[class*="trip-card" i]',
-      '[data-testid*="trip-row" i]',
-      '[data-testid*="tour-row" i]',
-    ];
+    // STEP 1: Find all genuine Tour IDs on screen (B-... for Block Tours, T-... for Single Tours)
+    const tourAnchors = [];
+    const idRegex = /\b([TB]-[A-Za-z0-9]{6,16})\b/;
 
-    document.querySelectorAll(selectors.join(", ")).forEach((el) => {
-      if (el === document.body || el === document.documentElement || (el.id && el.id.includes("ud-"))) return;
-      candidateNodes.push(el);
-    });
+    const potentialIdElements = Array.from(
+      document.querySelectorAll('a, button, span, div, h1, h2, h3, h4, h5, p, [role="link"]')
+    );
 
-    // Fallback: Elements containing Block Tour IDs (B-...) or Tour IDs (T-...)
-    if (candidateNodes.length === 0) {
-      const allDivs = Array.from(document.querySelectorAll('div, tr, li, article, section'));
-      for (const d of allDivs) {
-        if (d.children.length <= 25 && d.textContent) {
-          const txt = d.textContent;
-          if (/\b([TB]-[A-Za-z0-9]{6,16})\b/.test(txt)) {
-            candidateNodes.push(d);
-          }
+    const detectedTourIds = new Set();
+
+    for (const el of potentialIdElements) {
+      if (el.children.length > 2) continue; // Skip large wrappers
+      const txt = (el.textContent || "").trim();
+      if (!txt || txt.length > 40) continue;
+
+      const m = txt.match(idRegex);
+      if (m && m[1]) {
+        const tid = m[1].trim();
+        if (!detectedTourIds.has(tid)) {
+          detectedTourIds.add(tid);
+          tourAnchors.push({ el, tourId: tid });
         }
       }
     }
 
-    // Filter out wrappers containing other candidate cards
-    const validRows = candidateNodes.filter((node) => {
-      const hasChildRow = candidateNodes.some((other) => other !== node && node.contains(other));
-      return !hasChildRow;
-    });
+    const resolvedTourCards = [];
 
-    // Sort by visual top-to-bottom coordinate
-    validRows.sort((a, b) => {
-      const rectA = a.getBoundingClientRect();
-      const rectB = b.getBoundingClientRect();
+    // STEP 2: For each Tour ID anchor, walk up the DOM to find its exclusive card container
+    if (tourAnchors.length > 0) {
+      for (const { el, tourId } of tourAnchors) {
+        let curr = el;
+        let bestContainer = el;
+
+        while (curr && curr !== document.body && curr !== document.documentElement) {
+          const parent = curr.parentElement;
+          if (!parent) break;
+
+          const pText = parent.textContent || "";
+          const allIdsInParent = Array.from(new Set(Array.from(pText.matchAll(/\b([TB]-[A-Za-z0-9]{6,16})\b/g)).map((x) => x[1])));
+
+          // If the parent contains multiple different tour IDs, curr is the single tour container!
+          if (allIdsInParent.length > 1) {
+            bestContainer = curr;
+            break;
+          }
+
+          // Check if curr matches known Relay card selectors
+          if (
+            curr.matches && (
+              curr.matches('li[class*="awsui-cards-card-item" i]') ||
+              curr.matches('div[class*="awsui_card_" i]') ||
+              curr.matches('[class*="trip-card" i]') ||
+              curr.matches('[class*="block-tour" i]') ||
+              curr.matches('tr[class*="awsui_row_" i]')
+            )
+          ) {
+            bestContainer = curr;
+            break;
+          }
+
+          bestContainer = curr;
+          curr = parent;
+        }
+
+        resolvedTourCards.push({
+          tourId,
+          node: bestContainer,
+          text: (bestContainer.textContent || "").trim(),
+        });
+      }
+    } else {
+      // Fallback for non-tours screens (e.g. Load Board where IDs might be VRID)
+      const selectors = [
+        'table tbody tr:not([class*="header" i])',
+        'div[role="row"]:not([role="columnheader" i])',
+        'li[class*="awsui-cards-card-item" i]',
+        'div[class*="awsui_card_" i]',
+        '[class*="block-tour" i]',
+        '[class*="trip-card" i]',
+      ];
+      const fallbackNodes = [];
+      document.querySelectorAll(selectors.join(", ")).forEach((el) => {
+        if (el === document.body || el === document.documentElement || (el.id && el.id.includes("ud-"))) return;
+        fallbackNodes.push(el);
+      });
+
+      for (const fNode of fallbackNodes) {
+        const text = (fNode.textContent || "").trim();
+        const tripId = extractBlockTripId(fNode, text);
+        if (tripId && !seenIds.has(tripId)) {
+          seenIds.add(tripId);
+          resolvedTourCards.push({
+            tourId: tripId,
+            node: fNode,
+            text,
+          });
+        }
+      }
+    }
+
+    // Sort by visual top-to-bottom coordinate (Preserving exact Relay Screen Order)
+    resolvedTourCards.sort((a, b) => {
+      const rectA = a.node.getBoundingClientRect();
+      const rectB = b.node.getBoundingClientRect();
       const topA = rectA.top + (window.scrollY || window.pageYOffset || 0);
       const topB = rectB.top + (window.scrollY || window.pageYOffset || 0);
       if (Math.abs(topA - topB) > 2) {
@@ -401,14 +479,9 @@
       return rectA.left - rectB.left;
     });
 
-    const foundTours = [];
-    const seenIds = new Set();
-    let currentScreenIndex = 0;
-
-    for (let i = 0; i < validRows.length; i++) {
-      const node = validRows[i];
+    for (let i = 0; i < resolvedTourCards.length; i++) {
+      const { tourId, node, text } = resolvedTourCards[i];
       try {
-        const text = (node.textContent || "").trim();
         if (!text || text.length < 10) continue;
 
         // Anti-ghost: ignore filter bars, header bars, and pagination
@@ -426,17 +499,7 @@
           continue;
         }
 
-        // Extract genuine Block Trip ID (B-..., T-...)
-        let tripId = extractBlockTripId(node, text);
-
-        if (!tripId) {
-          const hasFacility = /\[[A-Z0-9]{3,6}\]|\b[A-Z]{3,4}[0-9]{1,2}\b/.test(text);
-          const hasCityState = /[A-Za-z\s]{3,20},\s*[A-Z]{2}\b/.test(text);
-          if (hasFacility && hasCityState) {
-            tripId = `RELAY-TRIP-${i + 1}`;
-          }
-        }
-
+        const tripId = tourId;
         if (!tripId || seenIds.has(tripId)) continue;
         seenIds.add(tripId);
 

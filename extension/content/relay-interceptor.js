@@ -44,29 +44,54 @@
     // Unwrap node or wrapper
     const item = raw.node ? raw.node : raw.tour ? raw.tour : raw.workOpportunity ? raw.workOpportunity : raw.trip ? raw.trip : raw;
 
-    // 1. Extract Trip ID / Tour ID from all possible Relay API formats
-    const rawId =
+    // Reject internal sub-legs / shipment segments
+    if (item.fromSeq !== undefined || item.toSeq !== undefined || item.legSequence !== undefined || item.subTripId !== undefined || item.parentTourId) {
+      return null;
+    }
+
+    // 1. Extract Trip ID / Tour ID from authentic Relay API formats
+    const primaryId =
       item.tourReferenceId ||
       item.carrierTourId ||
-      item.tourId ||
-      item.tripId ||
-      item.workOpportunityId ||
-      item.workOpportunityRef ||
-      item.tourExecutionId ||
-      item.executionId ||
-      item.referenceId ||
-      item.tourNumber ||
-      item.tripNumber ||
-      item.workAssignmentId ||
-      item.vrid ||
-      item.orderId ||
-      item.id ||
+      item.blockTourId ||
+      item.carrierTripId ||
       (item.summary && (item.summary.tourId || item.summary.tourReferenceId)) ||
-      (item.details && (item.details.tourId || item.details.workOpportunityId)) ||
-      "";
+      (item.details && (item.details.tourId || item.details.workOpportunityId));
 
-    const tripId = String(rawId).trim();
-    if (!tripId || tripId.length < 3) return null;
+    let tripId = "";
+    if (primaryId && typeof primaryId === "string") {
+      const trimmed = primaryId.trim();
+      if (/^[TB]-[A-Za-z0-9]{6,16}$/i.test(trimmed)) {
+        tripId = trimmed;
+      }
+    }
+
+    if (!tripId && item.tourId && typeof item.tourId === "string") {
+      const trimmed = item.tourId.trim();
+      if (/^[TB]-[A-Za-z0-9]{6,16}$/i.test(trimmed)) {
+        tripId = trimmed;
+      }
+    }
+
+    if (!tripId && item.tripId && typeof item.tripId === "string") {
+      const trimmed = item.tripId.trim();
+      if (/^[TB]-[A-Za-z0-9]{6,16}$/i.test(trimmed)) {
+        tripId = trimmed;
+      }
+    }
+
+    // Fallback: If on work opportunities board (spot), match VRID
+    if (!tripId) {
+      const fallbackId = item.tourReferenceId || item.carrierTourId || item.tourId || item.workOpportunityId || item.vrid;
+      if (fallbackId && typeof fallbackId === "string") {
+        const trimmed = fallbackId.trim();
+        if (/^[TB]-[A-Za-z0-9]{6,16}$/i.test(trimmed) || /^[0-9][A-Z0-9]{8,11}$/i.test(trimmed) || /^VRID-[A-Za-z0-9]+$/i.test(trimmed)) {
+          tripId = trimmed;
+        }
+      }
+    }
+
+    if (!tripId || tripId.length < 5) return null;
 
     // Filter out obvious non-tour UI IDs
     const forbiddenPrefixes = ["user-", "usr-", "nav-", "menu-", "btn-", "filter-", "setting-", "notif-", "theme-", "tab-"];
@@ -406,6 +431,11 @@
     if (!data) return;
 
     let candidateList = [];
+    const skipChildKeys = new Set([
+      "legs", "tourLegs", "subTours", "workOpportunityLegs",
+      "stops", "itinerary", "stopDetails", "locationSequence",
+      "shipments", "auditTrail", "comments", "actions", "events"
+    ]);
 
     function findObjectsAndArrays(obj, depth = 0) {
       if (!obj || depth > 10) return;
@@ -422,6 +452,7 @@
       }
       if (typeof obj === "object") {
         for (const key of Object.keys(obj)) {
+          if (skipChildKeys.has(key)) continue; // Never treat internal legs/stops as separate tours
           const val = obj[key];
           if (val && typeof val === "object") {
             findObjectsAndArrays(val, depth + 1);
