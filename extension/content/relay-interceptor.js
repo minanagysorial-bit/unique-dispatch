@@ -61,37 +61,37 @@
     let tripId = "";
     if (primaryId && typeof primaryId === "string") {
       const trimmed = primaryId.trim();
-      if (/^[TB]-[A-Za-z0-9]{6,16}$/i.test(trimmed)) {
-        tripId = trimmed;
-      }
+      const m = trimmed.match(/^([TB]-[A-Za-z0-9]{9})/i);
+      if (m) tripId = m[1].toUpperCase();
+      else if (/^[TB]-[A-Za-z0-9]{6,16}$/i.test(trimmed)) tripId = trimmed.toUpperCase();
     }
 
     if (!tripId && item.tourId && typeof item.tourId === "string") {
       const trimmed = item.tourId.trim();
-      if (/^[TB]-[A-Za-z0-9]{6,16}$/i.test(trimmed)) {
-        tripId = trimmed;
-      }
+      const m = trimmed.match(/^([TB]-[A-Za-z0-9]{9})/i);
+      if (m) tripId = m[1].toUpperCase();
+      else if (/^[TB]-[A-Za-z0-9]{6,16}$/i.test(trimmed)) tripId = trimmed.toUpperCase();
     }
 
     if (!tripId && item.tripId && typeof item.tripId === "string") {
       const trimmed = item.tripId.trim();
-      if (/^[TB]-[A-Za-z0-9]{6,16}$/i.test(trimmed)) {
-        tripId = trimmed;
-      }
+      const m = trimmed.match(/^([TB]-[A-Za-z0-9]{9})/i);
+      if (m) tripId = m[1].toUpperCase();
+      else if (/^[TB]-[A-Za-z0-9]{6,16}$/i.test(trimmed)) tripId = trimmed.toUpperCase();
     }
 
     if (!tripId && item.id && typeof item.id === "string") {
       const trimmed = item.id.trim();
-      if (/^[TB]-[A-Za-z0-9]{6,16}$/i.test(trimmed)) {
-        tripId = trimmed;
-      }
+      const m = trimmed.match(/^([TB]-[A-Za-z0-9]{9})/i);
+      if (m) tripId = m[1].toUpperCase();
+      else if (/^[TB]-[A-Za-z0-9]{6,16}$/i.test(trimmed)) tripId = trimmed.toUpperCase();
     }
 
     if (!tripId && item.tripNumber && typeof item.tripNumber === "string") {
       const trimmed = item.tripNumber.trim();
-      if (/^[TB]-[A-Za-z0-9]{6,16}$/i.test(trimmed)) {
-        tripId = trimmed;
-      }
+      const m = trimmed.match(/^([TB]-[A-Za-z0-9]{9})/i);
+      if (m) tripId = m[1].toUpperCase();
+      else if (/^[TB]-[A-Za-z0-9]{6,16}$/i.test(trimmed)) tripId = trimmed.toUpperCase();
     }
 
     // Fallback: If on work opportunities board (spot), match VRID
@@ -99,10 +99,18 @@
       const fallbackId = item.tourReferenceId || item.carrierTourId || item.tourId || item.workOpportunityId || item.vrid || item.id;
       if (fallbackId && typeof fallbackId === "string") {
         const trimmed = fallbackId.trim();
-        if (/^[TB]-[A-Za-z0-9]{6,16}$/i.test(trimmed) || /^[0-9][A-Z0-9]{8,11}$/i.test(trimmed) || /^VRID-[A-Za-z0-9]+$/i.test(trimmed)) {
+        const m = trimmed.match(/^([TB]-[A-Za-z0-9]{9})/i);
+        if (m) {
+          tripId = m[1].toUpperCase();
+        } else if (/^[TB]-[A-Za-z0-9]{6,16}$/i.test(trimmed) || /^[0-9][A-Z0-9]{8,11}$/i.test(trimmed) || /^VRID-[A-Za-z0-9]+$/i.test(trimmed)) {
           tripId = trimmed;
         }
       }
+    }
+
+    // Strip trailing 'C' safeguard
+    if (tripId.length === 12 && tripId.endsWith("C") && (tripId.startsWith("B-") || tripId.startsWith("T-"))) {
+      tripId = tripId.slice(0, 11);
     }
 
     if (!tripId || tripId.length < 5) return null;
