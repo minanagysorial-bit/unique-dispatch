@@ -80,9 +80,23 @@
       }
     }
 
+    if (!tripId && item.id && typeof item.id === "string") {
+      const trimmed = item.id.trim();
+      if (/^[TB]-[A-Za-z0-9]{6,16}$/i.test(trimmed)) {
+        tripId = trimmed;
+      }
+    }
+
+    if (!tripId && item.tripNumber && typeof item.tripNumber === "string") {
+      const trimmed = item.tripNumber.trim();
+      if (/^[TB]-[A-Za-z0-9]{6,16}$/i.test(trimmed)) {
+        tripId = trimmed;
+      }
+    }
+
     // Fallback: If on work opportunities board (spot), match VRID
     if (!tripId) {
-      const fallbackId = item.tourReferenceId || item.carrierTourId || item.tourId || item.workOpportunityId || item.vrid;
+      const fallbackId = item.tourReferenceId || item.carrierTourId || item.tourId || item.workOpportunityId || item.vrid || item.id;
       if (fallbackId && typeof fallbackId === "string") {
         const trimmed = fallbackId.trim();
         if (/^[TB]-[A-Za-z0-9]{6,16}$/i.test(trimmed) || /^[0-9][A-Z0-9]{8,11}$/i.test(trimmed) || /^VRID-[A-Za-z0-9]+$/i.test(trimmed)) {
@@ -341,8 +355,9 @@
       (lastStop && lastStop.appointmentTime) ||
       "";
 
-    // Anti-pollution check
-    if (normalizedStops.length === 0 && !originFacility && !destFacility && !originCity && !destCity && rateUSD <= 0) {
+    // Anti-pollution check (Only reject non-tour UI noise if missing all location/rate data)
+    const isAuthenticTourId = /^[TB]-[A-Za-z0-9]{6,16}$/i.test(tripId);
+    if (!isAuthenticTourId && normalizedStops.length === 0 && !originFacility && !destFacility && !originCity && !destCity && rateUSD <= 0) {
       return null;
     }
 

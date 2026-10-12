@@ -238,7 +238,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       if (!targetTab) {
         finishButton();
-        showAlert("⚠️ No open Amazon Relay tab found. Please open https://relay.amazon.com/tours first.", false);
+        showAlert("⚠️ No open Amazon Relay tab found. Please open https://relay.amazon.com/trips or /tours first.", false);
         return;
       }
 
@@ -278,8 +278,12 @@ document.addEventListener("DOMContentLoaded", async () => {
             renderDetectedTours(res.tours);
           }
           const count = res?.count || 0;
-          const actionMsg = isReplace ? "Replaced all tours in portal with" : "Synced";
-          showAlert(`✓ ${actionMsg} ${count} active Relay tours!`);
+          if (count > 0) {
+            const actionMsg = isReplace ? "Replaced all tours in portal with" : "Synced";
+            showAlert(`✓ ${actionMsg} ${count} active Relay tours!`);
+          } else {
+            showAlert("ℹ️ 0 active tours detected on screen. Open https://relay.amazon.com/trips", false);
+          }
         }
 
         setTimeout(async () => {

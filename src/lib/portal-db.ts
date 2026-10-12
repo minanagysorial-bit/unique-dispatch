@@ -626,11 +626,14 @@ export const portalDb = {
 
     // If replace_all mode requested, remove older relay loads not in this active payload
     if (payload.mode === "replace_all") {
-      const incomingVrids = new Set(payload.loads.map((l) => l.vrid));
-      for (let i = loads.length - 1; i >= 0; i--) {
-        if (loads[i].source === "amazon_relay" && !incomingVrids.has(loads[i].vrid)) {
-          loads.splice(i, 1);
-          removed++;
+      // Safety guard: NEVER prune existing loads if incoming batch is empty or invalid
+      if (Array.isArray(payload.loads) && payload.loads.length > 0) {
+        const incomingVrids = new Set(payload.loads.map((l) => l.vrid));
+        for (let i = loads.length - 1; i >= 0; i--) {
+          if (loads[i].source === "amazon_relay" && !incomingVrids.has(loads[i].vrid)) {
+            loads.splice(i, 1);
+            removed++;
+          }
         }
       }
     }
