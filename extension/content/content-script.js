@@ -728,11 +728,16 @@
         </div>
 
         <div id="ud-pill-drawer" style="display:none; border-top: 1px solid #1e293b; padding: 10px 14px; max-height: 240px; overflow-y: auto;">
-          <div style="font-weight:800; color:#cbd5e1; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
+          <div style="font-weight:800; color:#cbd5e1; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center; gap:6px;">
             <span>Relay Screen Order (#1 to #N):</span>
-            <button id="ud-pill-replace-btn" style="background:#1e293b; color:#38bdf8; border:1px solid #38bdf8; border-radius:6px; padding:2px 6px; font-size:9px; cursor:pointer; font-weight:bold;">
-              🔄 Replace All in Portal
-            </button>
+            <div style="display:flex; align-items:center; gap:4px;">
+              <button id="ud-pill-expand-btn" style="background:#1e293b; color:#fb923c; border:1px solid #fb923c; border-radius:6px; padding:2px 6px; font-size:9px; cursor:pointer; font-weight:bold;" title="Expand all multi-leg tours and stops on screen">
+                📂 Expand All Legs
+              </button>
+              <button id="ud-pill-replace-btn" style="background:#1e293b; color:#38bdf8; border:1px solid #38bdf8; border-radius:6px; padding:2px 6px; font-size:9px; cursor:pointer; font-weight:bold;">
+                🔄 Replace All in Portal
+              </button>
+            </div>
           </div>
           <div id="ud-pill-drawer-list" style="display:flex; flex-direction:column; gap:6px;">
             <div style="color:#64748b; font-size:10px;">No tours captured yet. Browse tours or click Sync Now.</div>
@@ -747,9 +752,14 @@
     const drawer = document.getElementById("ud-pill-drawer");
     const syncBtn = document.getElementById("ud-pill-sync-btn");
     const replaceBtn = document.getElementById("ud-pill-replace-btn");
+    const expandBtn = document.getElementById("ud-pill-expand-btn");
 
     pillCard.addEventListener("click", (e) => {
-      if (e.target === syncBtn || syncBtn.contains(e.target) || e.target === replaceBtn || replaceBtn?.contains(e.target)) return;
+      if (
+        e.target === syncBtn || syncBtn.contains(e.target) ||
+        e.target === replaceBtn || replaceBtn?.contains(e.target) ||
+        e.target === expandBtn || expandBtn?.contains(e.target)
+      ) return;
       if (drawer.style.display === "none") {
         drawer.style.display = "block";
         updateDrawerList();
@@ -757,6 +767,35 @@
         drawer.style.display = "none";
       }
     });
+
+    if (expandBtn) {
+      expandBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        expandAllRelayRows();
+      });
+    }
+
+    function expandAllRelayRows() {
+      const expandables = Array.from(
+        document.querySelectorAll(
+          'button[aria-expanded="false"], button[aria-label*="expand" i], [class*="expand-toggle"], tr[class*="awsui"] button[aria-label*="expand" i]'
+        )
+      );
+      if (expandables.length === 0) {
+        showToast("ℹ️ All visible tours are already expanded.");
+        return;
+      }
+      expandables.forEach((btn) => {
+        try {
+          btn.click();
+        } catch (e) {}
+      });
+      showToast(`📂 Expanding ${expandables.length} tours/legs in Amazon Relay...`);
+      setTimeout(() => {
+        scanDomForTours();
+        updateFloatingPillUI();
+      }, 700);
+    }
 
     syncBtn.addEventListener("click", (e) => {
       e.stopPropagation();
