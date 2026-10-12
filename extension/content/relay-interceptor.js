@@ -45,18 +45,29 @@
     const item = raw.node ? raw.node : raw.tour ? raw.tour : raw.workOpportunity ? raw.workOpportunity : raw.trip ? raw.trip : raw;
 
     // Reject internal sub-legs / shipment segments
-    if (item.fromSeq !== undefined || item.toSeq !== undefined || item.legSequence !== undefined || item.subTripId !== undefined || item.parentTourId) {
+    if (
+      item.fromSeq !== undefined ||
+      item.toSeq !== undefined ||
+      item.legSequence !== undefined ||
+      item.subTripId !== undefined ||
+      item.parentTourId ||
+      item.parentTourReferenceId ||
+      item.subTripSequence !== undefined ||
+      item.tripSequence !== undefined ||
+      item.legNumber !== undefined ||
+      item.stopSequence !== undefined
+    ) {
       return null;
     }
 
-    // 1. Extract Trip ID / Tour ID from authentic Relay API formats
+    // 1. Extract Trip ID / Tour ID from authentic Relay API formats (Strictly prioritize Block Tour ID B- over sub-trips T-)
     const primaryId =
+      item.blockTourId ||
       item.tourReferenceId ||
       item.carrierTourId ||
-      item.blockTourId ||
-      item.carrierTripId ||
-      (item.summary && (item.summary.tourId || item.summary.tourReferenceId)) ||
-      (item.details && (item.details.tourId || item.details.workOpportunityId));
+      (item.summary && (item.summary.blockTourId || item.summary.tourReferenceId || item.summary.tourId)) ||
+      (item.details && (item.details.blockTourId || item.details.tourId || item.details.workOpportunityId)) ||
+      item.carrierTripId;
 
     let tripId = "";
     if (primaryId && typeof primaryId === "string") {
@@ -114,6 +125,11 @@
     }
 
     if (!tripId || tripId.length < 5) return null;
+
+    // Never emit child sub-trips (T-) when they belong to a parent block tour (B-)
+    if (tripId.startsWith("T-") && (item.blockTourId || item.parentTourId || item.parentTourReferenceId || (typeof item.tourId === "string" && item.tourId.startsWith("B-")))) {
+      return null;
+    }
 
     // Filter out obvious non-tour UI IDs
     const forbiddenPrefixes = ["user-", "usr-", "nav-", "menu-", "btn-", "filter-", "setting-", "notif-", "theme-", "tab-"];
