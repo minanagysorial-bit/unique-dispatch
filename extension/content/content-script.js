@@ -8,9 +8,9 @@
   "use strict";
 
   window.__ud_content_script_initialized = true;
-  window.__ud_version = "1.0.2";
+  window.__ud_version = "1.0.3";
 
-  console.log("🚚 [Unique Dispatch] Relay High-Fidelity Multi-Leg Engine Active in frame:", window.location.href);
+  console.log("🚚 [Unique Dispatch] Relay High-Fidelity Multi-Leg Engine Active v1.0.3 in frame:", window.location.href);
 
   const capturedApiToursMap = new Map();
   let latestOrderedTours = [];
@@ -57,7 +57,7 @@
     } else if (lower.includes("yesterday")) {
       targetDate.setDate(targetDate.getDate() - 1);
     } else {
-      // Month + Day format: e.g. "Thu, Oct 8", "Fri, Oct 9", "Sat, Oct 10", "8 Oct", "9 Oct"
+      // Month + Day format: e.g. "Thu, Oct 8", "Fri, Oct 9", "Sat, Oct 10", "8 Oct", "9 Oct", "Mon, Oct 12"
       const monthMatch = text.match(/\b(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun),?\s+)?(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{1,2})(?:st|nd|rd|th)?(?:\s*,?\s*(\d{4}))?\b/i)
         || text.match(/\b(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*(?:\s*,?\s*(\d{4}))?\b/i);
 
@@ -81,7 +81,7 @@
       }
     }
 
-    // Clock Time (e.g. "12:05", "18:03", "00:30", "01:30", "12:29")
+    // Clock Time (e.g. "12:05", "18:03", "04:07", "17:30", "00:30")
     const timeMatch = text.match(/\b(\d{1,2}):(\d{2})\s*(AM|PM)?\b/i);
     if (timeMatch) {
       let hours = parseInt(timeMatch[1], 10);
@@ -125,13 +125,11 @@
 
     // 2. Strict 9-character Block Tour ID pattern: B- followed by exactly 9 alphanumeric chars
     // e.g. B-SJ8SRR7C8, B-XXRDS696P, B-C051PX4FZ, B-B278JZ641
-    // Positive lookahead ensures it never greedily captures the contract code 'C-' directly appended in DOM
     const blockMatch =
       text.match(/\b(B-[A-Za-z0-9]{9})(?=[^A-Za-z0-9]|$|C-)/i) ||
       text.match(/\b(B-[A-Za-z0-9]{9})\b/i);
     if (blockMatch && blockMatch[1]) {
       let id = blockMatch[1].trim().toUpperCase();
-      // Absolute safeguard against trailing 'C'
       if (id.length === 12 && id.endsWith("C") && id.startsWith("B-")) {
         id = id.slice(0, 11);
       }
@@ -177,23 +175,47 @@
     return null;
   }
 
-  // 4. Extract Driver Name from Dropdown, Buttons, Cells, or Text
+  // 4. Extract Driver Name from Dropdown, Inputs, Buttons, Cells, or Text
   function extractDriverName(node, text) {
-    if (!node) return "Assigned Driver";
+    if (!node && !text) return "Assigned Driver";
 
-    // 1. Inspect elements inside node (AWSUI / Cloudscape Select dropdown trigger button or select element)
-    if (node.querySelectorAll) {
+    const isBadDriver = (cand) => {
+      if (!cand || cand.length < 3 || cand.length > 35) return true;
+      const lower = cand.toLowerCase();
+      return (
+        /select|assign|choose|driver|search|filter|^none$|action|detail|track|relay|amazon|contract|trailer|solo|team|starts|expires|hours|miles|drop|hook|cdl|fast|uiia|bnsf|epa|twic|load|trip|tour|upcoming|transit|history|export|bulk|accept|sort/i.test(
+          cand
+        )
+      );
+    };
+
+    // 1. Inspect elements inside node (AWSUI / Cloudscape Select dropdown, Autosuggest inputs, triggers)
+    if (node && node.querySelectorAll) {
+      // Inputs (Cloudscape Autosuggest / Combobox where driver name is stored in input.value)
+      const inputs = Array.from(node.querySelectorAll('input, [role="combobox"]'));
+      for (const inp of inputs) {
+        const val = (inp.value || inp.getAttribute("value") || "").trim();
+        if (!isBadDriver(val)) {
+          const m =
+            val.match(/\b([A-Z]\.\s+[A-Za-z0-9\-]+(?:\s+[A-Za-z0-9\-]+)?)\b/) ||
+            val.match(/\b([A-Z]\.\s*[A-Z]{2,20})\b/) ||
+            val.match(/\b([A-Z][a-z]{2,15}\s+[A-Z][a-z]{2,15})\b/);
+          if (m && !isBadDriver(m[1])) return m[1].trim();
+          if (/^[A-Z\s\.\-]{3,35}$/.test(val) && !isBadDriver(val)) return val;
+        }
+      }
+
       // Direct select element
       const selectEl = node.querySelector("select");
       if (selectEl) {
         const selectedOpt = selectEl.options[selectEl.selectedIndex];
         const optText = (selectedOpt ? selectedOpt.text : selectEl.value || "").trim();
-        if (optText && !/select|assign|choose|driver|^none$/i.test(optText)) {
+        if (!isBadDriver(optText)) {
           return optText;
         }
       }
 
-      // Dropdown buttons / triggers (e.g. button[aria-haspopup="listbox"], button[class*="trigger"], etc.)
+      // Dropdown buttons / triggers
       const triggerButtons = Array.from(
         node.querySelectorAll(
           'button[aria-haspopup="listbox"], button[class*="trigger"], [class*="awsui-select"] button, [class*="awsui_select"] button, [class*="select"] button, [class*="driver"] button, [aria-label*="driver" i], [class*="selected-option"], [class*="trigger-content"]'
@@ -201,12 +223,13 @@
       );
       for (const btn of triggerButtons) {
         const bText = (btn.innerText || btn.textContent || "").trim();
-        if (bText && !/select|assign|choose|driver|actions|filter|^none$/i.test(bText) && bText.length < 40) {
+        if (!isBadDriver(bText)) {
           const m =
             bText.match(/\b([A-Z]\.\s+[A-Za-z0-9\-]+(?:\s+[A-Za-z0-9\-]+)?)\b/) ||
+            bText.match(/\b([A-Z]\.\s*[A-Z]{2,20})\b/) ||
             bText.match(/\b([A-Z][a-z]{2,15}\s+[A-Z][a-z]{2,15})\b/);
-          if (m) return m[1].trim();
-          if (/^[A-Z\s\.\-]{3,35}$/.test(bText) && !/solo|team|trailer|contract/i.test(bText)) return bText;
+          if (m && !isBadDriver(m[1])) return m[1].trim();
+          if (/^[A-Z\s\.\-]{3,35}$/.test(bText) && !isBadDriver(bText)) return bText;
         }
       }
 
@@ -215,11 +238,12 @@
       if (cells.length >= 4) {
         for (let c = cells.length - 1; c >= 3; c--) {
           const cText = (cells[c].innerText || cells[c].textContent || "").trim();
-          if (!cText || /select|assign|choose|driver|actions|filter|^none$/i.test(cText)) continue;
+          if (isBadDriver(cText)) continue;
           const dMatch =
             cText.match(/\b([A-Z]\.\s+[A-Za-z0-9\-]+(?:\s+[A-Za-z0-9\-]+)?)\b/) ||
+            cText.match(/\b([A-Z]\.\s*[A-Z]{2,20})\b/) ||
             cText.match(/\b([A-Z][a-z]{2,15}\s+[A-Z][a-z]{2,15})\b/);
-          if (dMatch && !/solo|team|trailer|contract|starts|expires|hours|miles|drop|hook/i.test(dMatch[1])) {
+          if (dMatch && !isBadDriver(dMatch[1])) {
             return dMatch[1].trim();
           }
         }
@@ -227,11 +251,13 @@
     }
 
     // 2. Pre-process spaced text to split glued text (e.g. "UIIA_MCF. Sanchez" -> "UIIA_MC F. Sanchez")
-    const spaced = (text || "").replace(/([A-Za-z0-9_])([A-Z]\.\s+)/g, "$1 $2");
-    const nameMatch = spaced.match(/\b([A-Z]\.\s+[A-Za-z0-9\-]+(?:\s+[A-Za-z0-9\-]+)?)\b/);
+    const spaced = (text || "").replace(/([A-Za-z0-9_])([A-Z]\.\s*)/g, "$1 $2");
+    const nameMatch =
+      spaced.match(/\b([A-Z]\.\s+[A-Za-z0-9\-]+(?:\s+[A-Za-z0-9\-]+)?)\b/) ||
+      spaced.match(/\b([A-Z]\.\s*[A-Z]{2,20})\b/);
     if (nameMatch && nameMatch[1]) {
       const cand = nameMatch[1].trim();
-      if (!/drop|hook|solo|trailer|contract|starts|expires|cdl|fast|uiia/i.test(cand)) {
+      if (!isBadDriver(cand)) {
         return cand;
       }
     }
@@ -240,7 +266,7 @@
     const fullNameMatch = spaced.match(/\b([A-Z][a-z]{2,15}\s+[A-Z][a-z]{2,15})\b/);
     if (fullNameMatch && fullNameMatch[1]) {
       const cand = fullNameMatch[1].trim();
-      if (!/trailer|contract|relay|amazon|starts|expires|solo|team/i.test(cand)) {
+      if (!isBadDriver(cand)) {
         return cand;
       }
     }
@@ -250,7 +276,6 @@
 
   // 5. Deep Multi-Stop & Sub-Leg Extractor for Amazon Relay Blocks
   function extractBlockTourStructure(node, text) {
-    // Check if node has cells to extract structured column data
     const cells = node && node.querySelectorAll ? Array.from(node.querySelectorAll('td, [role="cell"], [role="gridcell"]')) : [];
 
     // Pre-process text to insert spaces around glued tokens
@@ -261,7 +286,7 @@
 
     // 1. Extract Parent Start and End Times
     const dateMatches = Array.from(
-      preprocessedText.matchAll(/(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun),?\s+)?(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}(?:st|nd|rd|th)?(?:\s*,?\s*\d{4})?,?\s+\d{1,2}:\d{2}\s*(?:AM|PM)?(?:\s*[A-Z]{3})?/gi)
+      preprocessedText.matchAll(/(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun),?\s+)?(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}|\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*)(?:st|nd|rd|th)?(?:\s*,?\s*\d{4})?,?\s+\d{1,2}:\d{2}\s*(?:AM|PM)?(?:\s*[A-Z]{3})?/gi)
     );
 
     const parentPickupTime = dateMatches[0] ? parseRelayDateTime(dateMatches[0][0], false) : parseRelayDateTime(preprocessedText, false);
@@ -283,13 +308,12 @@
       });
     }
 
-    // 3. Extract Addresses e.g. "111 Gembler Rd, San Antonio, TX 78219" or "111 Gembler Rd\nSan Antonio, TX 78219"
+    // 3. Extract Addresses e.g. "111 Gembler Rd, San Antonio, TX 78219" or "PVT ST AT 10384 W US HIGHWAY 90, San Antonio, TX 78245"
     const addressRegex = /((?:PVT\s+ST\s+AT\s+)?\d+\s+[A-Za-z0-9\s\.\-]{2,45}(?:Rd|St|Ave|Dr|Blvd|Way|Ct|Ln|Hwy|Pkwy|Highway\s*\d+|Loop\s*\d+|Parkway|Boulevard|Lane|Drive|Road|Street))[,\s\n\r]+([A-Za-z\s]{3,20}),\s*([A-Z]{2})(?:\s+(\d{5}))?/gi;
     const foundAddresses = [];
     let addrMatch;
     while ((addrMatch = addressRegex.exec(text)) !== null) {
       let rawStreet = addrMatch[1].trim();
-      // Clean leading stop sequence / facility code e.g. "1 SAT41\n111 Gembler Rd" -> "111 Gembler Rd"
       const cleanStreet = rawStreet.replace(/^[\s\S]*?\b(\d+\s+[A-Za-z0-9\s\.\-]+(?:Rd|St|Ave|Dr|Blvd|Way|Ct|Ln|Hwy|Pkwy|Highway\s*\d+|Loop\s*\d+|Parkway|Boulevard|Lane|Drive|Road|Street))/i, "$1").trim();
       foundAddresses.push({
         street: cleanStreet || rawStreet,
@@ -329,11 +353,11 @@
         const isLast = idx === subLegs.length - 1;
         const legArn = arnMatches[idx] || (arnMatches.length === 1 ? arnMatches[0] : undefined);
 
-        // Add Origin of leg (for first leg or distinct stop)
+        // Add Origin of leg (for first leg)
         if (isFirst || stopsList.length === 0) {
           const addr = foundAddresses[0];
           const oCity = addr?.city || (cityStateMatches[0] && cityStateMatches[0][1].trim()) || leg.fromFac;
-          const oState = addr?.state || (cityStateMatches[0] && cityStateMatches[0][2].trim()) || "US";
+          const oState = addr?.state || (cityStateMatches[0] && cityStateMatches[0][2].trim()) || "TX";
           stopsList.push({
             sequenceNumber: stopsList.length + 1,
             type: "pickup",
@@ -357,7 +381,7 @@
         const destCityMatch = (cityStateMatches[idx + 1] && cityStateMatches[idx + 1][1].trim()) || (cityStateMatches[cityStateMatches.length - 1] && cityStateMatches[cityStateMatches.length - 1][1].trim());
         const destStateMatch = (cityStateMatches[idx + 1] && cityStateMatches[idx + 1][2].trim()) || (cityStateMatches[cityStateMatches.length - 1] && cityStateMatches[cityStateMatches.length - 1][2].trim());
         const dCity = nextAddr?.city || destCityMatch || leg.toFac;
-        const dState = nextAddr?.state || destStateMatch || "US";
+        const dState = nextAddr?.state || destStateMatch || "TX";
         const stepTime = new Date(new Date(parentPickupTime).getTime() + (idx + 1) * 2 * 3600000).toISOString();
 
         stopsList.push({
@@ -377,8 +401,7 @@
         });
       });
     } else {
-      // Fallback: 2-stop summary from row columns
-      // If cells are present: cell 2 is Origin, cell 3 is Destination
+      // Direct summary extraction from row columns
       let cellOriginText = cells[2] ? (cells[2].innerText || cells[2].textContent || "").trim() : "";
       let cellDestText = cells[3] ? (cells[3].innerText || cells[3].textContent || "").trim() : "";
 
@@ -389,7 +412,7 @@
 
       const oFac = cleanFacilities[0] || (cellOriginText.match(/\b([A-Z]{3,4}[0-9]{1,2})\b/)?.[1]) || undefined;
       const oMatch = (cellOriginText && cellOriginText.match(/([A-Za-z\s\.\-]{3,24}),\s*([A-Z]{2})(?:\s+(\d{5}))?/)) || cityStateMatches[0];
-      const oCity = (oMatch && oMatch[1].trim()) || (foundAddresses[0] && foundAddresses[0].city) || "San Antonio";
+      const oCity = (oMatch && oMatch[1].trim()) || (foundAddresses[0] && foundAddresses[0].city) || (oFac ? `Facility ${oFac}` : "San Antonio");
       const oState = (oMatch && oMatch[2].trim()) || (foundAddresses[0] && foundAddresses[0].state) || "TX";
       const oZip = (oMatch && oMatch[3]) || (foundAddresses[0] && foundAddresses[0].zip) || undefined;
 
@@ -461,11 +484,58 @@
     const seenIds = new Set();
     let currentScreenIndex = 0;
 
-    // Strict 9-character Tour ID pattern: B- or T- followed by exactly 9 alphanumeric characters
     const idRegex = /\b([TB]-[A-Za-z0-9]{9})(?=[^A-Za-z0-9]|$|C-)/i;
-
     const rawCandidateRows = [];
     const seenNodes = new Set();
+
+    // Helper: Walk up to the full row/card container (NEVER stopping at a single cell)
+    function resolveRowContainer(el) {
+      let curr = el;
+      let best = el;
+
+      // Check if el is inside a standard table row or card
+      const standardRow = el.closest(
+        'tr:not([class*="header" i]), [role="row"]:not([role="columnheader" i]), li[class*="card" i], div[class*="awsui_card_" i], [class*="trip-card" i], [class*="block-tour" i], [class*="tour-card" i], [class*="table-row" i]'
+      );
+      if (standardRow && (standardRow.offsetWidth > 450 || standardRow.clientWidth > 450)) {
+        return standardRow;
+      }
+
+      // Walk up until parent contains multiple Tour IDs (meaning 'curr' is the complete tour row/card)
+      while (
+        curr &&
+        curr.parentElement &&
+        curr.parentElement !== document.body &&
+        curr.parentElement !== document.documentElement
+      ) {
+        const parent = curr.parentElement;
+        const parentText = parent.textContent || "";
+        const parentTourIds = new Set(parentText.match(/\b([TB]-[A-Za-z0-9]{9})\b/g) || []);
+
+        if (parentTourIds.size > 1) {
+          best = curr;
+          break;
+        }
+
+        if (
+          parent.tagName === "TBODY" ||
+          parent.tagName === "UL" ||
+          parent.getAttribute("role") === "rowgroup" ||
+          parent.getAttribute("role") === "table"
+        ) {
+          best = curr;
+          break;
+        }
+
+        if (curr.offsetWidth > 500 || curr.clientWidth > 500) {
+          best = curr;
+        }
+
+        curr = parent;
+      }
+
+      return best;
+    }
 
     // 1. Direct discovery via Tour ID anchor elements
     const allAnchorElements = Array.from(
@@ -478,25 +548,7 @@
       if (!txt || txt.length > 35) continue;
 
       if (idRegex.test(txt)) {
-        // Resolve enclosing entire row/card container (NEVER a single cell)
-        let row = el.closest('tr:not([class*="header" i]), [role="row"]:not([role="columnheader" i])');
-        if (!row) {
-          row = el.closest(
-            'li[class*="awsui-cards-card-item" i], li[class*="card" i], div[class*="awsui_card_" i], [class*="trip-card" i], [class*="block-tour" i], [class*="tour-card" i]'
-          );
-        }
-        if (!row) {
-          let curr = el;
-          while (curr && curr.parentElement && curr.parentElement !== document.body && curr.parentElement !== document.documentElement) {
-            const p = curr.parentElement;
-            if (p.children.length > 1 && (curr.offsetHeight > 40 || curr.clientHeight > 40)) {
-              row = curr;
-              break;
-            }
-            curr = p;
-          }
-        }
-
+        const row = resolveRowContainer(el);
         if (row && !seenNodes.has(row) && row !== document.body && row !== document.documentElement) {
           seenNodes.add(row);
           rawCandidateRows.push(row);
@@ -525,7 +577,6 @@
     });
 
     // 3. Filter out any candidate element that is contained inside another candidate row
-    // (This guarantees we keep the outermost table row <tr> and discard inner cell <div>s)
     const candidateRows = rawCandidateRows.filter(
       (r) => !rawCandidateRows.some((other) => other !== r && other.contains(r))
     );
@@ -547,6 +598,26 @@
       const node = candidateRows[i];
       try {
         let text = (node.innerText || node.textContent || "").trim();
+
+        // Append values of all inputs, selects, and buttons inside node (vital for Cloudscape Autosuggest Driver inputs)
+        if (node.querySelectorAll) {
+          const inputs = Array.from(node.querySelectorAll("input, select, textarea, [role='combobox']"));
+          const inputVals = inputs
+            .map((inp) => (inp.value || inp.getAttribute("value") || "").trim())
+            .filter(Boolean);
+          if (inputVals.length > 0) {
+            text += " " + inputVals.join(" ");
+          }
+
+          const buttons = Array.from(node.querySelectorAll("button, [role='button'], [class*='trigger'], [class*='select']"));
+          const btnTexts = buttons
+            .map((btn) => (btn.innerText || btn.textContent || "").trim())
+            .filter(Boolean);
+          if (btnTexts.length > 0) {
+            text += " " + btnTexts.join(" ");
+          }
+        }
+
         if (!text || text.length < 15) continue;
 
         // Anti-ghost: ignore pure filter bars, header bars, and pagination tables
@@ -563,10 +634,14 @@
         if (!tripId || seenIds.has(tripId)) continue;
         seenIds.add(tripId);
 
-        // Check if next sibling is an expanded details row for this tour (e.g. contains sub-legs/stops)
-        const nextSib = node.nextElementSibling;
-        if (nextSib && !nextSib.querySelector('a[href*="/tours/B-"], a[href*="/trips/B-"], a[href*="/tours/T-"], a[href*="/trips/T-"]')) {
-          const sibText = (nextSib.innerText || nextSib.textContent || "").trim();
+        // Check subsequent siblings for expanded details / sub-legs
+        let sib = node.nextElementSibling;
+        while (
+          sib &&
+          !sib.querySelector('a[href*="/tours/B-"], a[href*="/trips/B-"], a[href*="/tours/T-"], a[href*="/trips/T-"]') &&
+          !/\b([TB]-[A-Za-z0-9]{9})\b/.test(sib.textContent || "")
+        ) {
+          const sibText = (sib.innerText || sib.textContent || "").trim();
           if (
             /(\d+)\s+([A-Z0-9]{3,6})\s*(?:➔|->|to)\s*(\d+)\s+([A-Z0-9]{3,6})/i.test(sibText) ||
             /\b([0-9][A-Z0-9]{8,11})\b/.test(sibText) ||
@@ -574,6 +649,7 @@
           ) {
             text += "\n" + sibText;
           }
+          sib = sib.nextElementSibling;
         }
 
         // Extract Multi-Leg Structure & All Stops
@@ -584,7 +660,7 @@
 
         // Extract Contract Code
         const contractMatch = text.match(/\b(C-[0-9A-Za-z]{9})\b/) || text.match(/(C-[0-9A-Za-z]{9})/);
-        const contractCode = contractMatch ? contractMatch[1] : "C-0003CBSPY";
+        const contractCode = contractMatch ? contractMatch[1] : "C-00039WP4K";
 
         // Extract Driver Mode (e.g. Solo 38h, Solo 14h, Team)
         const driverModeMatch = text.match(/\b(Solo|Team)\s*(?:👤|👤👤)?\s*(\d{1,2}h)?\b/i);
@@ -659,15 +735,42 @@
           notes: `Amazon Relay Contract: ${contractCode} | Sub-Legs: ${blockStructure.subLegsCount > 0 ? blockStructure.subLegsIds.join(", ") : "Direct"} | Screen #${currentScreenIndex}${blockStructure.arnNumbers && blockStructure.arnNumbers.length > 0 ? ` | ARN: ${blockStructure.arnNumbers.join(", ")}` : ""}`,
         };
 
+        // Merge with API captured tour if available
+        const apiTour = capturedApiToursMap.get(tripId);
+        if (apiTour) {
+          if (tourObj.driverName === "Assigned Driver" && apiTour.driverName && apiTour.driverName !== "Assigned Driver") {
+            tourObj.driverName = apiTour.driverName;
+          }
+          if (apiTour.stops && apiTour.stops.length > (tourObj.stops ? tourObj.stops.length : 0)) {
+            tourObj.stops = apiTour.stops;
+            tourObj.totalStopsCount = apiTour.stops.length;
+          }
+          if (apiTour.distanceMiles && !tourObj.distanceMiles) {
+            tourObj.distanceMiles = apiTour.distanceMiles;
+          }
+          if (apiTour.rateUSD > 0 && tourObj.rateUSD === 0) {
+            tourObj.rateUSD = apiTour.rateUSD;
+          }
+          if (apiTour.originFacilityCode && !tourObj.originFacilityCode) {
+            tourObj.originFacilityCode = apiTour.originFacilityCode;
+          }
+          if (apiTour.destFacilityCode && !tourObj.destFacilityCode) {
+            tourObj.destFacilityCode = apiTour.destFacilityCode;
+          }
+        }
+
         foundTours.push(tourObj);
       } catch (err) {
         console.warn("Tour parse warning:", err);
       }
     }
 
-    if (foundTours.length === 0 && capturedApiToursMap.size > 0) {
+    // Merge any remaining API tours not caught in DOM
+    if (capturedApiToursMap.size > 0) {
       capturedApiToursMap.forEach((apiTour) => {
-        if (apiTour && apiTour.originCity && apiTour.originCity !== "Origin Facility" && apiTour.destCity !== "Destination Facility") {
+        if (apiTour && apiTour.vrid && !seenIds.has(apiTour.vrid) && apiTour.originCity !== "Origin Facility" && apiTour.destCity !== "Destination Facility") {
+          seenIds.add(apiTour.vrid);
+          apiTour.screenIndex = currentScreenIndex++;
           foundTours.push(apiTour);
         }
       });
@@ -681,7 +784,7 @@
     return latestOrderedTours;
   }
 
-  // 7. Floating Inspector Pill UI
+  // 7. Floating Inspector Pill UI with Direct Visible Actions
   function injectFloatingPill() {
     if (window.self !== window.top) return;
     if (document.getElementById("ud-relay-sync-pill")) return;
@@ -699,20 +802,42 @@
         background: #0a1128;
         color: #ffffff;
         border-radius: 16px;
-        box-shadow: 0 12px 35px rgba(0,0,0,0.6), 0 0 0 1px rgba(234,88,12,0.5);
+        box-shadow: 0 12px 35px rgba(0,0,0,0.65), 0 0 0 1px rgba(234,88,12,0.6);
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         font-size: 11px;
-        max-width: 360px;
+        max-width: 480px;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         user-select: none;
       ">
-        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding: 10px 14px;">
+        <div id="ud-pill-header" style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding: 10px 14px;">
           <div style="display:flex; align-items:center; gap:8px;">
             <span id="ud-pill-dot" style="display:inline-block;width:10px;height:10px;border-radius:9999px;background:#10b981;box-shadow:0 0 8px #10b981;"></span>
             <span style="font-weight:900; color:#fb923c; letter-spacing:0.5px;">UNIQUE DISPATCH</span>
+            <span id="ud-pill-count" style="background:#1e293b; color:#38bdf8; padding:2px 7px; border-radius:9999px; font-weight:800; font-size:10px;">0 Tours</span>
           </div>
           <div style="display:flex; align-items:center; gap:6px;">
-            <span id="ud-pill-count" style="background:#1e293b; color:#94a3b8; padding:2px 7px; border-radius:9999px; font-weight:800; font-size:10px;">0 Tours</span>
+            <button id="ud-pill-expand-btn" style="
+              background: #9a3412;
+              border: 1px solid #ea580c;
+              color: #ffedd5;
+              padding: 5px 8px;
+              border-radius: 8px;
+              font-size: 10px;
+              font-weight: 800;
+              cursor: pointer;
+            " title="Expand all multi-leg sub-trips and stops on screen">📂 Expand All</button>
+
+            <button id="ud-pill-replace-btn" style="
+              background: #0284c7;
+              border: none;
+              color: #ffffff;
+              padding: 5px 8px;
+              border-radius: 8px;
+              font-size: 10px;
+              font-weight: 800;
+              cursor: pointer;
+            " title="Replace all loads in portal with fresh scan">🔄 Replace All</button>
+
             <button id="ud-pill-sync-btn" style="
               background: #ea580c;
               border: none;
@@ -723,21 +848,14 @@
               font-weight: 800;
               cursor: pointer;
               box-shadow: 0 2px 8px rgba(234,88,12,0.4);
-            ">⚡ SYNC NOW</button>
+            " title="Sync live loads to portal">⚡ SYNC NOW</button>
           </div>
         </div>
 
         <div id="ud-pill-drawer" style="display:none; border-top: 1px solid #1e293b; padding: 10px 14px; max-height: 240px; overflow-y: auto;">
           <div style="font-weight:800; color:#cbd5e1; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center; gap:6px;">
             <span>Relay Screen Order (#1 to #N):</span>
-            <div style="display:flex; align-items:center; gap:4px;">
-              <button id="ud-pill-expand-btn" style="background:#1e293b; color:#fb923c; border:1px solid #fb923c; border-radius:6px; padding:2px 6px; font-size:9px; cursor:pointer; font-weight:bold;" title="Expand all multi-leg tours and stops on screen">
-                📂 Expand All Legs
-              </button>
-              <button id="ud-pill-replace-btn" style="background:#1e293b; color:#38bdf8; border:1px solid #38bdf8; border-radius:6px; padding:2px 6px; font-size:9px; cursor:pointer; font-weight:bold;">
-                🔄 Replace All in Portal
-              </button>
-            </div>
+            <span style="font-size:10px; color:#94a3b8;">Click card header to toggle view</span>
           </div>
           <div id="ud-pill-drawer-list" style="display:flex; flex-direction:column; gap:6px;">
             <div style="color:#64748b; font-size:10px;">No tours captured yet. Browse tours or click Sync Now.</div>
@@ -756,7 +874,7 @@
 
     pillCard.addEventListener("click", (e) => {
       if (
-        e.target === syncBtn || syncBtn.contains(e.target) ||
+        e.target === syncBtn || syncBtn?.contains(e.target) ||
         e.target === replaceBtn || replaceBtn?.contains(e.target) ||
         e.target === expandBtn || expandBtn?.contains(e.target)
       ) return;
@@ -776,25 +894,49 @@
     }
 
     function expandAllRelayRows() {
-      const expandables = Array.from(
-        document.querySelectorAll(
-          'button[aria-expanded="false"], button[aria-label*="expand" i], [class*="expand-toggle"], tr[class*="awsui"] button[aria-label*="expand" i]'
-        )
-      );
-      if (expandables.length === 0) {
-        showToast("ℹ️ All visible tours are already expanded.");
-        return;
-      }
-      expandables.forEach((btn) => {
+      const expandSelectors = [
+        'button[aria-expanded="false"]',
+        'button[aria-label*="expand" i]',
+        'button[aria-label*="detail" i]',
+        '[class*="expand-toggle"]',
+        '[class*="chevron-right"]',
+        '[class*="expandable"] button',
+        'tr[class*="awsui"] button[aria-expanded="false"]',
+        '[data-testid*="expand"]',
+        'svg[data-icon="angle-right"]',
+        'svg[data-icon="chevron-right"]',
+        '[aria-label*="open" i]',
+      ];
+
+      const elements = Array.from(document.querySelectorAll(expandSelectors.join(", ")));
+      let clicked = 0;
+      elements.forEach((el) => {
         try {
-          btn.click();
+          const btn = el.tagName === "BUTTON" ? el : el.closest("button") || el;
+          if (btn && btn.click) {
+            btn.click();
+            clicked++;
+          }
         } catch (e) {}
       });
-      showToast(`📂 Expanding ${expandables.length} tours/legs in Amazon Relay...`);
+
+      // Also click on any row anchors or rows if needed
+      document.querySelectorAll('tr[class*="awsui-table-row"], div[class*="card"]').forEach((r) => {
+        try {
+          const btn = r.querySelector('button[aria-expanded="false"]');
+          if (btn) {
+            btn.click();
+            clicked++;
+          }
+        } catch (e) {}
+      });
+
+      showToast(`📂 Expanding ${clicked > 0 ? clicked : "all"} tours & multi-leg stops...`);
       setTimeout(() => {
         scanDomForTours();
         updateFloatingPillUI();
-      }, 700);
+        showToast(`✓ Scanned ${latestOrderedTours.length} tours with full stop details!`);
+      }, 1000);
     }
 
     syncBtn.addEventListener("click", (e) => {
@@ -882,7 +1024,7 @@
     if (tours.length === 0) {
       isSyncing = false;
       if (isManual) {
-        showToast("ℹ️ No active Relay tours found on screen. Open https://relay.amazon.com/tours");
+        showToast("ℹ️ No active Relay tours found on screen. Open https://relay.amazon.com/trips");
       }
       return;
     }
@@ -916,7 +1058,7 @@
     }
   }
 
-  // Toast
+  // Toast notification
   function showToast(msg) {
     if (window.self !== window.top) return;
     const toast = document.createElement("div");
