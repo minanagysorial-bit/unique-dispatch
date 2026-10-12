@@ -355,9 +355,8 @@
       (lastStop && lastStop.appointmentTime) ||
       "";
 
-    // Anti-pollution check (Only reject non-tour UI noise if missing all location/rate data)
-    const isAuthenticTourId = /^[TB]-[A-Za-z0-9]{6,16}$/i.test(tripId);
-    if (!isAuthenticTourId && normalizedStops.length === 0 && !originFacility && !destFacility && !originCity && !destCity && rateUSD <= 0) {
+    // Anti-pollution: Never emit empty API fragments with dummy locations
+    if (!originFacility && !destFacility && !originCity && !destCity && normalizedStops.length === 0) {
       return null;
     }
 
@@ -449,7 +448,8 @@
     const skipChildKeys = new Set([
       "legs", "tourLegs", "subTours", "workOpportunityLegs",
       "stops", "itinerary", "stopDetails", "locationSequence",
-      "shipments", "auditTrail", "comments", "actions", "events"
+      "shipments", "auditTrail", "comments", "actions", "events",
+      "trips", "subTrips", "carrierTrips", "childTrips", "subTourDetails", "shipmentDetails"
     ]);
 
     function findObjectsAndArrays(obj, depth = 0) {

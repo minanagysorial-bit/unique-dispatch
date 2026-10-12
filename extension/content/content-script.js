@@ -7,13 +7,8 @@
 (function () {
   "use strict";
 
-  if (window.__ud_content_script_initialized) {
-    if (typeof window.__ud_trigger_scan === "function") {
-      window.__ud_trigger_scan();
-    }
-    return;
-  }
   window.__ud_content_script_initialized = true;
+  window.__ud_version = "1.0.2";
 
   console.log("🚚 [Unique Dispatch] Relay High-Fidelity Multi-Leg Engine Active in frame:", window.location.href);
 
@@ -29,16 +24,13 @@
     if (event.data.type === "UD_RELAY_RAW_API_TOURS" && Array.isArray(event.data.tours)) {
       console.log(`🚚 [Unique Dispatch] Ingested ${event.data.tours.length} authentic tours from API`);
       event.data.tours.forEach((tour) => {
-        if (tour && tour.vrid) {
+        if (tour && tour.vrid && tour.originCity !== "Origin Facility" && tour.destCity !== "Destination Facility") {
           capturedApiToursMap.set(tour.vrid, tour);
         }
       });
 
       scanDomForTours();
       updateFloatingPillUI();
-      if (latestOrderedTours.length > 0) {
-        dispatchToursToBackground(latestOrderedTours, false, "upsert");
-      }
     }
   });
 
@@ -116,14 +108,19 @@
   function extractBlockTripId(node, text) {
     if (!node) return null;
 
-    // 1. Primary authentic Tour / Block ID starting with B- or T-
-    // e.g. B-SJ8SRR7C8, B-XXRDS696P, B-C051PX4FZ, B-BM70X8MF0, B-B278JZ641, T-113M3SH6V, T-115M3SH6V
-    const prefixMatch = text.match(/\b([TB]-[A-Za-z0-9]{6,16})\b/);
-    if (prefixMatch && prefixMatch[1]) {
-      return prefixMatch[1].trim();
+    // 1. PRIORITY 1: Block Tour ID starting with B- (e.g. B-SJ8SRR7C8, B-XXRDS696P, B-B278JZ641)
+    const blockMatch = text.match(/\b(B-[A-Za-z0-9]{6,16})\b/);
+    if (blockMatch && blockMatch[1]) {
+      return blockMatch[1].trim();
     }
 
-    // 2. Explicit VRID pattern
+    // 2. PRIORITY 2: Single Spot Tour ID starting with T- (e.g. T-113M3SH6V, T-115M3SH6V)
+    const singleMatch = text.match(/\b(T-[A-Za-z0-9]{6,16})\b/);
+    if (singleMatch && singleMatch[1]) {
+      return singleMatch[1].trim();
+    }
+
+    // 3. Explicit VRID pattern
     const vridMatch = text.match(/\bVRID-([A-Za-z0-9]{6,16})\b/i);
     if (vridMatch && vridMatch[1]) {
       return `VRID-${vridMatch[1].trim()}`;
@@ -140,7 +137,7 @@
       return null;
     }
 
-    // 3. Fallback for spot load board ONLY (where prefix might be absent)
+    // 4. Fallback for spot load board ONLY (where prefix might be absent)
     const tokenMatch = text.match(/\b([0-9][A-Z0-9]{8,11})\b/);
     if (tokenMatch && tokenMatch[1]) {
       return tokenMatch[1].trim();
@@ -430,9 +427,20 @@
       if (!txt || txt.length > 35) continue;
 
       if (idRegex.test(txt)) {
-        const container = el.closest(
+        let container = el.closest(
           'tr, [role="row"], li[class*="awsui-cards"], li[class*="card"], div[class*="awsui_card_"], [class*="trip-card"], [class*="block-tour"], [class*="tour-card"]'
         );
+        if (!container) {
+          let curr = el;
+          while (curr && curr.parentElement && curr.parentElement !== document.body && curr.parentElement !== document.documentElement) {
+            const p = curr.parentElement;
+            if (p.children.length > 1 && (curr.offsetHeight > 30 || curr.clientHeight > 30)) {
+              container = curr;
+              break;
+            }
+            curr = p;
+          }
+        }
         if (container && !seenNodes.has(container) && container !== document.body && container !== document.documentElement) {
           seenNodes.add(container);
           candidateRows.push(container);
@@ -564,7 +572,9 @@
 
     if (foundTours.length === 0 && capturedApiToursMap.size > 0) {
       capturedApiToursMap.forEach((apiTour) => {
-        foundTours.push(apiTour);
+        if (apiTour && apiTour.originCity && apiTour.originCity !== "Origin Facility" && apiTour.destCity !== "Destination Facility") {
+          foundTours.push(apiTour);
+        }
       });
     }
 
