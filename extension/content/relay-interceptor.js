@@ -473,7 +473,7 @@
       "legs", "tourLegs", "subTours", "workOpportunityLegs",
       "stops", "itinerary", "stopDetails", "locationSequence",
       "shipments", "auditTrail", "comments", "actions", "events",
-      "trips", "subTrips", "carrierTrips", "childTrips", "subTourDetails", "shipmentDetails"
+      "subTrips", "childTrips", "subTourDetails", "shipmentDetails"
     ]);
 
     function findObjectsAndArrays(obj, depth = 0) {

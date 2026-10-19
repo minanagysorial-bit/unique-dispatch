@@ -8,9 +8,9 @@
   "use strict";
 
   window.__ud_content_script_initialized = true;
-  window.__ud_version = "1.0.4";
+  window.__ud_version = "1.0.5";
 
-  console.log("🚚 [Unique Dispatch] Relay High-Fidelity Multi-Leg Engine Active v1.0.4 in frame:", window.location.href);
+  console.log("🚚 [Unique Dispatch] Relay High-Fidelity Multi-Leg Engine Active v1.0.5 in frame:", window.location.href);
 
   const capturedApiToursMap = new Map();
   let latestOrderedTours = [];
@@ -415,110 +415,48 @@
     const blockIdRegex = /\b(B-[A-Za-z0-9]{9})\b/i;
     const singleIdRegex = /\b(T-[A-Za-z0-9]{9})\b/i;
 
-    // Helper: Walk up to the full row/card container (NEVER stopping at a single cell)
-    function resolveRowContainer(el) {
-      let curr = el;
-      let best = el;
+    // 1. Collect all table rows and card rows across Amazon Relay
+    const rowSelectors = [
+      'table tbody tr:not([class*="header" i])',
+      'table tr:not([class*="header" i])',
+      'div[role="row"]:not([role="columnheader" i])',
+      'li[class*="awsui-cards-card-item" i]',
+      'div[class*="awsui_card_" i]',
+      '[class*="trip-card" i]',
+      '[class*="block-tour" i]',
+      '[class*="tour-card" i]',
+      '[class*="awsui-table-row" i]',
+    ];
 
-      const standardRow = el.closest(
-        'tr:not([class*="header" i]), [role="row"]:not([role="columnheader" i]), li[class*="card" i], div[class*="awsui_card_" i], [class*="trip-card" i], [class*="block-tour" i], [class*="tour-card" i], [class*="table-row" i]'
-      );
-      if (standardRow && (standardRow.offsetWidth > 450 || standardRow.clientWidth > 450)) {
-        return standardRow;
-      }
+    const candidateRows = [];
+    const seenRowNodes = new Set();
 
-      while (
-        curr &&
-        curr.parentElement &&
-        curr.parentElement !== document.body &&
-        curr.parentElement !== document.documentElement
-      ) {
-        const parent = curr.parentElement;
-        const parentText = parent.textContent || "";
-        const parentTourIds = new Set(parentText.match(/\b([TB]-[A-Za-z0-9]{9})\b/g) || []);
-
-        if (parentTourIds.size > 1) {
-          best = curr;
-          break;
+    // A. Discover rows via standard table/card selectors
+    document.querySelectorAll(rowSelectors.join(", ")).forEach((row) => {
+      if (row === document.body || row === document.documentElement || (row.id && row.id.includes("ud-"))) return;
+      const rowText = (row.innerText || row.textContent || "").trim();
+      if (blockIdRegex.test(rowText) || singleIdRegex.test(rowText)) {
+        if (!seenRowNodes.has(row)) {
+          seenRowNodes.add(row);
+          candidateRows.push(row);
         }
-
-        if (
-          parent.tagName === "TBODY" ||
-          parent.tagName === "UL" ||
-          parent.getAttribute("role") === "rowgroup" ||
-          parent.getAttribute("role") === "table"
-        ) {
-          best = curr;
-          break;
-        }
-
-        if (curr.offsetWidth > 500 || curr.clientWidth > 500) {
-          best = curr;
-        }
-
-        curr = parent;
       }
+    });
 
-      return best;
-    }
-
-    // Step 1: Discover all Tour ID elements across DOM
-    const allElements = Array.from(
-      document.querySelectorAll('a, button, span, div, h1, h2, h3, h4, h5, p, [role="link"], td, [role="cell"]')
-    );
-
-    const discoveredBlocks = [];
-    const discoveredSingles = [];
-
-    for (const el of allElements) {
-      const txt = (el.textContent || "").trim();
-      if (!txt || txt.length > 50) continue;
-
-      const bMatch = txt.match(blockIdRegex);
-      if (bMatch) {
-        let bId = bMatch[1].toUpperCase();
-        if (bId.length === 12 && bId.endsWith("C")) bId = bId.slice(0, 11);
-        discoveredBlocks.push({ el, id: bId });
-        continue;
-      }
-
-      const sMatch = txt.match(singleIdRegex);
-      if (sMatch) {
-        let sId = sMatch[1].toUpperCase();
-        if (sId.length === 12 && sId.endsWith("C")) sId = sId.slice(0, 11);
-        discoveredSingles.push({ el, id: sId });
+    // B. Discover any rows containing Tour ID links that might have escaped the selectors
+    const idLinks = Array.from(document.querySelectorAll('a[href*="/trips/"], a[href*="/tours/"], [class*="tour-id"], [class*="trip-id"]'));
+    for (const link of idLinks) {
+      const row = link.closest('tr:not([class*="header" i]), [role="row"]:not([role="columnheader" i]), li, [class*="card" i]');
+      if (row && !seenRowNodes.has(row) && row !== document.body && row !== document.documentElement) {
+        seenRowNodes.add(row);
+        candidateRows.push(row);
       }
     }
 
-    // Block-First Architecture:
-    // If ANY Block Tours (B-...) exist on this screen, they are the ONLY primary tours!
-    // Any T-... elements are internal child sub-legs of those B-... tours and must NEVER be treated as primary loads.
-    const hasBlockTours = discoveredBlocks.length > 0;
-    const targetDiscoveries = hasBlockTours ? discoveredBlocks : discoveredSingles;
-
-    const rawCandidateRows = [];
-    const seenRows = new Set();
-    const seenTripIds = new Set();
-
-    for (const item of targetDiscoveries) {
-      if (seenTripIds.has(item.id)) continue;
-      const row = resolveRowContainer(item.el);
-      if (row && !seenRows.has(row) && row !== document.body && row !== document.documentElement) {
-        seenRows.add(row);
-        seenTripIds.add(item.id);
-        rawCandidateRows.push({ row, id: item.id });
-      }
-    }
-
-    // Filter out rows contained inside another candidate row
-    const candidateEntries = rawCandidateRows.filter(
-      (entry) => !rawCandidateRows.some((other) => other !== entry && other.row.contains(entry.row))
-    );
-
-    // Sort strictly by vertical visual position (top-to-bottom Relay Screen Order)
-    candidateEntries.sort((a, b) => {
-      const rectA = a.row.nodeType === 1 ? a.row.getBoundingClientRect() : { top: 0, left: 0 };
-      const rectB = b.row.nodeType === 1 ? b.row.getBoundingClientRect() : { top: 0, left: 0 };
+    // 2. Sort rows strictly by vertical visual position (preserving exact Relay Screen Order)
+    candidateRows.sort((a, b) => {
+      const rectA = a.nodeType === 1 ? a.getBoundingClientRect() : { top: 0, left: 0 };
+      const rectB = b.nodeType === 1 ? b.getBoundingClientRect() : { top: 0, left: 0 };
       const topA = rectA.top + (window.scrollY || window.pageYOffset || 0);
       const topB = rectB.top + (window.scrollY || window.pageYOffset || 0);
       if (Math.abs(topA - topB) > 3) {
@@ -527,61 +465,74 @@
       return rectA.left - rectB.left;
     });
 
-    // Extract tours and ingest all sub-legs between row i and row i+1
-    for (let i = 0; i < candidateEntries.length; i++) {
-      const entry = candidateEntries[i];
-      const node = entry.row;
-      const tripId = entry.id;
+    // 3. Block-First Priority:
+    // If ANY Block Tours (B-...) exist on this screen, only B-... rows are primary tours.
+    const hasBlockTours = candidateRows.some((r) => blockIdRegex.test(r.innerText || r.textContent || ""));
+
+    // 4. Extract tours from each row
+    for (let i = 0; i < candidateRows.length; i++) {
+      const node = candidateRows[i];
+      const rowRawText = (node.innerText || node.textContent || "").trim();
+
+      const match = hasBlockTours
+        ? rowRawText.match(blockIdRegex)
+        : (rowRawText.match(blockIdRegex) || rowRawText.match(singleIdRegex));
+
+      if (!match) continue; // Skip sub-leg rows or non-matching rows
+
+      let tripId = match[1].toUpperCase();
+      if (tripId.length === 12 && tripId.endsWith("C")) tripId = tripId.slice(0, 11);
       if (seenIds.has(tripId)) continue;
       seenIds.add(tripId);
 
-      const nextEntry = candidateEntries[i + 1];
-      const nextNode = nextEntry ? nextEntry.row : null;
+      // Extract driver directly from primary row BEFORE appending any sibling text
+      const driverName = extractDriverName(node, rowRawText);
 
-      try {
-        let text = (node.innerText || node.textContent || "").trim();
+      // Build row text including input values (Cloudscape Autosuggest / inputs)
+      let text = rowRawText;
+      if (node.querySelectorAll) {
+        const inputs = Array.from(node.querySelectorAll("input, select, textarea, [role='combobox']"));
+        const inputVals = inputs
+          .map((inp) => (inp.value || inp.getAttribute("value") || "").trim())
+          .filter(Boolean);
+        if (inputVals.length > 0) text += " " + inputVals.join(" ");
 
-        // Append values of all inputs, selects, and buttons inside node (driver Autosuggest!)
-        if (node.querySelectorAll) {
-          const inputs = Array.from(node.querySelectorAll("input, select, textarea, [role='combobox']"));
-          const inputVals = inputs
-            .map((inp) => (inp.value || inp.getAttribute("value") || "").trim())
-            .filter(Boolean);
-          if (inputVals.length > 0) text += " " + inputVals.join(" ");
+        const buttons = Array.from(node.querySelectorAll("button, [role='button'], [class*='trigger'], [class*='select']"));
+        const btnTexts = buttons
+          .map((btn) => (btn.innerText || btn.textContent || "").trim())
+          .filter(Boolean);
+        if (btnTexts.length > 0) text += " " + btnTexts.join(" ");
+      }
 
-          const buttons = Array.from(node.querySelectorAll("button, [role='button'], [class*='trigger'], [class*='select']"));
-          const btnTexts = buttons
-            .map((btn) => (btn.innerText || btn.textContent || "").trim())
-            .filter(Boolean);
-          if (btnTexts.length > 0) text += " " + btnTexts.join(" ");
-        }
+      // Check if subsequent sibling rows are expanded sub-legs for this tour
+      let sib = node.nextElementSibling;
+      while (sib) {
+        const sibText = (sib.innerText || sib.textContent || "").trim();
+        // If sib contains another primary Tour ID, stop immediately!
+        if (hasBlockTours && blockIdRegex.test(sibText)) break;
+        if (!hasBlockTours && (blockIdRegex.test(sibText) || singleIdRegex.test(sibText))) break;
 
-        // Ingest all sibling elements between node and nextNode (expanded sub-legs!)
-        let sib = node.nextElementSibling;
-        while (sib && sib !== nextNode) {
-          if (nextEntry && (sib.contains(nextNode) || (sib.textContent || "").includes(nextEntry.id))) {
-            break;
-          }
-          const sibText = (sib.innerText || sib.textContent || "").trim();
+        if (
+          /(?:➔|->|to)\s*(?:\d+\s+)?[A-Z0-9]{3,6}/i.test(sibText) ||
+          /Stop\s+\d+|instructions|bobtail|Arrival|Departure|ARN\s*#/i.test(sibText) ||
+          /\bT-[A-Za-z0-9]{9}\b/.test(sibText)
+        ) {
           text += "\n" + sibText;
-
           if (sib.querySelectorAll) {
             const sibInputs = Array.from(sib.querySelectorAll("input, select"))
               .map((inp) => (inp.value || inp.getAttribute("value") || "").trim())
               .filter(Boolean);
             if (sibInputs.length > 0) text += " " + sibInputs.join(" ");
           }
-
-          sib = sib.nextElementSibling;
+        } else {
+          break;
         }
+        sib = sib.nextElementSibling;
+      }
 
-        if (!text || text.length < 15) continue;
-
+      try {
         // Extract Multi-Leg Structure & All Stops
         const blockStructure = extractBlockTourStructure(node, text);
-
-        // Extract Driver Name
-        const driverName = extractDriverName(node, text);
 
         // Extract Contract Code
         const contractMatch = text.match(/\b(C-[0-9A-Za-z]{9})\b/) || text.match(/(C-[0-9A-Za-z]{9})/);
