@@ -51,6 +51,9 @@ export default function TourJourneyDetailModal({
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [activeMilestone, setActiveMilestone] = useState<MilestoneType | null>(null);
   const [isEscalateOpen, setIsEscalateOpen] = useState(false);
+  const [routeViewMode, setRouteViewMode] = useState<"subtrips" | "itinerary">(
+    load?.subTrips && load.subTrips.length > 0 ? "subtrips" : "itinerary"
+  );
 
   // Close on Escape key
   useEffect(() => {
@@ -497,26 +500,41 @@ ${stopsText}
           {/* Section: Visual Multi-Stop Journey Timeline */}
           <div className="bg-white p-4 sm:p-6 rounded-3xl border border-slate-200 shadow-xs space-y-5">
             
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-orange-100 text-orange-700 flex items-center justify-center font-bold">
-                  <Navigation className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="font-black text-slate-900 text-sm sm:text-base">
-                    Multi-Stop Journey Progression Line
-                  </h3>
-                  <p className="text-[11px] text-slate-500 font-medium">
-                    Complete chronological stop sequence &amp; arrival time windows
-                  </p>
-                </div>
+            {/* View Mode Switcher Tabs */}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-slate-100 border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setRouteViewMode("subtrips")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    routeViewMode === "subtrips"
+                      ? "bg-white text-slate-900 shadow-xs font-black"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <Layers className="w-3.5 h-3.5 text-orange-600" />
+                  <span>Sub-Trips &amp; Deliveries ({load.subTrips?.length || (stops.length > 1 ? stops.length - 1 : 0)})</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setRouteViewMode("itinerary")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    routeViewMode === "itinerary"
+                      ? "bg-white text-slate-900 shadow-xs font-black"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <Navigation className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Full Stop Progression ({stops.length} Stops)</span>
+                </button>
               </div>
 
               {/* 1-Click Copy Driver Packet Button */}
               <button
                 type="button"
                 onClick={handleCopyDriverPacket}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#0a1128] hover:bg-slate-800 text-orange-400 text-xs font-black shadow-xs transition-colors border border-slate-700"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#0a1128] hover:bg-slate-800 text-orange-400 text-xs font-black shadow-xs transition-colors border border-slate-700 cursor-pointer"
                 title="Copy entire formatted route itinerary for driver"
               >
                 {copiedPacket ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-orange-400" />}
@@ -524,110 +542,267 @@ ${stopsText}
               </button>
             </div>
 
-            {/* Continuous Vertical Timeline Stepper */}
-            <div className="relative pl-6 sm:pl-8 space-y-8 pt-2">
-              
-              {stops.map((stop, idx) => {
-                const isFirst = idx === 0;
-                const isLast = idx === stops.length - 1;
-                const badge = getActivityBadge(stop.activity, stop.type, idx + 1);
-
-                return (
-                  <div key={idx} className="relative group">
-                    
-                    {/* Continuous Vertical Line Connecting Nodes */}
-                    {!isLast && (
-                      <div
-                        className={`absolute left-[-17px] sm:left-[-21px] top-6 bottom-[-32px] w-[3px] bg-gradient-to-b from-slate-400 to-slate-300 rounded-full group-hover:from-orange-500 group-hover:to-orange-400 transition-colors`}
-                      />
-                    )}
-
-                    {/* Step Node Marker Circle */}
+            {/* TAB 1: Sub-Trips & Deliveries Cards (Eye-Friendly Easy-to-Read View) */}
+            {routeViewMode === "subtrips" && (
+              <div className="space-y-3.5 pt-1">
+                {load.subTrips && load.subTrips.length > 0 ? (
+                  load.subTrips.map((sub, sIdx) => (
                     <div
-                      className={`absolute left-[-26px] sm:left-[-30px] top-0.5 w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center font-black text-xs shadow-md transition-transform group-hover:scale-110 ${badge.nodeBg}`}
+                      key={sIdx}
+                      className="p-4 rounded-2xl border border-slate-200 bg-white hover:border-orange-300 hover:shadow-sm transition-all space-y-3"
                     >
-                      {idx + 1}
-                    </div>
-
-                    {/* Stop Card */}
-                    <div className="bg-slate-50/80 group-hover:bg-slate-50 p-4 rounded-2xl border border-slate-200/80 group-hover:border-slate-300 transition-all space-y-3 shadow-2xs">
-                      
-                      {/* Top Header of Stop */}
-                      <div className="flex flex-wrap items-center justify-between gap-2">
+                      {/* Sub-Trip Header Line */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
                         <div className="flex items-center gap-2">
-                          <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider border ${badge.bg}`}>
-                            {badge.label}
+                          <span className="w-6 h-6 rounded-lg bg-orange-600 text-white font-black text-xs flex items-center justify-center shadow-xs">
+                            {sub.legIndex || sIdx + 1}
                           </span>
-                          
-                          {stop.facilityCode && (
-                            <span className="px-2 py-0.5 rounded-lg bg-slate-900 text-orange-400 font-mono font-black text-xs border border-slate-700">
-                              [{stop.facilityCode}]
+                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0a1128] text-white font-mono font-black text-xs border border-slate-700">
+                            <span className="text-[10px] text-orange-400 uppercase tracking-wider">SUB-TRIP</span>
+                            <span className="select-all">{sub.id}</span>
+                            <button
+                              type="button"
+                              onClick={() => navigator.clipboard.writeText(sub.id)}
+                              className="p-0.5 rounded hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
+                              title="Copy Sub-Trip ID"
+                            >
+                              <Copy className="w-3 h-3" />
+                            </button>
+                          </div>
+                          <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider ${
+                            sub.action?.toLowerCase().includes("drop")
+                              ? "bg-blue-100 text-blue-900 border border-blue-200"
+                              : "bg-purple-100 text-purple-900 border border-purple-200"
+                          }`}>
+                            {sub.action || "Drop"}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          {Boolean(sub.miles && sub.miles > 0) && (
+                            <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-slate-800 font-bold text-xs border border-slate-200">
+                              {sub.miles} mi
                             </span>
+                          )}
+                          {sub.duration && (
+                            <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-slate-600 font-medium text-xs border border-slate-200">
+                              {sub.duration}
+                            </span>
+                          )}
+                          <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200">
+                            {sub.equipment || "53' Trailer"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Origin -> Destination Route Details */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                        {/* From Facility */}
+                        <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                              From Stop #{sub.fromSeq || sIdx + 1}
+                            </span>
+                            <span className="px-2 py-0.5 rounded bg-orange-100 text-orange-800 font-mono font-black text-xs border border-orange-200">
+                              [{sub.fromFacility}]
+                            </span>
+                          </div>
+                          <p className="font-bold text-slate-900">
+                            {sub.fromAddress || `Amazon Logistics Facility [${sub.fromFacility}]`}
+                          </p>
+                          {sub.scheduledArrival && (
+                            <p className="text-[11px] text-slate-600 font-medium flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-orange-600 shrink-0" />
+                              <span>Sch. Arrival: {sub.scheduledArrival}</span>
+                            </p>
+                          )}
+                          {sub.scheduledDeparture && (
+                            <p className="text-[11px] text-slate-500 font-medium flex items-center gap-1">
+                              <ArrowRight className="w-3 h-3 text-slate-400 shrink-0" />
+                              <span>Sch. Departure: {sub.scheduledDeparture}</span>
+                            </p>
+                          )}
+                        </div>
+
+                        {/* To Facility */}
+                        <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                              To Stop #{sub.toSeq || sIdx + 2}
+                            </span>
+                            <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-mono font-black text-xs border border-blue-200">
+                              [{sub.toFacility}]
+                            </span>
+                          </div>
+                          <p className="font-bold text-slate-900">
+                            {sub.toAddress || `Amazon Facility [${sub.toFacility}]`}
+                          </p>
+                          {sub.scheduledDeparture && (
+                            <p className="text-[11px] text-slate-600 font-medium flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-blue-600 shrink-0" />
+                              <span>Sch. Delivery: {sub.scheduledDeparture}</span>
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Footer: Driver & Delay Status */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px] border-t border-slate-100">
+                        <div className="flex items-center gap-2 text-slate-600">
+                          <span>Driver: <strong className="text-slate-900">{sub.driver || load.driverName}</strong></span>
+                          {sub.tractorId && (
+                            <>
+                              <span>•</span>
+                              <span>Tractor: <strong className="text-slate-900">{sub.tractorId}</strong></span>
+                            </>
                           )}
                         </div>
 
                         <div>
-                          {getStopStatusBadge(stop.status)}
+                          {sub.hasDelay ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-red-100 text-red-800 font-bold border border-red-200">
+                              <AlertTriangle className="w-3 h-3 text-red-600" />
+                              <span>{sub.delayReason || "Delay Reported"}</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold border border-emerald-200">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                              <span>On Schedule</span>
+                            </span>
+                          )}
                         </div>
                       </div>
-
-                      {/* City, State & Full Address */}
-                      <div>
-                        <h4 className="font-black text-slate-900 text-sm sm:text-base">
-                          {stop.city}, {stop.state} {stop.postalCode ? `(${stop.postalCode})` : ""}
-                        </h4>
-                        <p className="text-xs text-slate-600 font-medium flex items-center gap-1 mt-0.5">
-                          <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                          <span>{stop.address || stop.facilityName || "Amazon Logistics Facility"}</span>
-                        </p>
+                    </div>
+                  ))
+                ) : (
+                  <div className="space-y-3">
+                    {stops.map((stop, idx) => (
+                      <div key={idx} className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-orange-600 text-white font-black text-xs flex items-center justify-center">
+                            {stop.sequenceNumber || idx + 1}
+                          </span>
+                          <span className="font-bold text-slate-900">[{stop.facilityCode || stop.city}]</span>
+                          <span className="text-slate-500">{stop.address}</span>
+                        </div>
+                        <span className="font-medium text-slate-700">{formatStopDateTime(stop.appointmentTime)}</span>
                       </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
-                      {/* Scheduled Appointment Window & Time */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                        
-                        <div className="flex items-center gap-2 p-2 rounded-xl bg-white border border-slate-200 text-xs">
-                          <Calendar className="w-4 h-4 text-orange-600 shrink-0" />
-                          <div>
-                            <span className="text-[10px] text-slate-400 font-bold uppercase block">
-                              Scheduled Appointment
-                            </span>
-                            <span className="font-bold text-slate-900">
-                              {formatStopDateTime(stop.appointmentTime)}
-                            </span>
-                          </div>
-                        </div>
+            {/* TAB 2: Full Chronological Stop Progression Line (Connected Timeline Stepper) */}
+            {routeViewMode === "itinerary" && (
+              <div className="relative pl-6 sm:pl-8 space-y-8 pt-2">
+                {stops.map((stop, idx) => {
+                  const isFirst = idx === 0;
+                  const isLast = idx === stops.length - 1;
+                  const badge = getActivityBadge(stop.activity, stop.type, idx + 1);
 
-                        <div className="flex items-center gap-2 p-2 rounded-xl bg-white border border-slate-200 text-xs">
-                          <Clock className="w-4 h-4 text-blue-600 shrink-0" />
-                          <div>
-                            <span className="text-[10px] text-slate-400 font-bold uppercase block">
-                              Arrival Window / Dock
-                            </span>
-                            <span className="font-bold text-slate-700">
-                              {stop.arrivalTimeWindowStart
-                                ? `${new Date(stop.arrivalTimeWindowStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${new Date(stop.arrivalTimeWindowEnd || stop.arrivalTimeWindowStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-                                : "Standard Facility Window"}
-                            </span>
-                          </div>
-                        </div>
-
-                      </div>
-
-                      {/* Notes / Special Instructions if available */}
-                      {stop.notes && (
-                        <div className="text-xs text-slate-600 bg-amber-50/70 border border-amber-200 p-2 rounded-xl flex items-start gap-1.5">
-                          <Info className="w-3.5 h-3.5 text-amber-600 mt-0.5 shrink-0" />
-                          <span>{stop.notes}</span>
-                        </div>
+                  return (
+                    <div key={idx} className="relative group">
+                      
+                      {/* Continuous Vertical Line Connecting Nodes */}
+                      {!isLast && (
+                        <div
+                          className={`absolute left-[-17px] sm:left-[-21px] top-6 bottom-[-32px] w-[3px] bg-gradient-to-b from-slate-400 to-slate-300 rounded-full group-hover:from-orange-500 group-hover:to-orange-400 transition-colors`}
+                        />
                       )}
 
+                      {/* Step Node Marker Circle */}
+                      <div
+                        className={`absolute left-[-26px] sm:left-[-30px] top-0.5 w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center font-black text-xs shadow-md transition-transform group-hover:scale-110 ${badge.nodeBg}`}
+                      >
+                        {idx + 1}
+                      </div>
+
+                      {/* Stop Card */}
+                      <div className="bg-slate-50/80 group-hover:bg-slate-50 p-4 rounded-2xl border border-slate-200/80 group-hover:border-slate-300 transition-all space-y-3 shadow-2xs">
+                        
+                        {/* Top Header of Stop */}
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider border ${badge.bg}`}>
+                              {badge.label}
+                            </span>
+                            
+                            {stop.facilityCode && (
+                              <span className="px-2 py-0.5 rounded-lg bg-slate-900 text-orange-400 font-mono font-black text-xs border border-slate-700">
+                                [{stop.facilityCode}]
+                              </span>
+                            )}
+
+                            {stop.subTripId && (
+                              <span className="px-2 py-0.5 rounded-lg bg-blue-50 text-blue-800 font-mono text-[10px] font-bold border border-blue-200">
+                                Sub-Trip #{stop.subTripId}
+                              </span>
+                            )}
+                          </div>
+
+                          <div>
+                            {getStopStatusBadge(stop.status)}
+                          </div>
+                        </div>
+
+                        {/* City, State & Full Address */}
+                        <div>
+                          <h4 className="font-black text-slate-900 text-sm sm:text-base">
+                            {stop.city}, {stop.state} {stop.postalCode ? `(${stop.postalCode})` : ""}
+                          </h4>
+                          <p className="text-xs text-slate-600 font-medium flex items-center gap-1 mt-0.5">
+                            <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span>{stop.address || stop.facilityName || "Amazon Logistics Facility"}</span>
+                          </p>
+                        </div>
+
+                        {/* Scheduled Appointment Window & Time */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                          
+                          <div className="flex items-center gap-2 p-2 rounded-xl bg-white border border-slate-200 text-xs">
+                            <Calendar className="w-4 h-4 text-orange-600 shrink-0" />
+                            <div>
+                              <span className="text-[10px] text-slate-400 font-bold uppercase block">
+                                Scheduled Appointment
+                              </span>
+                              <span className="font-bold text-slate-900">
+                                {formatStopDateTime(stop.appointmentTime)}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 p-2 rounded-xl bg-white border border-slate-200 text-xs">
+                            <Clock className="w-4 h-4 text-blue-600 shrink-0" />
+                            <div>
+                              <span className="text-[10px] text-slate-400 font-bold uppercase block">
+                                Arrival Window / Dock
+                              </span>
+                              <span className="font-bold text-slate-700">
+                                {stop.arrivalTimeWindowStart
+                                  ? `${new Date(stop.arrivalTimeWindowStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${new Date(stop.arrivalTimeWindowEnd || stop.arrivalTimeWindowStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                                  : "Standard Facility Window"}
+                              </span>
+                            </div>
+                          </div>
+
+                        </div>
+
+                        {/* Notes / Special Instructions if available */}
+                        {stop.notes && (
+                          <div className="text-xs text-slate-600 bg-amber-50/70 border border-amber-200 p-2 rounded-xl flex items-start gap-1.5">
+                            <Info className="w-3.5 h-3.5 text-amber-600 mt-0.5 shrink-0" />
+                            <span>{stop.notes}</span>
+                          </div>
+                        )}
+
+                      </div>
+
                     </div>
-
-                  </div>
-                );
-              })}
-
-            </div>
+                  );
+                })}
+              </div>
+            )}
 
           </div>
 

@@ -573,11 +573,15 @@ export default function LoadGridCard({
           <button
             type="button"
             onClick={() => onViewDetails?.(load)}
-            className="flex-1 inline-flex items-center justify-center gap-1 py-1.5 px-2.5 rounded-xl bg-[#0a1128] hover:bg-slate-800 text-orange-400 text-[11px] font-black shadow-xs transition-colors border border-slate-700"
+            className="flex-1 inline-flex items-center justify-center gap-1 py-1.5 px-2.5 rounded-xl bg-[#0a1128] hover:bg-slate-800 text-orange-400 text-[11px] font-black shadow-xs transition-colors border border-slate-700 cursor-pointer"
             title="Open complete multi-stop journey stepper and details"
           >
             <Navigation className="w-3.5 h-3.5 text-orange-400" />
-            <span>Stops ({stopsCount})</span>
+            <span>
+              {load.subTrips && load.subTrips.length > 0
+                ? `${load.subTrips.length} Sub-Trips`
+                : `Stops (${stopsCount})`}
+            </span>
           </button>
 
           {/* 1-Click Copy Template */}

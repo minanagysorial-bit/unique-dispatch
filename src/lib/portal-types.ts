@@ -131,11 +131,46 @@ export interface TourStop {
   appointmentTime?: string; // ISO 8601 string
   arrivalTimeWindowStart?: string;
   arrivalTimeWindowEnd?: string;
+  departureTime?: string;
   status?: "pending" | "en_route" | "arrived" | "completed" | "delayed";
   arnNumber?: string;
   cptTime?: string;
   isBobtail?: boolean;
   notes?: string;
+  // Sub-Trip / Multi-Leg Tracking
+  subTripId?: string; // e.g. 1153VFZF4, 116LTZYGK
+  legIndex?: number;
+  legMiles?: number;
+  legDuration?: string;
+  legAction?: string;
+  tractorId?: string;
+  hasDelay?: boolean;
+}
+
+export interface SubTripItem {
+  id: string; // e.g. 1153VFZF4
+  legIndex: number; // 1, 2, 3...
+  fromFacility: string; // SAT41
+  fromSeq?: number;
+  fromAddress?: string;
+  fromCity?: string;
+  fromState?: string;
+  scheduledArrival?: string;
+  scheduledDeparture?: string;
+  toFacility: string; // DAU5
+  toSeq?: number;
+  toAddress?: string;
+  toCity?: string;
+  toState?: string;
+  miles?: number;
+  duration?: string;
+  equipment?: string;
+  action?: string; // Drop, Live, Live/Drop
+  driver?: string;
+  tractorId?: string;
+  hasDelay?: boolean;
+  delayReason?: string;
+  status?: "pending" | "en_route" | "arrived" | "completed" | "delayed";
 }
 
 export interface Load {
@@ -163,6 +198,8 @@ export interface Load {
 
   // Full Multi-Stop Itinerary / Journey Route
   stops?: TourStop[];
+  subTrips?: SubTripItem[];
+  subTripsCount?: number;
 
   // Driver & Vehicle
   driverName: string;
@@ -282,6 +319,8 @@ export interface BatchSyncPayload {
     destFacilityCode?: string;
     deliveryTime: string;
     stops?: TourStop[];
+    subTrips?: SubTripItem[];
+    subTripsCount?: number;
     driverName?: string;
     driverPhone?: string;
     tractorNumber?: string;

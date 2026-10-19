@@ -10,6 +10,7 @@ import {
   Clock,
   ShieldAlert,
   ChevronRight,
+  ChevronDown,
   Send,
   CheckCircle2,
   AlertCircle,
@@ -38,6 +39,7 @@ export default function LoadOperationsCard({
 }: LoadOperationsCardProps) {
   const [activeMilestone, setActiveMilestone] = useState<MilestoneType | null>(null);
   const [isEscalateOpen, setIsEscalateOpen] = useState(false);
+  const [isSubTripsOpen, setIsSubTripsOpen] = useState(false);
   const [copiedVrid, setCopiedVrid] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
@@ -454,6 +456,88 @@ export default function LoadOperationsCard({
           </div>
 
         </div>
+
+        {/* Interactive Sub-Trips Breakdown Accordion */}
+        {((load.subTrips && load.subTrips.length > 0) || (load.stops && load.stops.length > 2)) && (
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/80 overflow-hidden shadow-2xs">
+            <button
+              type="button"
+              onClick={() => setIsSubTripsOpen(!isSubTripsOpen)}
+              className="w-full px-3.5 py-2.5 flex items-center justify-between text-xs font-bold text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
+                <span className="font-black text-slate-900">
+                  ⚡ {load.subTrips?.length || (load.stops ? load.stops.length - 1 : 0)} Sub-Trips Breakdown
+                </span>
+                <span className="text-[11px] text-slate-500 font-normal">
+                  ({load.stops?.length || (load.subTrips ? load.subTrips.length + 1 : 0)} Total Stops)
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 text-orange-600 font-black text-[11px]">
+                <span>{isSubTripsOpen ? "Hide Breakdown" : "View All Sub-Trips"}</span>
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isSubTripsOpen ? "rotate-180" : ""}`} />
+              </div>
+            </button>
+
+            {isSubTripsOpen && (
+              <div className="p-3 border-t border-slate-200 bg-white space-y-2 max-h-72 overflow-y-auto">
+                {load.subTrips && load.subTrips.length > 0 ? (
+                  load.subTrips.map((leg, lIdx) => (
+                    <div
+                      key={lIdx}
+                      className="p-2.5 rounded-xl border border-slate-200/80 bg-slate-50/70 hover:bg-orange-50/40 hover:border-orange-200 transition-all flex flex-wrap items-center justify-between gap-2 text-xs"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-md bg-orange-600 text-white font-black text-[10px] flex items-center justify-center">
+                          {leg.legIndex || lIdx + 1}
+                        </span>
+                        <span className="font-mono font-black text-slate-900 text-xs">
+                          {leg.id}
+                        </span>
+                        <div className="flex items-center gap-1 font-bold text-slate-700">
+                          <span className="text-orange-600">[{leg.fromFacility}]</span>
+                          <span>➔</span>
+                          <span className="text-blue-600">[{leg.toFacility}]</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {Boolean(leg.miles && leg.miles > 0) && (
+                          <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[11px] font-bold">
+                            {leg.miles} mi
+                          </span>
+                        )}
+                        {leg.duration && (
+                          <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[11px]">
+                            {leg.duration}
+                          </span>
+                        )}
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
+                          leg.action?.toLowerCase().includes("drop")
+                            ? "bg-blue-100 text-blue-800 border border-blue-200"
+                            : "bg-purple-100 text-purple-800 border border-purple-200"
+                        }`}>
+                          {leg.action || "Drop"}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  load.stops?.map((stop, sIdx) => (
+                    <div
+                      key={sIdx}
+                      className="p-2 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs"
+                    >
+                      <span className="font-bold text-slate-800">Stop #{stop.sequenceNumber}: [{stop.facilityCode || stop.city}]</span>
+                      <span className="text-slate-500">{stop.appointmentTime ? new Date(stop.appointmentTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Pending"}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Driver & Equipment Bar */}
         <div className="p-3 rounded-xl bg-slate-900 text-white flex flex-wrap items-center justify-between gap-3 text-xs">

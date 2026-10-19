@@ -8,10 +8,12 @@
   "use strict";
 
   window.__ud_content_script_initialized = true;
-  window.__ud_version = "1.0.8";
+  window.__ud_version = "1.0.9";
 
-  console.log("🚚 [Unique Dispatch] Relay High-Fidelity Multi-Leg Engine Active v1.0.8 in frame:", window.location.href);
+  console.log("🚚 [Unique Dispatch] Relay High-Fidelity Multi-Leg Engine Active v1.0.9 in frame:", window.location.href);
 
+  let hasBlockTours = false;
+  let requireBlockTours = false;
   const capturedApiToursMap = new Map();
   let latestOrderedTours = [];
   let isSyncing = false;
@@ -223,29 +225,51 @@
     const parentPickupTime = dateMatches[0] ? parseRelayDateTime(dateMatches[0][0], false) : parseRelayDateTime(preprocessedText, false);
     const parentDeliveryTime = dateMatches[1] ? parseRelayDateTime(dateMatches[1][0], true) : parseRelayDateTime(preprocessedText, true);
 
-    // 2. Extract Sub-Legs e.g. "116NH3T6Y 1 SAT41 -> 2 SAT3 8 mi 0h 25m Drop" or "T-1146DGRTM SAT41 -> SAT9 7 mi"
-    const legRegex = /(?:>|v)?\s*(T-[A-Za-z0-9]{9}|[0-9][A-Z0-9]{7,10}|[A-Z0-9]{8,10})\s*[\n\r\s]+(?:(\d+)\s+)?([A-Z0-9]{3,6})\s*[\n\r\s]*(?:➔|->|to)\s*(?:(\d+)\s+)?([A-Z0-9]{3,6})(?:[\s\S]*?(\d+)\s*mi)?/gi;
-    const subLegs = [];
-    let legMatch;
+    // 2. Extract Authentic Sub-Trips / Sub-Legs (e.g. "1153VFZF4 1 SAT41 -> 2 DAU5 62 mi 1h 46m 53' Trailer Drop A. Huerta")
+    const subTripRegex = /(?:^|\n)[^\w\n]*(11[A-Z0-9]{7}|T-[A-Z0-9]{9}|[0-9][A-Z0-9]{8})\s+(?:(\d+)\s+)?([A-Za-z0-9_]{3,24})\s*(?:➔|->|to|—|–|>)\s*(?:(\d+)\s+)?([A-Za-z0-9_]{3,24})(?:[^\n\r]*)/gi;
+    const subTrips = [];
+    let subMatch;
 
-    while ((legMatch = legRegex.exec(text)) !== null) {
-      subLegs.push({
-        subId: legMatch[1].trim(),
-        fromSeq: legMatch[2] ? parseInt(legMatch[2], 10) : (subLegs.length + 1),
-        fromFac: legMatch[3].trim(),
-        toSeq: legMatch[4] ? parseInt(legMatch[4], 10) : (subLegs.length + 2),
-        toFac: legMatch[5].trim(),
-        miles: legMatch[6] ? parseInt(legMatch[6], 10) : 0,
+    while ((subMatch = subTripRegex.exec(text)) !== null) {
+      const fullLine = subMatch[0];
+      const subId = subMatch[1].trim();
+      const fromSeq = subMatch[2] ? parseInt(subMatch[2], 10) : subTrips.length + 1;
+      const fromFac = subMatch[3].trim();
+      const toSeq = subMatch[4] ? parseInt(subMatch[4], 10) : fromSeq + 1;
+      const toFac = subMatch[5].trim();
+
+      const milesMatch = fullLine.match(/\b(\d+)\s*mi\b/i);
+      const durationMatch = fullLine.match(/\b(\d+h\s*\d+m|\d+h|\d+m)\b/i);
+      const equipmentMatch = fullLine.match(/(53'\s*Trailer|Trailer|Dry\s*Van)/i);
+      const actionMatch = fullLine.match(/\b(Live\/Drop|Drop|Live|Hook|Pickup)\b/i);
+      const driverMatch = fullLine.match(/([A-Z]\.\s*[A-Za-z]+)\b/);
+
+      subTrips.push({
+        id: subId,
+        legIndex: subTrips.length + 1,
+        fromSeq,
+        fromFacility: fromFac,
+        toSeq,
+        toFacility: toFac,
+        miles: milesMatch ? parseInt(milesMatch[1], 10) : 0,
+        duration: durationMatch ? durationMatch[1] : undefined,
+        equipment: equipmentMatch ? equipmentMatch[1] : "53' Trailer",
+        action: actionMatch ? actionMatch[1] : "Drop",
+        driver: driverMatch ? driverMatch[1] : undefined,
       });
     }
 
-    // 3. Extract Addresses e.g. "111 Gembler Rd, San Antonio, TX 78219" or "PVT ST AT 10384 W US HIGHWAY 90, San Antonio, TX 78245"
+    // 3. Extract Clean Addresses e.g. "111 Gembler Rd, San Antonio, TX 78219" or "2956 MAIN ST BUDA, BUDA, TX 78610"
     const addressRegex = /((?:PVT\s+ST\s+AT\s+)?\d+\s+[A-Za-z0-9\s\.\-]{2,45}(?:Rd|St|Ave|Dr|Blvd|Way|Ct|Ln|Hwy|Pkwy|Highway\s*\d+|Loop\s*\d+|Parkway|Boulevard|Lane|Drive|Road|Street))[,\s\n\r]+([A-Za-z\s]{3,20}),\s*([A-Z]{2})(?:\s+(\d{5}))?/gi;
     const foundAddresses = [];
     let addrMatch;
     while ((addrMatch = addressRegex.exec(text)) !== null) {
       let rawStreet = addrMatch[1].trim();
-      const cleanStreet = rawStreet.replace(/^[\s\S]*?\b(\d+\s+[A-Za-z0-9\s\.\-]+(?:Rd|St|Ave|Dr|Blvd|Way|Ct|Ln|Hwy|Pkwy|Highway\s*\d+|Loop\s*\d+|Parkway|Boulevard|Lane|Drive|Road|Street))/i, "$1").trim();
+      const cleanStreet = rawStreet
+        .replace(/^[\s\S]*?(?:Report delay|delay|CDT|CST|EDT|EST)\s*/i, "")
+        .replace(/^[\s\S]*?\b(\d+\s+[A-Za-z0-9\s\.\-]+(?:Rd|St|Ave|Dr|Blvd|Way|Ct|Ln|Hwy|Pkwy|Highway\s*\d+|Loop\s*\d+|Parkway|Boulevard|Lane|Drive|Road|Street))/i, "$1")
+        .trim();
+
       foundAddresses.push({
         street: cleanStreet || rawStreet,
         city: addrMatch[2].trim(),
@@ -254,85 +278,108 @@
       });
     }
 
-    // 4. Extract ARN numbers & Reference IDs
+    // 4. Extract Expanded Stop Times & Schedule Windows (from detailed stop breakdown)
+    const expandedStopRegex = /(?:^|\n)\s*(\d{1,2})\s+([A-Za-z0-9_]{3,24})[^\n\r]*(?:Tractor\s*ID[^\n\r]*?(bobtail|[A-Za-z0-9\-]+))?[^\n\r]*?Sch\.\s*(\d{1,2}\s+[A-Za-z]{3},?\s+\d{1,2}:\d{2}\s*(?:AM|PM)?[A-Z]{0,4})[^\n\r]*?Sch\.\s*(\d{1,2}\s+[A-Za-z]{3},?\s+\d{1,2}:\d{2}\s*(?:AM|PM)?[A-Z]{0,4})?/gi;
+    const stopDetailsMap = new Map();
+    let expMatch;
+    while ((expMatch = expandedStopRegex.exec(text)) !== null) {
+      const seq = parseInt(expMatch[1], 10);
+      const fac = expMatch[2];
+      const tractor = expMatch[3];
+      const arrTime = expMatch[4] ? parseRelayDateTime(expMatch[4], false) : undefined;
+      const depTime = expMatch[5] ? parseRelayDateTime(expMatch[5], false) : undefined;
+      stopDetailsMap.set(seq, { fac, tractor, arrTime, depTime });
+    }
+
+    // 5. Extract ARN numbers & Reference IDs
     const arnMatches = Array.from(text.matchAll(/ARN\s*#?\s*(\d{8,14})/gi)).map((m) => m[1]);
     const apptMatch = text.match(/Appointment\s*Id\s*(\d{8,16})/i);
     const appointmentId = apptMatch ? apptMatch[1] : undefined;
 
-    // 5. Extract CPT (Critical Pull Time)
+    // 6. Extract CPT (Critical Pull Time)
     const cptMatch = text.match(/CPT\s+([A-Za-z0-9\s,:]+(?:AM|PM|CDT|CST|EDT|EST)?)/i);
     const cptTime = cptMatch ? cptMatch[1].trim() : undefined;
 
-    // 6. Extract Total Miles (sum of legs or stated miles)
+    // 7. Extract Total Miles (sum of legs or stated miles)
     let totalMiles = 0;
-    if (subLegs.length > 0) {
-      totalMiles = subLegs.reduce((acc, l) => acc + (l.miles || 0), 0);
+    if (subTrips.length > 0) {
+      totalMiles = subTrips.reduce((acc, l) => acc + (l.miles || 0), 0);
     }
     if (totalMiles === 0) {
       const milesMatch = text.match(/([0-9,]+)\s*mi\b/i);
       if (milesMatch) totalMiles = parseInt(milesMatch[1].replace(/,/g, ""), 10);
     }
 
-    // 7. Build Ordered Stops Array
+    // 8. Build Ordered Stops Array (Sequential stops 1 through N)
     const stopsList = [];
     const cityStateMatches = Array.from(preprocessedText.matchAll(/([A-Za-z\s\.\-]{3,24}),\s*([A-Z]{2})(?:\s+(\d{5}))?/g));
 
-    if (subLegs.length > 0) {
-      // Build sequenced stops from authentic sub-legs
-      subLegs.forEach((leg, idx) => {
-        const isFirst = idx === 0;
-        const isLast = idx === subLegs.length - 1;
+    if (subTrips.length > 0) {
+      // Add Origin Stop (Stop 1)
+      const firstLeg = subTrips[0];
+      const firstDetails = stopDetailsMap.get(firstLeg.fromSeq);
+      const addr1 = foundAddresses[0];
+      const oCity = addr1?.city || (cityStateMatches[0] && cityStateMatches[0][1].trim()) || firstLeg.fromFacility;
+      const oState = addr1?.state || (cityStateMatches[0] && cityStateMatches[0][2].trim()) || "TX";
+
+      stopsList.push({
+        sequenceNumber: firstLeg.fromSeq || 1,
+        type: "pickup",
+        activity: "pickup",
+        facilityCode: firstLeg.fromFacility,
+        city: oCity,
+        state: oState,
+        postalCode: addr1?.zip || undefined,
+        address: addr1?.street ? `${addr1.street}, ${oCity}, ${oState}` : `Amazon Logistics Facility [${firstLeg.fromFacility}]`,
+        appointmentTime: firstDetails?.arrTime || parentPickupTime,
+        departureTime: firstDetails?.depTime || undefined,
+        tractorId: firstDetails?.tractor || (/bobtail/i.test(text) ? "bobtail" : undefined),
+        subTripId: firstLeg.id,
+        arnNumber: arnMatches[0] || undefined,
+        cptTime: cptTime || undefined,
+        isBobtail: /bobtail/i.test(text),
+        status: "pending",
+        notes: `Sub-Trip #${firstLeg.id} (Leg 1 Origin - ${firstLeg.fromFacility})`,
+      });
+
+      // Add Destination of each sub-trip leg (Stops 2..N)
+      subTrips.forEach((leg, idx) => {
+        const isLast = idx === subTrips.length - 1;
+        const legDetails = stopDetailsMap.get(leg.toSeq);
+        const addr = foundAddresses[idx + 1] || (isLast ? (foundAddresses[foundAddresses.length - 1] || addr1) : undefined);
+        const legCityMatch = (cityStateMatches[idx + 1] && cityStateMatches[idx + 1][1].trim()) || (cityStateMatches[cityStateMatches.length - 1] && cityStateMatches[cityStateMatches.length - 1][1].trim());
+        const legStateMatch = (cityStateMatches[idx + 1] && cityStateMatches[idx + 1][2].trim()) || (cityStateMatches[cityStateMatches.length - 1] && cityStateMatches[cityStateMatches.length - 1][2].trim());
+        const dCity = addr?.city || legCityMatch || leg.toFacility;
+        const dState = addr?.state || legStateMatch || "TX";
+
+        const stepEstimatedTime = new Date(new Date(parentPickupTime).getTime() + (idx + 1) * 2 * 3600000).toISOString();
         const legArn = arnMatches[idx] || (arnMatches.length === 1 ? arnMatches[0] : undefined);
 
-        // Add Origin of leg (for first leg)
-        if (isFirst || stopsList.length === 0) {
-          const addr = foundAddresses[0];
-          const oCity = addr?.city || (cityStateMatches[0] && cityStateMatches[0][1].trim()) || leg.fromFac;
-          const oState = addr?.state || (cityStateMatches[0] && cityStateMatches[0][2].trim()) || "TX";
-          stopsList.push({
-            sequenceNumber: stopsList.length + 1,
-            type: "pickup",
-            activity: "pickup",
-            facilityCode: leg.fromFac,
-            city: oCity,
-            state: oState,
-            postalCode: addr?.zip || (cityStateMatches[0] && cityStateMatches[0][3]) || undefined,
-            address: addr?.street ? `${addr.street}, ${oCity}, ${oState}` : `Amazon Logistics Facility [${leg.fromFac}]`,
-            appointmentTime: parentPickupTime,
-            arnNumber: legArn,
-            cptTime: isFirst ? cptTime : undefined,
-            isBobtail: /bobtail/i.test(text),
-            status: "pending",
-            notes: `Sub-Shipment Leg: ${leg.subId} (Origin)${legArn ? ` | ARN #${legArn}` : ""}`,
-          });
-        }
-
-        // Add Destination of leg
-        const nextAddr = foundAddresses[idx + 1] || (foundAddresses.length > 1 ? foundAddresses[foundAddresses.length - 1] : undefined);
-        const destCityMatch = (cityStateMatches[idx + 1] && cityStateMatches[idx + 1][1].trim()) || (cityStateMatches[cityStateMatches.length - 1] && cityStateMatches[cityStateMatches.length - 1][1].trim());
-        const destStateMatch = (cityStateMatches[idx + 1] && cityStateMatches[idx + 1][2].trim()) || (cityStateMatches[cityStateMatches.length - 1] && cityStateMatches[cityStateMatches.length - 1][2].trim());
-        const dCity = nextAddr?.city || destCityMatch || leg.toFac;
-        const dState = nextAddr?.state || destStateMatch || "TX";
-        const stepTime = new Date(new Date(parentPickupTime).getTime() + (idx + 1) * 2 * 3600000).toISOString();
-
         stopsList.push({
-          sequenceNumber: stopsList.length + 1,
+          sequenceNumber: leg.toSeq || idx + 2,
           type: isLast ? "delivery" : "intermediate",
-          activity: isLast ? "delivery" : "drop_hook",
-          facilityCode: leg.toFac,
+          activity: leg.action || (isLast ? "delivery" : "drop_hook"),
+          facilityCode: leg.toFacility,
           city: dCity,
           state: dState,
-          postalCode: nextAddr?.zip || undefined,
-          address: nextAddr?.street ? `${nextAddr.street}, ${dCity}, ${dState}` : `Amazon Facility [${leg.toFac}]`,
-          appointmentTime: isLast ? parentDeliveryTime : stepTime,
+          postalCode: addr?.zip || undefined,
+          address: addr?.street ? `${addr.street}, ${dCity}, ${dState}` : `Amazon Facility [${leg.toFacility}]`,
+          appointmentTime: isLast ? parentDeliveryTime : (legDetails?.arrTime || stepEstimatedTime),
+          departureTime: legDetails?.depTime || undefined,
+          tractorId: legDetails?.tractor || undefined,
+          subTripId: leg.id,
+          legIndex: leg.legIndex,
+          legMiles: leg.miles,
+          legDuration: leg.duration,
+          legAction: leg.action,
           arnNumber: legArn,
           isBobtail: /bobtail/i.test(text),
           status: "pending",
-          notes: `Sub-Shipment Leg: ${leg.subId} (${leg.miles > 0 ? `${leg.miles} mi` : "Drop"})${legArn ? ` | ARN #${legArn}` : ""}`,
+          notes: `Sub-Trip #${leg.id} (Leg ${leg.legIndex}: ${leg.fromFacility} ➔ ${leg.toFacility}${leg.miles > 0 ? ` • ${leg.miles} mi` : ""}${leg.action ? ` • ${leg.action}` : ""})`,
         });
       });
     } else {
-      // Direct summary extraction from row columns
+      // Direct 2-stop summary extraction from row columns
       let cellOriginText = cells[2] ? (cells[2].innerText || cells[2].textContent || "").trim() : "";
       let cellDestText = cells[3] ? (cells[3].innerText || cells[3].textContent || "").trim() : "";
 
@@ -390,6 +437,8 @@
 
     return {
       stops: stopsList,
+      subTrips,
+      subTripsCount: subTrips.length,
       originCity: firstStop.city || "San Antonio",
       originState: firstStop.state || "TX",
       originFacilityCode: firstStop.facilityCode,
@@ -401,8 +450,8 @@
       destAddress: lastStop.address,
       deliveryTime: parentDeliveryTime,
       distanceMiles: totalMiles > 0 ? totalMiles : undefined,
-      subLegsCount: subLegs.length,
-      subLegsIds: subLegs.map((l) => l.subId),
+      subLegsCount: subTrips.length,
+      subLegsIds: subTrips.map((l) => l.id),
       arnNumbers: arnMatches,
       appointmentId,
       cptTime,
@@ -539,20 +588,12 @@
         if (requireBlockTours && blockIdRegex.test(sibText)) break;
         if (!requireBlockTours && (blockIdRegex.test(sibText) || singleIdRegex.test(sibText))) break;
 
-        if (
-          /(?:➔|->|to)\s*(?:\d+\s+)?[A-Z0-9]{3,6}/i.test(sibText) ||
-          /Stop\s+\d+|instructions|bobtail|Arrival|Departure|ARN\s*#/i.test(sibText) ||
-          /\bT-[A-Za-z0-9]{9}\b/.test(sibText)
-        ) {
-          text += "\n" + sibText;
-          if (sib.querySelectorAll) {
-            const sibInputs = Array.from(sib.querySelectorAll("input, select"))
-              .map((inp) => (inp.value || inp.getAttribute("value") || "").trim())
-              .filter(Boolean);
-            if (sibInputs.length > 0) text += " " + sibInputs.join(" ");
-          }
-        } else {
-          break;
+        text += "\n" + sibText;
+        if (sib.querySelectorAll) {
+          const sibInputs = Array.from(sib.querySelectorAll("input, select"))
+            .map((inp) => (inp.value || inp.getAttribute("value") || "").trim())
+            .filter(Boolean);
+          if (sibInputs.length > 0) text += " " + sibInputs.join(" ");
         }
         sib = sib.nextElementSibling;
       }
@@ -617,6 +658,8 @@
           deliveryTime: blockStructure.deliveryTime,
           stops: blockStructure.stops,
           totalStopsCount: blockStructure.stops.length,
+          subTrips: blockStructure.subTrips,
+          subTripsCount: blockStructure.subTripsCount || (blockStructure.subTrips ? blockStructure.subTrips.length : 0),
           contractCode,
           arnNumbers: blockStructure.arnNumbers,
           appointmentId: blockStructure.appointmentId,
@@ -635,7 +678,7 @@
           trailerNumber: "TR-5300",
           carrierName: "Chism Tracking / Unique Dispatch",
           carrierMcDot: contractCode,
-          notes: `Amazon Relay Contract: ${contractCode} | Sub-Legs: ${blockStructure.subLegsCount > 0 ? blockStructure.subLegsIds.join(", ") : "Direct"} | Screen #${currentScreenIndex}${blockStructure.arnNumbers && blockStructure.arnNumbers.length > 0 ? ` | ARN: ${blockStructure.arnNumbers.join(", ")}` : ""}`,
+          notes: `Amazon Relay Contract: ${contractCode} | Sub-Trips: ${blockStructure.subTripsCount > 0 ? blockStructure.subTrips.map(s => s.id).join(", ") : "Direct"} | Screen #${currentScreenIndex}${blockStructure.arnNumbers && blockStructure.arnNumbers.length > 0 ? ` | ARN: ${blockStructure.arnNumbers.join(", ")}` : ""}`,
         };
 
         // Merge with API captured tour if available
