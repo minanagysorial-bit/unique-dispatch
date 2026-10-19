@@ -8,9 +8,9 @@
   "use strict";
 
   window.__ud_content_script_initialized = true;
-  window.__ud_version = "1.0.9";
+  window.__ud_version = "1.1.0";
 
-  console.log("🚚 [Unique Dispatch] Relay High-Fidelity Multi-Leg Engine Active v1.0.9 in frame:", window.location.href);
+  console.log("🚚 [Unique Dispatch] Relay High-Fidelity Multi-Leg Engine Active v1.1.0 in frame:", window.location.href);
 
   let hasBlockTours = false;
   let requireBlockTours = false;
@@ -844,7 +844,7 @@
       });
     }
 
-    function expandAllRelayRows() {
+    async function expandAllRelayRows(autoSync = true) {
       const expandSelectors = [
         'button[aria-expanded="false"]',
         'button[aria-label*="expand" i]',
@@ -859,35 +859,46 @@
         '[aria-label*="open" i]',
       ];
 
-      const elements = Array.from(document.querySelectorAll(expandSelectors.join(", ")));
+      showToast("📂 Expanding all tours on screen to reveal multi-leg sub-trips...");
+
+      const rows = Array.from(
+        document.querySelectorAll(
+          'table tbody tr:not([class*="header" i]), [role="row"]:not([role="columnheader" i]), li[class*="awsui-cards-card-item" i], div[class*="card"]'
+        )
+      );
+
       let clicked = 0;
-      elements.forEach((el) => {
-        try {
-          const btn = el.tagName === "BUTTON" ? el : el.closest("button") || el;
-          if (btn && btn.click) {
+      for (const row of rows) {
+        const rowText = (row.innerText || row.textContent || "").trim();
+        if (!/\b(B-[A-Za-z0-9]{9})\b/i.test(rowText)) continue;
+
+        const btn = row.querySelector(expandSelectors.join(", "));
+        if (btn) {
+          try {
             btn.click();
             clicked++;
+            await new Promise((r) => setTimeout(r, 70));
+          } catch (e) {}
+        } else {
+          const clickable = row.querySelector('td:not(:last-child), [role="gridcell"]:not(:last-child)');
+          if (clickable && !clickable.querySelector("input, select, button, a")) {
+            try {
+              clickable.click();
+              clicked++;
+              await new Promise((r) => setTimeout(r, 60));
+            } catch (e) {}
           }
-        } catch (e) {}
-      });
+        }
+      }
 
-      // Also click on any row anchors or rows if needed
-      document.querySelectorAll('tr[class*="awsui-table-row"], div[class*="card"]').forEach((r) => {
-        try {
-          const btn = r.querySelector('button[aria-expanded="false"]');
-          if (btn) {
-            btn.click();
-            clicked++;
-          }
-        } catch (e) {}
-      });
+      showToast(`✓ Expanded ${clicked > 0 ? clicked : "all"} tours! Extracting multi-leg sub-trips...`);
+      await new Promise((r) => setTimeout(r, 1200));
 
-      showToast(`📂 Expanding ${clicked > 0 ? clicked : "all"} tours & multi-leg stops...`);
-      setTimeout(() => {
-        scanDomForTours();
-        updateFloatingPillUI();
-        showToast(`✓ Scanned ${latestOrderedTours.length} block tours with full sub-leg details!`);
-      }, 1000);
+      scanDomForTours();
+      updateFloatingPillUI();
+      if (autoSync) {
+        extractAndSyncAll(true, "upsert");
+      }
     }
 
     syncBtn.addEventListener("click", (e) => {
@@ -1100,6 +1111,30 @@
       updateFloatingPillUI();
     }, 1000);
   });
+
+  // 10. Real-Time Row Expansion & Click Auto-Sync
+  document.addEventListener(
+    "click",
+    (e) => {
+      const target = e.target;
+      if (!target) return;
+      if (target.closest && target.closest("#ud-relay-sync-pill")) return;
+      const row = target.closest ? target.closest('tr, [role="row"], li[class*="card" i], [class*="awsui-table-row"]') : null;
+      if (row) {
+        const rowText = (row.innerText || row.textContent || "").trim();
+        if (/\b(B-[A-Za-z0-9]{9}|T-[A-Za-z0-9]{9})\b/i.test(rowText)) {
+          setTimeout(() => {
+            const tours = scanDomForTours();
+            updateFloatingPillUI();
+            if (tours.length > 0) {
+              extractAndSyncAll(false, "upsert");
+            }
+          }, 450);
+        }
+      }
+    },
+    true
+  );
 
   observer.observe(document.body || document.documentElement, {
     childList: true,
