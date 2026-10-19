@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import os from "os";
 import {
   User,
   Load,
@@ -148,6 +149,7 @@ const SEED_AUDIT_LOGS: AuditLog[] = [];
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const STORAGE_FILE = path.join(DATA_DIR, "portal-storage.json");
+const TMP_STORAGE_FILE = path.join(os.tmpdir(), "portal-storage.json");
 
 export interface SyncMeta {
   lastSyncAt: string | null;
@@ -174,9 +176,18 @@ let syncMeta: SyncMeta = {
 
 function loadStorage(): PersistedStorage {
   try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
+    // 1. Check serverless writable /tmp first
+    if (fs.existsSync(TMP_STORAGE_FILE)) {
+      const raw = fs.readFileSync(TMP_STORAGE_FILE, "utf-8");
+      if (raw && raw.trim().length > 0) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed.users) && parsed.users.length > 0) {
+          return parsed;
+        }
+      }
     }
+
+    // 2. Fall back to bundled data/portal-storage.json
     if (fs.existsSync(STORAGE_FILE)) {
       const raw = fs.readFileSync(STORAGE_FILE, "utf-8");
       if (raw && raw.trim().length > 0) {
@@ -203,12 +214,16 @@ function loadStorage(): PersistedStorage {
   };
 
   try {
+    fs.writeFileSync(TMP_STORAGE_FILE, JSON.stringify(initial, null, 2), "utf-8");
+  } catch (e) {}
+
+  try {
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     }
     fs.writeFileSync(STORAGE_FILE, JSON.stringify(initial, null, 2), "utf-8");
   } catch (e) {
-    // ignore
+    // ignore read-only fs
   }
 
   return initial;
@@ -225,23 +240,31 @@ let auditLogs: AuditLog[] = initialData.auditLogs || [...SEED_AUDIT_LOGS];
 if (initialData.syncMeta) syncMeta = initialData.syncMeta;
 
 function persist(): void {
+  const dataToSave: PersistedStorage = {
+    users,
+    shifts,
+    loads,
+    incidents,
+    messages,
+    handovers,
+    auditLogs,
+    syncMeta,
+  };
+  const json = JSON.stringify(dataToSave, null, 2);
+
+  // 1. Always write to /tmp on serverless environments
+  try {
+    fs.writeFileSync(TMP_STORAGE_FILE, json, "utf-8");
+  } catch (e) {}
+
+  // 2. Also try writing to local data dir if permitted
   try {
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     }
-    const dataToSave: PersistedStorage = {
-      users,
-      shifts,
-      loads,
-      incidents,
-      messages,
-      handovers,
-      auditLogs,
-      syncMeta,
-    };
-    fs.writeFileSync(STORAGE_FILE, JSON.stringify(dataToSave, null, 2), "utf-8");
+    fs.writeFileSync(STORAGE_FILE, json, "utf-8");
   } catch (err) {
-    console.error("Failed to write portal-storage.json to disk:", err);
+    // Ignore read-only fs on serverless
   }
 }
 
