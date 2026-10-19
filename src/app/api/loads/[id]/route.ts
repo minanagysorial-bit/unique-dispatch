@@ -27,6 +27,17 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const actor = session ? { id: session.userId, name: session.name, role: session.role } : { id: "system", name: "Dispatcher Ops", role: "dispatcher" };
 
     const body = await req.json();
+
+    if (body.pickupCheckinSent && !body.pickupCheckinBy) {
+      body.pickupCheckinBy = actor.name;
+    }
+    if (body.dispatcherMessageSent && !body.dispatcherMessageSentBy) {
+      body.dispatcherMessageSentBy = actor.name;
+    }
+    if (body.deliveryCheckinSent && !body.deliveryCheckinBy) {
+      body.deliveryCheckinBy = actor.name;
+    }
+
     const updated = portalDb.updateLoad(id, body, actor);
 
     if (!updated) {

@@ -144,6 +144,56 @@ export default function LoadOperationsCard({
     }
   };
 
+  const handleTogglePickupCheckin = async (forceState?: boolean) => {
+    setIsTogglingMessage(true);
+    try {
+      const willBeSent = forceState !== undefined ? forceState : !load.pickupCheckinSent;
+      const nowIso = willBeSent ? new Date().toISOString() : undefined;
+      const res = await fetch(`/api/loads/${load.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pickupCheckinSent: willBeSent,
+          pickupCheckinSentAt: nowIso,
+          dispatcherMessageSent: willBeSent,
+          dispatcherMessageSentAt: nowIso,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        onLoadUpdated(data.load);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsTogglingMessage(false);
+    }
+  };
+
+  const handleToggleDeliveryCheckin = async (forceState?: boolean) => {
+    setIsTogglingMessage(true);
+    try {
+      const willBeSent = forceState !== undefined ? forceState : !load.deliveryCheckinSent;
+      const nowIso = willBeSent ? new Date().toISOString() : undefined;
+      const res = await fetch(`/api/loads/${load.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          deliveryCheckinSent: willBeSent,
+          deliveryCheckinSentAt: nowIso,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        onLoadUpdated(data.load);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsTogglingMessage(false);
+    }
+  };
+
   const cleanPhone = load.driverPhone.replace(/[^0-9]/g, "");
 
   return (
@@ -169,36 +219,62 @@ export default function LoadOperationsCard({
 
       {/* 2. Automated Smart Milestone Alert Banners */}
       {is3_5hPickupAlert && !isCritical && (
-        <div className="bg-amber-500 text-slate-950 px-4 py-2 flex items-center justify-between text-xs font-bold gap-2">
+        <div className="bg-amber-500 text-slate-950 px-4 py-2 flex flex-wrap items-center justify-between text-xs font-bold gap-2 animate-in slide-in-from-top-1">
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-slate-950 shrink-0 animate-spin" />
             <span>
               <strong>3.5-Hour Pre-Trip Milestone:</strong> Driver check-in required before pickup!
             </span>
           </div>
-          <button
-            onClick={() => setActiveMilestone("pickup_checkin_3_5h")}
-            className="px-3 py-1 rounded bg-slate-950 text-white hover:bg-slate-800 text-[11px] font-black uppercase tracking-wider shrink-0 transition-colors shadow"
-          >
-            Send Check-In Now
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={isTogglingMessage}
+              onClick={() => handleTogglePickupCheckin(true)}
+              className="px-3 py-1 rounded bg-slate-950 text-white hover:bg-slate-800 text-[11px] font-black uppercase tracking-wider shrink-0 transition-all shadow flex items-center gap-1.5 cursor-pointer"
+              title="Click when you have messaged the driver - dismisses this alert immediately and stamps your name"
+            >
+              <Check className="w-3.5 h-3.5 text-emerald-400" />
+              <span>✓ تأكيد الإرسال (Mark Sent)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveMilestone("pickup_checkin_3_5h")}
+              className="px-2.5 py-1 rounded bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold tracking-wider shrink-0 shadow-xs cursor-pointer"
+            >
+              Templates
+            </button>
+          </div>
         </div>
       )}
 
       {is30mDeliveryAlert && !isCritical && (
-        <div className="bg-blue-600 text-white px-4 py-2 flex items-center justify-between text-xs font-bold gap-2">
+        <div className="bg-blue-600 text-white px-4 py-2 flex flex-wrap items-center justify-between text-xs font-bold gap-2 animate-in slide-in-from-top-1">
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-white shrink-0 animate-pulse" />
             <span>
               <strong>30-Minute Delivery Alert:</strong> Approaching destination — send BOL reminder!
             </span>
           </div>
-          <button
-            onClick={() => setActiveMilestone("delivery_checkin_30m")}
-            className="px-3 py-1 rounded bg-white text-blue-950 hover:bg-blue-50 text-[11px] font-black uppercase tracking-wider shrink-0 transition-colors shadow"
-          >
-            Send Delivery Alert
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={isTogglingMessage}
+              onClick={() => handleToggleDeliveryCheckin(true)}
+              className="px-3 py-1 rounded bg-white text-blue-950 hover:bg-blue-50 text-[11px] font-black uppercase tracking-wider shrink-0 transition-all shadow flex items-center gap-1.5 cursor-pointer"
+              title="Click when you have messaged the driver - dismisses this alert immediately and stamps your name"
+            >
+              <Check className="w-3.5 h-3.5 text-blue-600" />
+              <span>✓ تأكيد الإرسال (Mark Sent)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveMilestone("delivery_checkin_30m")}
+              className="px-2.5 py-1 rounded bg-blue-700 hover:bg-blue-800 text-white text-[11px] font-bold tracking-wider shrink-0 shadow-xs cursor-pointer"
+            >
+              Templates
+            </button>
+          </div>
         </div>
       )}
 
@@ -451,51 +527,120 @@ export default function LoadOperationsCard({
         {/* Operational Milestones Verification Checkboxes */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
           
-          {/* 3.5h Checkin */}
-          <button
-            type="button"
-            onClick={() => setActiveMilestone("pickup_checkin_3_5h")}
-            className={`p-2 rounded-lg border text-left text-[11px] font-bold flex items-center justify-between transition-colors ${
+          {/* 3.5h Checkin Checkbox & Accountability */}
+          <div
+            className={`p-2.5 rounded-xl border text-left text-[11px] flex items-center justify-between gap-2 transition-all ${
               load.pickupCheckinSent
-                ? "bg-emerald-50 border-emerald-300 text-emerald-900"
+                ? "bg-emerald-50 border-emerald-300 text-emerald-950 shadow-xs"
                 : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
             }`}
           >
-            <span>3.5h Pickup Check</span>
-            {load.pickupCheckinSent ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            ) : (
-              <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
-            )}
-          </button>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 font-bold">
+                <button
+                  type="button"
+                  disabled={isTogglingMessage}
+                  onClick={() => handleTogglePickupCheckin()}
+                  className={`w-4 h-4 rounded-md flex items-center justify-center transition-all border cursor-pointer ${
+                    load.pickupCheckinSent
+                      ? "bg-emerald-600 border-emerald-600 text-white shadow-xs"
+                      : "bg-white border-slate-400 hover:border-emerald-500 hover:bg-emerald-50"
+                  }`}
+                  title={
+                    load.pickupCheckinSent
+                      ? `تم الإرسال بواسطة ${load.pickupCheckinBy || load.dispatcherMessageSentBy || "Alex Reed"}. اضغط للإلغاء.`
+                      : "اضغط لتسجيل إرسال الرسالة للسائق قبل الرحلة بـ 3.5 ساعة"
+                  }
+                >
+                  {load.pickupCheckinSent ? <Check className="w-3 h-3 text-white stroke-[3]" /> : null}
+                </button>
+                <span className="truncate">3.5h Pickup Check</span>
+              </div>
+
+              {load.pickupCheckinSent ? (
+                <p className="text-[10px] text-emerald-700 font-semibold truncate mt-1">
+                  تم الإرسال بواسطة {load.pickupCheckinBy || load.dispatcherMessageSentBy || "Alex Reed"}
+                  {load.pickupCheckinSentAt ? ` (${new Date(load.pickupCheckinSentAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })})` : ""}
+                </p>
+              ) : (
+                <p className="text-[10px] text-amber-600 font-medium flex items-center gap-1 mt-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping"></span>
+                  <span>Check-in Required</span>
+                </p>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setActiveMilestone("pickup_checkin_3_5h")}
+              className="p-1 rounded-lg hover:bg-emerald-100 text-slate-400 hover:text-emerald-800 transition-colors cursor-pointer shrink-0"
+              title="Open message templates"
+            >
+              <Send className="w-3 h-3" />
+            </button>
+          </div>
 
           {/* At Pickup */}
           <button
             type="button"
             onClick={() => setActiveMilestone("at_pickup_verify")}
-            className="p-2 rounded-lg border bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 text-left text-[11px] font-bold flex items-center justify-between"
+            className="p-2.5 rounded-xl border bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 text-left text-[11px] font-bold flex items-center justify-between"
           >
             <span>At Pickup / Dock</span>
             <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
           </button>
 
-          {/* 30m Delivery */}
-          <button
-            type="button"
-            onClick={() => setActiveMilestone("delivery_checkin_30m")}
-            className={`p-2 rounded-lg border text-left text-[11px] font-bold flex items-center justify-between transition-colors ${
+          {/* 30m Delivery Checkbox & Accountability */}
+          <div
+            className={`p-2.5 rounded-xl border text-left text-[11px] flex items-center justify-between gap-2 transition-all ${
               load.deliveryCheckinSent
-                ? "bg-emerald-50 border-emerald-300 text-emerald-900"
+                ? "bg-emerald-50 border-emerald-300 text-emerald-950 shadow-xs"
                 : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
             }`}
           >
-            <span>30m Delivery Alert</span>
-            {load.deliveryCheckinSent ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            ) : (
-              <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-            )}
-          </button>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 font-bold">
+                <button
+                  type="button"
+                  disabled={isTogglingMessage}
+                  onClick={() => handleToggleDeliveryCheckin()}
+                  className={`w-4 h-4 rounded-md flex items-center justify-center transition-all border cursor-pointer ${
+                    load.deliveryCheckinSent
+                      ? "bg-emerald-600 border-emerald-600 text-white shadow-xs"
+                      : "bg-white border-slate-400 hover:border-emerald-500 hover:bg-emerald-50"
+                  }`}
+                  title={
+                    load.deliveryCheckinSent
+                      ? `تم الإرسال بواسطة ${load.deliveryCheckinBy || "Alex Reed"}. اضغط للإلغاء.`
+                      : "اضغط لتسجيل إرسال تنبيه التسليم"
+                  }
+                >
+                  {load.deliveryCheckinSent ? <Check className="w-3 h-3 text-white stroke-[3]" /> : null}
+                </button>
+                <span className="truncate">30m Delivery Alert</span>
+              </div>
+
+              {load.deliveryCheckinSent ? (
+                <p className="text-[10px] text-emerald-700 font-semibold truncate mt-1">
+                  تم الإرسال بواسطة {load.deliveryCheckinBy || "Alex Reed"}
+                  {load.deliveryCheckinSentAt ? ` (${new Date(load.deliveryCheckinSentAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })})` : ""}
+                </p>
+              ) : (
+                <p className="text-[10px] text-slate-500 font-medium truncate mt-1">
+                  Delivery reminder
+                </p>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setActiveMilestone("delivery_checkin_30m")}
+              className="p-1 rounded-lg hover:bg-emerald-100 text-slate-400 hover:text-emerald-800 transition-colors cursor-pointer shrink-0"
+              title="Open message templates"
+            >
+              <Send className="w-3 h-3" />
+            </button>
+          </div>
 
           {/* BOL / POD */}
           <button

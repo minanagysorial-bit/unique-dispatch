@@ -117,19 +117,19 @@ export default function LoadGridCard({
     ? new Date(msgSentTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
     : "";
 
-  const handleToggleMessageSent = async () => {
+  const handleTogglePickupCheckin = async (forceState?: boolean) => {
     setIsTogglingMessage(true);
     try {
-      const willBeSent = !isMsgSent;
+      const willBeSent = forceState !== undefined ? forceState : !load.pickupCheckinSent;
       const nowIso = willBeSent ? new Date().toISOString() : undefined;
       const res = await fetch(`/api/loads/${load.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          dispatcherMessageSent: willBeSent,
-          dispatcherMessageSentAt: nowIso,
           pickupCheckinSent: willBeSent,
           pickupCheckinSentAt: nowIso,
+          dispatcherMessageSent: willBeSent,
+          dispatcherMessageSentAt: nowIso,
         }),
       });
       if (res.ok) {
@@ -142,6 +142,32 @@ export default function LoadGridCard({
       setIsTogglingMessage(false);
     }
   };
+
+  const handleToggleDeliveryCheckin = async (forceState?: boolean) => {
+    setIsTogglingMessage(true);
+    try {
+      const willBeSent = forceState !== undefined ? forceState : !load.deliveryCheckinSent;
+      const nowIso = willBeSent ? new Date().toISOString() : undefined;
+      const res = await fetch(`/api/loads/${load.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          deliveryCheckinSent: willBeSent,
+          deliveryCheckinSentAt: nowIso,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        onLoadUpdated(data.load);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsTogglingMessage(false);
+    }
+  };
+
+  const handleToggleMessageSent = () => handleTogglePickupCheckin();
 
   const handleQuickCopyDefault = async () => {
     try {
@@ -209,32 +235,58 @@ export default function LoadGridCard({
 
       {/* 2. Automated Smart Milestone Alert Banner */}
       {is3_5hPickupAlert && !isCritical && (
-        <div className="bg-amber-500 text-slate-950 px-3.5 py-1.5 flex items-center justify-between text-[11px] font-bold">
+        <div className="bg-amber-500 text-slate-950 px-3.5 py-1.5 flex flex-wrap items-center justify-between text-[11px] font-bold gap-1.5">
           <div className="flex items-center gap-1.5">
             <Clock className="w-3.5 h-3.5 shrink-0 animate-spin" />
             <span>3.5h Alert: Pre-Trip Check-In Required!</span>
           </div>
-          <button
-            onClick={() => setActiveMilestone("pickup_checkin_3_5h")}
-            className="px-2 py-0.5 rounded bg-slate-950 text-white text-[10px] font-black uppercase shadow"
-          >
-            Send Now
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              disabled={isTogglingMessage}
+              onClick={() => handleTogglePickupCheckin(true)}
+              className="px-2.5 py-0.5 rounded bg-slate-950 text-white hover:bg-slate-800 text-[10px] font-black uppercase shadow flex items-center gap-1 cursor-pointer transition-all"
+              title="Click when you have messaged the driver - dismisses this alert immediately and stamps your name"
+            >
+              <Check className="w-3 h-3 text-emerald-400" />
+              <span>✓ تأكيد الإرسال</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveMilestone("pickup_checkin_3_5h")}
+              className="px-2 py-0.5 rounded bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold uppercase shadow"
+            >
+              Templates
+            </button>
+          </div>
         </div>
       )}
 
       {is30mDeliveryAlert && !isCritical && (
-        <div className="bg-blue-600 text-white px-3.5 py-1.5 flex items-center justify-between text-[11px] font-bold">
+        <div className="bg-blue-600 text-white px-3.5 py-1.5 flex flex-wrap items-center justify-between text-[11px] font-bold gap-1.5">
           <div className="flex items-center gap-1.5">
             <Clock className="w-3.5 h-3.5 shrink-0 animate-pulse" />
             <span>30m Alert: Approaching Delivery (BOL)!</span>
           </div>
-          <button
-            onClick={() => setActiveMilestone("delivery_checkin_30m")}
-            className="px-2 py-0.5 rounded bg-white text-blue-900 text-[10px] font-black uppercase shadow"
-          >
-            Send Now
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              disabled={isTogglingMessage}
+              onClick={() => handleToggleDeliveryCheckin(true)}
+              className="px-2.5 py-0.5 rounded bg-white text-blue-900 hover:bg-blue-50 text-[10px] font-black uppercase shadow flex items-center gap-1 cursor-pointer transition-all"
+              title="Click when you have messaged the driver - dismisses this alert immediately and stamps your name"
+            >
+              <Check className="w-3 h-3 text-emerald-600" />
+              <span>✓ تأكيد الإرسال</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveMilestone("delivery_checkin_30m")}
+              className="px-2 py-0.5 rounded bg-blue-800 hover:bg-blue-900 text-white text-[10px] font-bold uppercase shadow"
+            >
+              Templates
+            </button>
+          </div>
         </div>
       )}
 
@@ -437,6 +489,15 @@ export default function LoadGridCard({
             <p className="text-[10px] text-slate-400 font-mono">
               {load.driverPhone} • {load.tractorNumber}
             </p>
+            {isMsgSent && (
+              <p className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1 pt-0.5">
+                <Check className="w-3 h-3 text-emerald-400 shrink-0" />
+                <span>
+                  تم الإرسال{load.pickupCheckinBy || load.dispatcherMessageSentBy ? ` بواسطة ${load.pickupCheckinBy || load.dispatcherMessageSentBy}` : ""}
+                  {msgSentTimeFormatted ? ` (${msgSentTimeFormatted})` : ""}
+                </span>
+              </p>
+            )}
           </div>
 
           <div className="flex items-center gap-1.5">
@@ -451,7 +512,7 @@ export default function LoadGridCard({
               }`}
               title={
                 isMsgSent
-                  ? `Message marked as sent${msgSentTimeFormatted ? ` at ${msgSentTimeFormatted}` : ""}. Click to toggle.`
+                  ? `Message marked as sent${load.pickupCheckinBy ? ` by ${load.pickupCheckinBy}` : ""}${msgSentTimeFormatted ? ` at ${msgSentTimeFormatted}` : ""}. Click to toggle.`
                   : "Click when you have sent a message to the driver"
               }
             >
@@ -494,12 +555,18 @@ export default function LoadGridCard({
             }`}
             title={
               isMsgSent
-                ? `Message recorded as sent${msgSentTimeFormatted ? ` at ${msgSentTimeFormatted}` : ""}. Click to toggle.`
-                : "Click to record message sent to driver"
+                ? `تم الإرسال${load.pickupCheckinBy || load.dispatcherMessageSentBy ? ` بواسطة ${load.pickupCheckinBy || load.dispatcherMessageSentBy}` : ""}${msgSentTimeFormatted ? ` (${msgSentTimeFormatted})` : ""}. اضغط للتغيير.`
+                : "اضغط لتسجيل إرسال الرسالة للسائق"
             }
           >
             <CheckCircle2 className={`w-3.5 h-3.5 ${isMsgSent ? "text-white" : "text-emerald-600"}`} />
-            <span>{isTogglingMessage ? "..." : isMsgSent ? "Sent" : "Msg Sent"}</span>
+            <span>
+              {isTogglingMessage
+                ? "..."
+                : isMsgSent
+                ? `✓ تم الإرسال${load.pickupCheckinBy ? ` (${load.pickupCheckinBy})` : ""}`
+                : "Msg Sent"}
+            </span>
           </button>
 
           {/* View Details Modal Button */}

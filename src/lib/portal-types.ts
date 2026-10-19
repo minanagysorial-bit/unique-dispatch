@@ -193,10 +193,13 @@ export interface Load {
   // Milestones timestamps & checks
   pickupCheckinSent: boolean;
   pickupCheckinSentAt?: string;
+  pickupCheckinBy?: string;
   deliveryCheckinSent: boolean;
   deliveryCheckinSentAt?: string;
+  deliveryCheckinBy?: string;
   dispatcherMessageSent?: boolean;
   dispatcherMessageSentAt?: string;
+  dispatcherMessageSentBy?: string;
   
   // Urgent flags
   isCriticalAlert: boolean;
