@@ -17,7 +17,7 @@ document.addEventListener("DOMContentLoaded", async () => {
    * Helper: Normalize user-entered Portal URL to prevent CORS preflight redirect errors
    */
   function normalizePortalUrl(rawUrl) {
-    let url = (rawUrl || "https://uniquedispatch.com").trim();
+    let url = (rawUrl || "https://www.uniquedispatch.com").trim();
     if (!url.startsWith("http://") && !url.startsWith("https://")) {
       if (url.includes("localhost") || url.startsWith("127.0.0.1")) {
         url = `http://${url}`;
@@ -28,6 +28,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Upgrade http to https for remote domains
     if (url.startsWith("http://") && !url.includes("localhost") && !url.includes("127.0.0.1")) {
       url = url.replace(/^http:\/\//i, "https://");
+    }
+    // Enforce www. for uniquedispatch.com to avoid Vercel 308 Permanent Redirect on POST requests
+    if (url.includes("uniquedispatch.com") && !url.includes("www.uniquedispatch.com")) {
+      url = url.replace("uniquedispatch.com", "www.uniquedispatch.com");
     }
     return url.replace(/\/$/, "");
   }
@@ -42,7 +46,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     "lastDetectedTours",
   ]);
 
-  const cleanPortalUrl = normalizePortalUrl(config.portalUrl || "https://uniquedispatch.com");
+  const cleanPortalUrl = normalizePortalUrl(config.portalUrl || "https://www.uniquedispatch.com");
   portalUrlInput.value = cleanPortalUrl;
   apiKeyInput.value = config.apiKey || "ud_live_sync_8892f038c1a9";
   shiftSelect.value = config.currentShift || "morning";

@@ -482,7 +482,6 @@
 
     let candidateList = [];
     const skipChildKeys = new Set([
-      "trips", "carrierTrips", "driverTrips", "assignedTrips", "childTours", "segments",
       "legs", "tourLegs", "subTours", "workOpportunityLegs",
       "stops", "itinerary", "stopDetails", "locationSequence",
       "shipments", "auditTrail", "comments", "actions", "events",
@@ -503,8 +502,17 @@
         return;
       }
       if (typeof obj === "object") {
+        const isTourObject = Boolean(
+          obj.tourId || obj.vrid || obj.tripNumber || obj.carrierTourId || obj.tourReferenceId ||
+          (typeof obj.id === "string" && (obj.id.startsWith("B-") || obj.id.startsWith("T-")))
+        );
+
         for (const key of Object.keys(obj)) {
-          if (skipChildKeys.has(key)) continue; // Never treat internal legs/stops as separate tours
+          // If this object is already a Tour, do not recurse into its internal sub-legs or child trips
+          if (isTourObject && (key === "trips" || key === "carrierTrips" || key === "legs" || key === "subTours" || key === "subTrips" || key === "stops")) {
+            continue;
+          }
+          if (skipChildKeys.has(key)) continue;
           const val = obj[key];
           if (val && typeof val === "object") {
             findObjectsAndArrays(val, depth + 1);

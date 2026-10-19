@@ -28,7 +28,7 @@ export default function ChromeExtensionGuide({
 
   if (!isOpen) return null;
 
-  const portalUrl = typeof window !== "undefined" ? window.location.origin : "https://uniquedispatch.com";
+  const portalUrl = typeof window !== "undefined" ? window.location.origin : "https://www.uniquedispatch.com";
   const extensionFolderPath = "extension";
 
   const copyKey = () => {

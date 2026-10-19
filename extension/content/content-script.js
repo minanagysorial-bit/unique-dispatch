@@ -8,9 +8,9 @@
   "use strict";
 
   window.__ud_content_script_initialized = true;
-  window.__ud_version = "1.0.6";
+  window.__ud_version = "1.0.7";
 
-  console.log("🚚 [Unique Dispatch] Relay High-Fidelity Multi-Leg Engine Active v1.0.6 in frame:", window.location.href);
+  console.log("🚚 [Unique Dispatch] Relay High-Fidelity Multi-Leg Engine Active v1.0.7 in frame:", window.location.href);
 
   const capturedApiToursMap = new Map();
   let latestOrderedTours = [];
@@ -24,13 +24,16 @@
     if (event.data.type === "UD_RELAY_RAW_API_TOURS" && Array.isArray(event.data.tours)) {
       console.log(`🚚 [Unique Dispatch] Ingested ${event.data.tours.length} authentic tours from API`);
       event.data.tours.forEach((tour) => {
-        if (tour && tour.vrid && tour.originCity !== "Origin Facility" && tour.destCity !== "Destination Facility") {
+        if (tour && tour.vrid) {
           capturedApiToursMap.set(tour.vrid, tour);
         }
       });
 
-      scanDomForTours();
+      const tours = scanDomForTours();
       updateFloatingPillUI();
+      if (tours.length > 0) {
+        extractAndSyncAll(false, "upsert");
+      }
     }
   });
 
@@ -453,6 +456,24 @@
       }
     }
 
+    // C. Universal Leaf Text Node Search: Find ANY element directly displaying a Tour ID (B-... or T-...)
+    const allLeafElements = Array.from(
+      document.querySelectorAll('a, button, span, div, p, strong, td, th')
+    ).filter((el) => {
+      if (el.id && el.id.includes("ud-")) return false;
+      if (el.children.length > 2) return false;
+      const t = (el.innerText || el.textContent || "").trim();
+      return blockIdRegex.test(t) || singleIdRegex.test(t);
+    });
+
+    for (const el of allLeafElements) {
+      const row = el.closest('tr:not([class*="header" i]), [role="row"]:not([role="columnheader" i]), li, [class*="row" i], [class*="card" i], [class*="item" i]') || el.parentElement;
+      if (row && !seenRowNodes.has(row) && row !== document.body && row !== document.documentElement) {
+        seenRowNodes.add(row);
+        candidateRows.push(row);
+      }
+    }
+
     // 2. Sort rows strictly by vertical visual position (preserving exact Relay Screen Order)
     candidateRows.sort((a, b) => {
       const rectA = a.nodeType === 1 ? a.getBoundingClientRect() : { top: 0, left: 0 };
@@ -653,9 +674,7 @@
           apiTour &&
           apiTour.vrid &&
           !seenIds.has(apiTour.vrid) &&
-          (!hasBlockTours || apiTour.vrid.startsWith("B-")) &&
-          apiTour.originCity !== "Origin Facility" &&
-          apiTour.destCity !== "Destination Facility"
+          (!hasBlockTours || apiTour.vrid.startsWith("B-"))
         ) {
           seenIds.add(apiTour.vrid);
           apiTour.screenIndex = currentScreenIndex++;
@@ -1010,9 +1029,20 @@
   // 9. Startup & Observers
   setTimeout(() => {
     injectFloatingPill();
-    scanDomForTours();
+    const tours = scanDomForTours();
     updateFloatingPillUI();
-  }, 600);
+    if (tours.length > 0) {
+      extractAndSyncAll(false, "upsert");
+    }
+  }, 1000);
+
+  setTimeout(() => {
+    const tours = scanDomForTours();
+    updateFloatingPillUI();
+    if (tours.length > 0) {
+      extractAndSyncAll(false, "upsert");
+    }
+  }, 2500);
 
   const observer = new MutationObserver((mutations) => {
     const isOurPill = mutations.every(

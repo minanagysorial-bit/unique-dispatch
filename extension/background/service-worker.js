@@ -4,7 +4,7 @@
  */
 
 const DEFAULT_CONFIG = {
-  portalUrl: "https://uniquedispatch.com",
+  portalUrl: "https://www.uniquedispatch.com",
   apiKey: "ud_live_sync_8892f038c1a9",
   currentShift: "morning",
   autoSyncEnabled: true,
@@ -22,6 +22,10 @@ function normalizePortalUrl(rawUrl) {
   }
   if (url.startsWith("http://") && !url.includes("localhost") && !url.includes("127.0.0.1")) {
     url = url.replace(/^http:\/\//i, "https://");
+  }
+  // Enforce www. for uniquedispatch.com to avoid Vercel 308 Permanent Redirect on POST requests
+  if (url.includes("uniquedispatch.com") && !url.includes("www.uniquedispatch.com")) {
+    url = url.replace("uniquedispatch.com", "www.uniquedispatch.com");
   }
   return url.replace(/\/$/, "");
 }
