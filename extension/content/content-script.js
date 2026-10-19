@@ -8,9 +8,9 @@
   "use strict";
 
   window.__ud_content_script_initialized = true;
-  window.__ud_version = "1.0.7";
+  window.__ud_version = "1.0.8";
 
-  console.log("🚚 [Unique Dispatch] Relay High-Fidelity Multi-Leg Engine Active v1.0.7 in frame:", window.location.href);
+  console.log("🚚 [Unique Dispatch] Relay High-Fidelity Multi-Leg Engine Active v1.0.8 in frame:", window.location.href);
 
   const capturedApiToursMap = new Map();
   let latestOrderedTours = [];
@@ -488,6 +488,7 @@
 
     // 3. Block-First Priority:
     // On Carrier Trips pages, or if ANY Block Tours (B-...) exist on this screen, only B-... rows are primary tours.
+    const hasBlockTours = candidateRows.some((r) => blockIdRegex.test(r.innerText || r.textContent || ""));
     const isCarrierTripsPage =
       window.location.href.includes("/trips") ||
       window.location.href.includes("/tours") ||
@@ -535,8 +536,8 @@
       while (sib) {
         const sibText = (sib.innerText || sib.textContent || "").trim();
         // If sib contains another primary Tour ID, stop immediately!
-        if (hasBlockTours && blockIdRegex.test(sibText)) break;
-        if (!hasBlockTours && (blockIdRegex.test(sibText) || singleIdRegex.test(sibText))) break;
+        if (requireBlockTours && blockIdRegex.test(sibText)) break;
+        if (!requireBlockTours && (blockIdRegex.test(sibText) || singleIdRegex.test(sibText))) break;
 
         if (
           /(?:➔|->|to)\s*(?:\d+\s+)?[A-Z0-9]{3,6}/i.test(sibText) ||
@@ -674,7 +675,7 @@
           apiTour &&
           apiTour.vrid &&
           !seenIds.has(apiTour.vrid) &&
-          (!hasBlockTours || apiTour.vrid.startsWith("B-"))
+          (!requireBlockTours || apiTour.vrid.startsWith("B-"))
         ) {
           seenIds.add(apiTour.vrid);
           apiTour.screenIndex = currentScreenIndex++;
