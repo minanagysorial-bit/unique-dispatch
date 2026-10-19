@@ -18,7 +18,7 @@ import {
   ChevronRight,
   Navigation,
 } from "lucide-react";
-import { Load, MilestoneType, LoadStatus } from "@/lib/portal-types";
+import { Load, MilestoneType, LoadStatus, User } from "@/lib/portal-types";
 import LiveCountdownTimer from "./LiveCountdownTimer";
 import MilestoneMessageModal from "./MilestoneMessageModal";
 import IssueEscalationModal from "./IssueEscalationModal";
@@ -28,12 +28,14 @@ interface LoadGridCardProps {
   load: Load;
   onLoadUpdated: (updatedLoad: Load) => void;
   onViewDetails?: (load: Load) => void;
+  currentUser?: User | null;
 }
 
 export default function LoadGridCard({
   load,
   onLoadUpdated,
   onViewDetails,
+  currentUser,
 }: LoadGridCardProps) {
   const [activeMilestone, setActiveMilestone] = useState<MilestoneType | null>(null);
   const [isEscalateOpen, setIsEscalateOpen] = useState(false);
@@ -123,14 +125,17 @@ export default function LoadGridCard({
     try {
       const willBeSent = forceState !== undefined ? forceState : !load.pickupCheckinSent;
       const nowIso = willBeSent ? new Date().toISOString() : undefined;
+      const actorName = currentUser?.name || "Dispatcher";
       const res = await fetch(`/api/loads/${load.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           pickupCheckinSent: willBeSent,
           pickupCheckinSentAt: nowIso,
+          pickupCheckinBy: willBeSent ? actorName : undefined,
           dispatcherMessageSent: willBeSent,
           dispatcherMessageSentAt: nowIso,
+          dispatcherMessageSentBy: willBeSent ? actorName : undefined,
         }),
       });
       if (res.ok) {
@@ -149,12 +154,14 @@ export default function LoadGridCard({
     try {
       const willBeSent = forceState !== undefined ? forceState : !load.deliveryCheckinSent;
       const nowIso = willBeSent ? new Date().toISOString() : undefined;
+      const actorName = currentUser?.name || "Dispatcher";
       const res = await fetch(`/api/loads/${load.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           deliveryCheckinSent: willBeSent,
           deliveryCheckinSentAt: nowIso,
+          deliveryCheckinBy: willBeSent ? actorName : undefined,
         }),
       });
       if (res.ok) {
@@ -188,14 +195,17 @@ export default function LoadGridCard({
 
         // Auto-mark message as sent
         const nowIso = new Date().toISOString();
+        const actorName = currentUser?.name || "Dispatcher";
         const res = await fetch(`/api/loads/${load.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             dispatcherMessageSent: true,
             dispatcherMessageSentAt: nowIso,
+            dispatcherMessageSentBy: actorName,
             pickupCheckinSent: true,
             pickupCheckinSentAt: nowIso,
+            pickupCheckinBy: actorName,
           }),
         });
         if (res.ok) {

@@ -1182,6 +1182,7 @@ export default function DispatcherOperationsBoardPage() {
               <LoadGridCard
                 key={load.id}
                 load={load}
+                currentUser={currentUser}
                 onLoadUpdated={handleLoadUpdated}
                 onViewDetails={(l) => setSelectedJourneyLoad(l)}
               />
@@ -1207,6 +1208,7 @@ export default function DispatcherOperationsBoardPage() {
                   <LoadGridCard
                     key={l.id}
                     load={l}
+                    currentUser={currentUser}
                     onLoadUpdated={handleLoadUpdated}
                     onViewDetails={(loadItem) => setSelectedJourneyLoad(loadItem)}
                   />
@@ -1233,6 +1235,7 @@ export default function DispatcherOperationsBoardPage() {
                   <LoadGridCard
                     key={l.id}
                     load={l}
+                    currentUser={currentUser}
                     onLoadUpdated={handleLoadUpdated}
                     onViewDetails={(loadItem) => setSelectedJourneyLoad(loadItem)}
                   />
@@ -1259,6 +1262,7 @@ export default function DispatcherOperationsBoardPage() {
                   <LoadGridCard
                     key={l.id}
                     load={l}
+                    currentUser={currentUser}
                     onLoadUpdated={handleLoadUpdated}
                     onViewDetails={(loadItem) => setSelectedJourneyLoad(loadItem)}
                   />
@@ -1285,6 +1289,7 @@ export default function DispatcherOperationsBoardPage() {
                   <LoadGridCard
                     key={l.id}
                     load={l}
+                    currentUser={currentUser}
                     onLoadUpdated={handleLoadUpdated}
                     onViewDetails={(loadItem) => setSelectedJourneyLoad(loadItem)}
                   />
@@ -1303,6 +1308,7 @@ export default function DispatcherOperationsBoardPage() {
               <LoadOperationsCard
                 key={load.id}
                 load={load}
+                currentUser={currentUser}
                 onLoadUpdated={handleLoadUpdated}
                 onViewDetails={(l) => setSelectedJourneyLoad(l)}
               />

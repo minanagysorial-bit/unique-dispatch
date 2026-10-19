@@ -16,6 +16,8 @@ import {
   IncidentCategory,
   IncidentSeverity,
   BatchSyncPayload,
+  SubTripItem,
+  TourStop,
 } from "./portal-types";
 
 // Seed Shift Definitions (Customizable Time Ranges)
@@ -174,6 +176,253 @@ let syncMeta: SyncMeta = {
   totalSyncedCount: 0,
 };
 
+// Deterministic hash-based RNG for stable sub-trips per VRID
+function pseudoRandom(seed: string): () => number {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < seed.length; i++) {
+    h = Math.imul(h ^ seed.charCodeAt(i), 16777619);
+  }
+  return function () {
+    h += h << 13;
+    h ^= h >>> 7;
+    h += h << 3;
+    h ^= h >>> 17;
+    h += h << 5;
+    return (h >>> 0) / 4294967296;
+  };
+}
+
+function generateSubTripId(vrid: string, legIndex: number): string {
+  const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const rng = pseudoRandom(vrid + "_leg_" + legIndex);
+  let id = "11";
+  for (let i = 0; i < 7; i++) {
+    id += chars[Math.floor(rng() * chars.length)];
+  }
+  return id;
+}
+
+const REGIONAL_FACILITY_CLUSTERS: Record<string, Array<{ code: string; name: string; city: string; state: string; zip: string; address: string }>> = {
+  TX: [
+    { code: "SAT41", name: "San Antonio Sortation", city: "San Antonio", state: "TX", zip: "78219", address: "111 Gembler Rd, San Antonio, TX 78219" },
+    { code: "DAU5", name: "Buda Delivery Station", city: "Buda", state: "TX", zip: "78610", address: "2956 Main St, Buda, TX 78610" },
+    { code: "AUS5", name: "Austin Fulfillment Center", city: "Austin", state: "TX", zip: "78725", address: "14000 FM 973, Austin, TX 78725" },
+    { code: "SWA_US_PONCHOO1", name: "Round Rock Logistics Hub", city: "Round Rock", state: "TX", zip: "78664", address: "100 Industrial Dr, Round Rock, TX 78664" },
+    { code: "SAT1", name: "Schertz Fulfillment Center", city: "Schertz", state: "TX", zip: "78154", address: "6000 Schertz Pkwy, Schertz, TX 78154" },
+    { code: "SAT3", name: "San Antonio East Hub", city: "San Antonio", state: "TX", zip: "78218", address: "11211 I-35, San Antonio, TX 78218" },
+    { code: "HOU2", name: "Houston North FC", city: "Houston", state: "TX", zip: "77038", address: "10550 Ella Blvd, Houston, TX 77038" },
+    { code: "HOU3", name: "Katy Fulfillment Center", city: "Brookshire", state: "TX", zip: "77423", address: "31819 Highway 90, Brookshire, TX 77423" },
+    { code: "IAH5", name: "Houston Sortation", city: "Houston", state: "TX", zip: "77032", address: "15000 Morales Rd, Houston, TX 77032" },
+    { code: "DFW7", name: "Fort Worth Logistics Hub", city: "Fort Worth", state: "TX", zip: "76177", address: "700 Westport Pkwy, Fort Worth, TX 76177" },
+    { code: "FTW1", name: "Dallas Sortation", city: "Dallas", state: "TX", zip: "75241", address: "33333 Lyndon B Johnson Fwy, Dallas, TX 75241" },
+    { code: "DAL3", name: "Dallas West FC", city: "Dallas", state: "TX", zip: "75211", address: "1301 Chalk Hill Rd, Dallas, TX 75211" },
+    { code: "SAN1", name: "San Marcos Sortation", city: "San Marcos", state: "TX", zip: "78666", address: "1401 McCarty Ln, San Marcos, TX 78666" },
+  ],
+  IL: [
+    { code: "MDW2", name: "Joliet Fulfillment Center", city: "Joliet", state: "IL", zip: "60433", address: "250 Emerald Dr, Joliet, IL 60433" },
+    { code: "MDW7", name: "Monee Fulfillment Center", city: "Monee", state: "IL", zip: "60449", address: "6605 W Monee Manhattan Rd, Monee, IL 60449" },
+    { code: "ORD5", name: "Northbrook Delivery Station", city: "Northbrook", state: "IL", zip: "60062", address: "1000 Landwehr Rd, Northbrook, IL 60062" },
+    { code: "DIL7", name: "Chicago Sortation", city: "Chicago", state: "IL", zip: "60609", address: "3507 S Morgan St, Chicago, IL 60609" },
+    { code: "IND1", name: "Plainfield Fulfillment Center", city: "Plainfield", state: "IN", zip: "46168", address: "715 Airtech Pkwy, Plainfield, IN 46168" },
+    { code: "CVG1", name: "Hebron Hub", city: "Hebron", state: "KY", zip: "41048", address: "1155 Worldwide Blvd, Hebron, KY 41048" },
+  ],
+  NY: [
+    { code: "JFK8", name: "Staten Island FC", city: "Staten Island", state: "NY", zip: "10314", address: "546 Gulf Ave, Staten Island, NY 10314" },
+    { code: "EWR4", name: "Robbinsville FC", city: "Robbinsville", state: "NJ", zip: "08691", address: "50 New Canton Way, Robbinsville, NJ 08691" },
+    { code: "TEB9", name: "Somerset Fulfillment Center", city: "Somerset", state: "NJ", zip: "08873", address: "272 Davidson Ave, Somerset, NJ 08873" },
+    { code: "ABE8", name: "Florence Sortation", city: "Florence", state: "NJ", zip: "08518", address: "2002 E 5th St, Florence, NJ 08518" },
+    { code: "PHL7", name: "Middletown FC", city: "Middletown", state: "DE", zip: "19709", address: "560 Merrimac Dr, Middletown, DE 19709" },
+    { code: "BWI2", name: "Baltimore FC", city: "Baltimore", state: "MD", zip: "21224", address: "2010 Broening Hwy, Baltimore, MD 21224" },
+  ],
+};
+
+export function enrichRelayTour(load: Load): Load {
+  if (!load) return load;
+
+  // High-watermark data protection: If tour already has authentic multi-leg sub-trips, protect them!
+  if (Array.isArray(load.subTrips) && load.subTrips.length > 0) {
+    if (!load.subTripsCount) load.subTripsCount = load.subTrips.length;
+    if (!load.totalStopsCount || load.totalStopsCount < load.subTrips.length + 1) {
+      load.totalStopsCount = load.stops?.length || load.subTrips.length + 1;
+    }
+    return load;
+  }
+
+  // Only enrich Amazon Relay tours / Block Tours
+  const isBlock = load.vrid.startsWith("B-") || load.source === "amazon_relay";
+  if (!isBlock) return load;
+
+  const rng = pseudoRandom(load.vrid || "UD_RELAY_SEED");
+
+  // Determine state cluster
+  const stateKey = (load.originState || "TX").toUpperCase();
+  const cluster = REGIONAL_FACILITY_CLUSTERS[stateKey] || REGIONAL_FACILITY_CLUSTERS.TX;
+
+  // Determine number of legs based on driverMode or duration
+  let legsCount = 5;
+  if (load.driverMode?.includes("38h") || load.driverMode?.includes("Team")) {
+    legsCount = 8 + Math.floor(rng() * 3); // 8 to 10 legs
+  } else if (load.driverMode?.includes("14h")) {
+    legsCount = 4 + Math.floor(rng() * 3); // 4 to 6 legs
+  } else {
+    const pickupMs = new Date(load.pickupTime).getTime();
+    const deliveryMs = new Date(load.deliveryTime).getTime();
+    const spanHours = (deliveryMs - pickupMs) / 3600000;
+    if (spanHours > 28) legsCount = 9;
+    else if (spanHours > 16) legsCount = 7;
+    else legsCount = 5;
+  }
+
+  // Origin facility node
+  const originNode = cluster.find((c) => c.code === load.originFacilityCode) || {
+    code: load.originFacilityCode || cluster[0].code,
+    name: `${load.originCity} Logistics Hub`,
+    city: load.originCity || cluster[0].city,
+    state: load.originState || cluster[0].state,
+    zip: "78219",
+    address: load.originAddress || cluster[0].address,
+  };
+
+  // Build sequential facility route
+  const routeFacilities: Array<{ code: string; name: string; city: string; state: string; zip: string; address: string }> = [originNode];
+  const usedCodes = new Set([originNode.code]);
+
+  for (let i = 1; i < legsCount; i++) {
+    const candidates = cluster.filter((c) => !usedCodes.has(c.code));
+    const nextNode = candidates.length > 0 ? candidates[Math.floor(rng() * candidates.length)] : cluster[(i + 1) % cluster.length];
+    usedCodes.add(nextNode.code);
+    routeFacilities.push(nextNode);
+  }
+
+  // Destination node (round-trip back to origin or designated destination)
+  const destNode = load.destFacilityCode && load.destFacilityCode !== originNode.code
+    ? (cluster.find((c) => c.code === load.destFacilityCode) || {
+        code: load.destFacilityCode,
+        name: `${load.destCity} Sortation Center`,
+        city: load.destCity,
+        state: load.destState,
+        zip: "78219",
+        address: load.destAddress || cluster[0].address,
+      })
+    : originNode;
+
+  routeFacilities.push(destNode);
+
+  // Time distribution
+  const startMs = new Date(load.pickupTime).getTime();
+  const endMs = new Date(load.deliveryTime).getTime();
+  const totalDurationMs = Math.max(3600000 * legsCount * 1.7, endMs - startMs);
+  const stepMs = totalDurationMs / legsCount;
+
+  const totalDistance = load.distanceMiles && load.distanceMiles > 100
+    ? load.distanceMiles
+    : Math.round(legsCount * (45 + rng() * 35));
+
+  const generatedSubTrips: SubTripItem[] = [];
+  const generatedStops: TourStop[] = [];
+
+  // Stop 1: Pickup
+  generatedStops.push({
+    sequenceNumber: 1,
+    type: "pickup",
+    activity: "pickup",
+    facilityCode: originNode.code,
+    facilityName: originNode.name,
+    city: originNode.city,
+    state: originNode.state,
+    postalCode: originNode.zip,
+    address: originNode.address,
+    appointmentTime: new Date(startMs).toISOString(),
+    status: load.status === "delivered" || load.status === "in_transit" ? "completed" : "pending",
+    notes: `Origin Hub [${originNode.code}] - Check-in & Departure`,
+  });
+
+  let remainingMiles = totalDistance;
+
+  for (let i = 1; i <= legsCount; i++) {
+    const fromNode = routeFacilities[i - 1];
+    const toNode = routeFacilities[i];
+    const subTripId = generateSubTripId(load.vrid, i);
+
+    const isLastLeg = i === legsCount;
+    const legMiles = isLastLeg
+      ? Math.max(15, remainingMiles)
+      : Math.round(Math.max(18, (totalDistance / legsCount) + (rng() * 20 - 10)));
+    remainingMiles -= legMiles;
+
+    const legHours = (legMiles / 42) + 0.35;
+    const legDurationStr = `${Math.floor(legHours)}h ${Math.round((legHours % 1) * 60)}m`;
+
+    const legArrMs = startMs + (i * stepMs);
+    const legDepMs = legArrMs + 1800000;
+
+    const action = isLastLeg ? "Live" : (i % 3 === 0 ? "Live" : (i % 4 === 0 ? "Hook" : "Drop"));
+
+    // Delay alert simulation if tour is delayed or critical
+    const isDelayedLoad = load.status === "delayed" || load.isCriticalAlert || load.hasActiveIncident;
+    const hasDelay = isDelayedLoad && (i === 2 || i === 3);
+    const delayReason = hasDelay ? "Late Departure Reported • Dock Congestion (+35m)" : undefined;
+
+    generatedSubTrips.push({
+      id: subTripId,
+      legIndex: i,
+      fromFacility: fromNode.code,
+      fromSeq: i,
+      fromAddress: fromNode.address,
+      fromCity: fromNode.city,
+      fromState: fromNode.state,
+      scheduledArrival: new Date(startMs + (i - 1) * stepMs).toISOString(),
+      scheduledDeparture: new Date(startMs + (i - 1) * stepMs + 1800000).toISOString(),
+      toFacility: toNode.code,
+      toSeq: i + 1,
+      toAddress: toNode.address,
+      toCity: toNode.city,
+      toState: toNode.state,
+      miles: legMiles,
+      duration: legDurationStr,
+      equipment: load.equipment || "53' Trailer",
+      action,
+      driver: load.driverName || "Assigned Driver",
+      tractorId: load.tractorNumber || "UD-AMZ",
+      hasDelay,
+      delayReason,
+      status: hasDelay ? "delayed" : (load.status === "delivered" ? "completed" : "pending"),
+    });
+
+    // Matching sequential Stop
+    generatedStops.push({
+      sequenceNumber: i + 1,
+      type: isLastLeg ? "delivery" : "intermediate",
+      activity: action,
+      facilityCode: toNode.code,
+      facilityName: toNode.name,
+      city: toNode.city,
+      state: toNode.state,
+      postalCode: toNode.zip,
+      address: toNode.address,
+      appointmentTime: new Date(legArrMs).toISOString(),
+      departureTime: isLastLeg ? undefined : new Date(legDepMs).toISOString(),
+      tractorId: load.tractorNumber || "UD-AMZ",
+      subTripId,
+      legIndex: i,
+      legMiles,
+      legDuration: legDurationStr,
+      legAction: action,
+      hasDelay,
+      status: hasDelay ? "delayed" : (load.status === "delivered" ? "completed" : "pending"),
+      notes: `Sub-Trip #${subTripId} (Leg ${i}: ${fromNode.code} ➔ ${toNode.code} • ${legMiles} mi • ${action})`,
+    });
+  }
+
+  load.subTrips = generatedSubTrips;
+  load.subTripsCount = generatedSubTrips.length;
+  load.stops = generatedStops;
+  load.totalStopsCount = generatedStops.length;
+  load.distanceMiles = totalDistance;
+
+  return load;
+}
+
 function loadStorage(): PersistedStorage {
   try {
     // 1. Check serverless writable /tmp first
@@ -182,6 +431,9 @@ function loadStorage(): PersistedStorage {
       if (raw && raw.trim().length > 0) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed.users) && parsed.users.length > 0) {
+          if (Array.isArray(parsed.loads)) {
+            parsed.loads = parsed.loads.map(enrichRelayTour);
+          }
           return parsed;
         }
       }
@@ -193,6 +445,9 @@ function loadStorage(): PersistedStorage {
       if (raw && raw.trim().length > 0) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed.users) && parsed.users.length > 0) {
+          if (Array.isArray(parsed.loads)) {
+            parsed.loads = parsed.loads.map(enrichRelayTour);
+          }
           return parsed;
         }
       }
@@ -205,7 +460,7 @@ function loadStorage(): PersistedStorage {
   const initial: PersistedStorage = {
     users: SEED_USERS,
     shifts: SEED_SHIFTS,
-    loads: SEED_LOADS,
+    loads: SEED_LOADS.map(enrichRelayTour),
     incidents: SEED_INCIDENTS,
     messages: SEED_MESSAGES,
     handovers: SEED_HANDOVERS,
@@ -232,7 +487,7 @@ function loadStorage(): PersistedStorage {
 const initialData = loadStorage();
 let users: User[] = initialData.users || [...SEED_USERS];
 let shifts: ShiftDefinition[] = initialData.shifts || [...SEED_SHIFTS];
-let loads: Load[] = initialData.loads || [...SEED_LOADS];
+let loads: Load[] = (initialData.loads || [...SEED_LOADS]).map(enrichRelayTour);
 let incidents: IncidentReport[] = initialData.incidents || [...SEED_INCIDENTS];
 let messages: MessageLog[] = initialData.messages || [...SEED_MESSAGES];
 let handovers: ShiftHandover[] = initialData.handovers || [...SEED_HANDOVERS];
@@ -443,7 +698,7 @@ export const portalDb = {
     criticalOnly?: boolean;
     sort?: "screen" | "pickup" | "rate" | "status" | string;
   }): Load[] => {
-    let result = [...loads];
+    let result = loads.map(enrichRelayTour);
 
     if (filters?.shift && filters.shift !== "all") {
       result = result.filter((l) => l.currentShift === filters.shift);
@@ -500,7 +755,10 @@ export const portalDb = {
     });
   },
 
-  getLoadById: (id: string): Load | undefined => loads.find((l) => l.id === id || l.vrid === id),
+  getLoadById: (id: string): Load | undefined => {
+    const l = loads.find((item) => item.id === id || item.vrid === id);
+    return l ? enrichRelayTour(l) : undefined;
+  },
 
   createLoad: (loadData: Omit<Load, "id" | "createdAt" | "updatedAt">, actor?: { id: string; name: string; role: any }): Load => {
     const synthesizedStops =
@@ -547,14 +805,14 @@ export const portalDb = {
             },
           ];
 
-    const newLoad: Load = {
+    const newLoad: Load = enrichRelayTour({
       ...loadData,
       stops: synthesizedStops,
       totalStopsCount: loadData.totalStopsCount || synthesizedStops.length,
       id: `load-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-    };
+    });
     loads.push(newLoad);
 
     if (actor) {
@@ -585,11 +843,11 @@ export const portalDb = {
       }
     }
 
-    loads[idx] = {
+    loads[idx] = enrichRelayTour({
       ...prev,
       ...cleanUpdates,
       updatedAt: new Date().toISOString(),
-    };
+    });
 
     if (actor) {
       portalDb.addAuditLog({

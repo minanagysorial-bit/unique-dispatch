@@ -21,7 +21,7 @@ import {
   Check,
   Navigation,
 } from "lucide-react";
-import { Load, MilestoneType, LoadStatus } from "@/lib/portal-types";
+import { Load, MilestoneType, LoadStatus, User } from "@/lib/portal-types";
 import LiveCountdownTimer from "./LiveCountdownTimer";
 import MilestoneMessageModal from "./MilestoneMessageModal";
 import IssueEscalationModal from "./IssueEscalationModal";
@@ -30,12 +30,14 @@ interface LoadOperationsCardProps {
   load: Load;
   onLoadUpdated: (updatedLoad: Load) => void;
   onViewDetails?: (load: Load) => void;
+  currentUser?: User | null;
 }
 
 export default function LoadOperationsCard({
   load,
   onLoadUpdated,
   onViewDetails,
+  currentUser,
 }: LoadOperationsCardProps) {
   const [activeMilestone, setActiveMilestone] = useState<MilestoneType | null>(null);
   const [isEscalateOpen, setIsEscalateOpen] = useState(false);
@@ -125,14 +127,17 @@ export default function LoadOperationsCard({
     try {
       const willBeSent = !isMsgSent;
       const nowIso = willBeSent ? new Date().toISOString() : undefined;
+      const actorName = currentUser?.name || "Dispatcher";
       const res = await fetch(`/api/loads/${load.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           dispatcherMessageSent: willBeSent,
           dispatcherMessageSentAt: nowIso,
+          dispatcherMessageSentBy: willBeSent ? actorName : undefined,
           pickupCheckinSent: willBeSent,
           pickupCheckinSentAt: nowIso,
+          pickupCheckinBy: willBeSent ? actorName : undefined,
         }),
       });
       if (res.ok) {
@@ -151,14 +156,17 @@ export default function LoadOperationsCard({
     try {
       const willBeSent = forceState !== undefined ? forceState : !load.pickupCheckinSent;
       const nowIso = willBeSent ? new Date().toISOString() : undefined;
+      const actorName = currentUser?.name || "Dispatcher";
       const res = await fetch(`/api/loads/${load.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           pickupCheckinSent: willBeSent,
           pickupCheckinSentAt: nowIso,
+          pickupCheckinBy: willBeSent ? actorName : undefined,
           dispatcherMessageSent: willBeSent,
           dispatcherMessageSentAt: nowIso,
+          dispatcherMessageSentBy: willBeSent ? actorName : undefined,
         }),
       });
       if (res.ok) {
@@ -177,12 +185,14 @@ export default function LoadOperationsCard({
     try {
       const willBeSent = forceState !== undefined ? forceState : !load.deliveryCheckinSent;
       const nowIso = willBeSent ? new Date().toISOString() : undefined;
+      const actorName = currentUser?.name || "Dispatcher";
       const res = await fetch(`/api/loads/${load.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           deliveryCheckinSent: willBeSent,
           deliveryCheckinSentAt: nowIso,
+          deliveryCheckinBy: willBeSent ? actorName : undefined,
         }),
       });
       if (res.ok) {
