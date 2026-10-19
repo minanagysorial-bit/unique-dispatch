@@ -110,6 +110,40 @@ export default function LoadOperationsCard({
     }
   };
 
+  const [isTogglingMessage, setIsTogglingMessage] = useState(false);
+
+  const isMsgSent = Boolean(load.dispatcherMessageSent || load.pickupCheckinSent);
+  const msgSentTime = load.dispatcherMessageSentAt || load.pickupCheckinSentAt;
+  const msgSentTimeFormatted = msgSentTime
+    ? new Date(msgSentTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+    : "";
+
+  const handleToggleMessageSent = async () => {
+    setIsTogglingMessage(true);
+    try {
+      const willBeSent = !isMsgSent;
+      const nowIso = willBeSent ? new Date().toISOString() : undefined;
+      const res = await fetch(`/api/loads/${load.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          dispatcherMessageSent: willBeSent,
+          dispatcherMessageSentAt: nowIso,
+          pickupCheckinSent: willBeSent,
+          pickupCheckinSentAt: nowIso,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        onLoadUpdated(data.load);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsTogglingMessage(false);
+    }
+  };
+
   const cleanPhone = load.driverPhone.replace(/[^0-9]/g, "");
 
   return (
@@ -385,6 +419,31 @@ export default function LoadOperationsCard({
             >
               <MessageSquare className="w-3.5 h-3.5" />
             </a>
+
+            <button
+              type="button"
+              disabled={isTogglingMessage}
+              onClick={handleToggleMessageSent}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                isMsgSent
+                  ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs"
+                  : "bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700"
+              }`}
+              title={
+                isMsgSent
+                  ? `Message marked as sent${msgSentTimeFormatted ? ` at ${msgSentTimeFormatted}` : ""}. Click to toggle.`
+                  : "Click when you have sent a message to the driver"
+              }
+            >
+              <CheckCircle2 className={`w-3.5 h-3.5 ${isMsgSent ? "text-white" : "text-emerald-400"}`} />
+              <span>
+                {isTogglingMessage
+                  ? "Saving..."
+                  : isMsgSent
+                  ? `Msg Sent${msgSentTimeFormatted ? ` (${msgSentTimeFormatted})` : ""}`
+                  : "Mark Sent"}
+              </span>
+            </button>
           </div>
 
         </div>
@@ -477,6 +536,32 @@ export default function LoadOperationsCard({
 
         {/* Quick Action Buttons */}
         <div className="flex items-center gap-2">
+          {/* Dispatcher 1-Click Message Sent Button */}
+          <button
+            type="button"
+            disabled={isTogglingMessage}
+            onClick={handleToggleMessageSent}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all shadow-xs ${
+              isMsgSent
+                ? "bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-500 shadow-emerald-600/20"
+                : "bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-300"
+            }`}
+            title={
+              isMsgSent
+                ? `Message recorded as sent${msgSentTimeFormatted ? ` at ${msgSentTimeFormatted}` : ""}. Click to toggle.`
+                : "Click to record that you have sent a dispatch message to the driver"
+            }
+          >
+            <CheckCircle2 className={`w-3.5 h-3.5 ${isMsgSent ? "text-white" : "text-emerald-600"}`} />
+            <span>
+              {isTogglingMessage
+                ? "Saving..."
+                : isMsgSent
+                ? `✓ Msg Sent${msgSentTimeFormatted ? ` (${msgSentTimeFormatted})` : ""}`
+                : "✉️ Mark Msg Sent"}
+            </span>
+          </button>
+
           <button
             type="button"
             onClick={() => onViewDetails?.(load)}
@@ -502,7 +587,24 @@ export default function LoadOperationsCard({
                 if (matched) {
                   const txt = renderTemplateWithLoad(matched.templateText, load);
                   await navigator.clipboard.writeText(txt);
-                  alert("✓ Load milestone message copied to clipboard!");
+
+                  // Auto-record message as sent
+                  const nowIso = new Date().toISOString();
+                  const res = await fetch(`/api/loads/${load.id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      dispatcherMessageSent: true,
+                      dispatcherMessageSentAt: nowIso,
+                      pickupCheckinSent: true,
+                      pickupCheckinSentAt: nowIso,
+                    }),
+                  });
+                  if (res.ok) {
+                    const data = await res.json();
+                    onLoadUpdated(data.load);
+                  }
+                  alert("✓ Load milestone message copied & marked as Sent!");
                 }
               } catch (e) {
                 console.error(e);

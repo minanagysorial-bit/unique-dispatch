@@ -8,9 +8,9 @@
   "use strict";
 
   window.__ud_content_script_initialized = true;
-  window.__ud_version = "1.0.5";
+  window.__ud_version = "1.0.6";
 
-  console.log("🚚 [Unique Dispatch] Relay High-Fidelity Multi-Leg Engine Active v1.0.5 in frame:", window.location.href);
+  console.log("🚚 [Unique Dispatch] Relay High-Fidelity Multi-Leg Engine Active v1.0.6 in frame:", window.location.href);
 
   const capturedApiToursMap = new Map();
   let latestOrderedTours = [];
@@ -466,15 +466,20 @@
     });
 
     // 3. Block-First Priority:
-    // If ANY Block Tours (B-...) exist on this screen, only B-... rows are primary tours.
-    const hasBlockTours = candidateRows.some((r) => blockIdRegex.test(r.innerText || r.textContent || ""));
+    // On Carrier Trips pages, or if ANY Block Tours (B-...) exist on this screen, only B-... rows are primary tours.
+    const isCarrierTripsPage =
+      window.location.href.includes("/trips") ||
+      window.location.href.includes("/tours") ||
+      window.location.href.includes("/carrier");
+
+    const requireBlockTours = hasBlockTours || isCarrierTripsPage;
 
     // 4. Extract tours from each row
     for (let i = 0; i < candidateRows.length; i++) {
       const node = candidateRows[i];
       const rowRawText = (node.innerText || node.textContent || "").trim();
 
-      const match = hasBlockTours
+      const match = requireBlockTours
         ? rowRawText.match(blockIdRegex)
         : (rowRawText.match(blockIdRegex) || rowRawText.match(singleIdRegex));
 

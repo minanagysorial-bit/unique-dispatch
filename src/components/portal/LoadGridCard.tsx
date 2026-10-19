@@ -109,6 +109,40 @@ export default function LoadGridCard({
     }
   };
 
+  const [isTogglingMessage, setIsTogglingMessage] = useState(false);
+
+  const isMsgSent = Boolean(load.dispatcherMessageSent || load.pickupCheckinSent);
+  const msgSentTime = load.dispatcherMessageSentAt || load.pickupCheckinSentAt;
+  const msgSentTimeFormatted = msgSentTime
+    ? new Date(msgSentTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+    : "";
+
+  const handleToggleMessageSent = async () => {
+    setIsTogglingMessage(true);
+    try {
+      const willBeSent = !isMsgSent;
+      const nowIso = willBeSent ? new Date().toISOString() : undefined;
+      const res = await fetch(`/api/loads/${load.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          dispatcherMessageSent: willBeSent,
+          dispatcherMessageSentAt: nowIso,
+          pickupCheckinSent: willBeSent,
+          pickupCheckinSentAt: nowIso,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        onLoadUpdated(data.load);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsTogglingMessage(false);
+    }
+  };
+
   const handleQuickCopyDefault = async () => {
     try {
       const templates = getSavedTemplates();
@@ -124,6 +158,23 @@ export default function LoadGridCard({
         await navigator.clipboard.writeText(text);
         setCopiedQuickMsg(true);
         setTimeout(() => setCopiedQuickMsg(false), 2000);
+
+        // Auto-mark message as sent
+        const nowIso = new Date().toISOString();
+        const res = await fetch(`/api/loads/${load.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            dispatcherMessageSent: true,
+            dispatcherMessageSentAt: nowIso,
+            pickupCheckinSent: true,
+            pickupCheckinSentAt: nowIso,
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          onLoadUpdated(data.load);
+        }
       }
     } catch (e) {
       console.error(e);
@@ -389,6 +440,23 @@ export default function LoadGridCard({
           </div>
 
           <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              disabled={isTogglingMessage}
+              onClick={handleToggleMessageSent}
+              className={`p-1.5 rounded-lg text-xs font-bold transition-all ${
+                isMsgSent
+                  ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs"
+                  : "bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700"
+              }`}
+              title={
+                isMsgSent
+                  ? `Message marked as sent${msgSentTimeFormatted ? ` at ${msgSentTimeFormatted}` : ""}. Click to toggle.`
+                  : "Click when you have sent a message to the driver"
+              }
+            >
+              <CheckCircle2 className={`w-3.5 h-3.5 ${isMsgSent ? "text-white" : "text-emerald-400"}`} />
+            </button>
             <a
               href={`tel:${cleanPhone}`}
               className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200"
@@ -414,6 +482,26 @@ export default function LoadGridCard({
       <div className="p-3 bg-slate-50 border-t border-slate-100 space-y-2">
         
         <div className="flex items-center gap-1.5">
+          {/* Dispatcher 1-Click Message Sent Button */}
+          <button
+            type="button"
+            disabled={isTogglingMessage}
+            onClick={handleToggleMessageSent}
+            className={`py-1.5 px-2.5 rounded-xl text-[11px] font-black shadow-xs transition-all border flex items-center justify-center gap-1 ${
+              isMsgSent
+                ? "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-500 shadow-emerald-600/20"
+                : "bg-white hover:bg-emerald-50 text-emerald-700 border-emerald-300"
+            }`}
+            title={
+              isMsgSent
+                ? `Message recorded as sent${msgSentTimeFormatted ? ` at ${msgSentTimeFormatted}` : ""}. Click to toggle.`
+                : "Click to record message sent to driver"
+            }
+          >
+            <CheckCircle2 className={`w-3.5 h-3.5 ${isMsgSent ? "text-white" : "text-emerald-600"}`} />
+            <span>{isTogglingMessage ? "..." : isMsgSent ? "Sent" : "Msg Sent"}</span>
+          </button>
+
           {/* View Details Modal Button */}
           <button
             type="button"
@@ -422,18 +510,18 @@ export default function LoadGridCard({
             title="Open complete multi-stop journey stepper and details"
           >
             <Navigation className="w-3.5 h-3.5 text-orange-400" />
-            <span>View Stops ({stopsCount})</span>
+            <span>Stops ({stopsCount})</span>
           </button>
 
           {/* 1-Click Copy Template */}
           <button
             type="button"
             onClick={handleQuickCopyDefault}
-            className="flex-1 inline-flex items-center justify-center gap-1 py-1.5 px-2.5 rounded-xl bg-white border border-slate-300 hover:border-orange-500 hover:bg-orange-50 text-slate-800 text-[11px] font-bold shadow-xs transition-colors"
+            className="inline-flex items-center justify-center gap-1 py-1.5 px-2 rounded-xl bg-white border border-slate-300 hover:border-orange-500 hover:bg-orange-50 text-slate-800 text-[11px] font-bold shadow-xs transition-colors"
             title="Copy pre-configured milestone template for this tour"
           >
             {copiedQuickMsg ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-orange-600" />}
-            <span>{copiedQuickMsg ? "Copied!" : "Copy Msg"}</span>
+            <span>{copiedQuickMsg ? "Copied" : "Copy"}</span>
           </button>
 
           {/* Milestone Modal Trigger */}

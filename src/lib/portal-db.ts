@@ -555,9 +555,16 @@ export const portalDb = {
     if (idx === -1) return null;
 
     const prev = loads[idx];
+    const cleanUpdates: Partial<Load> = {};
+    for (const [key, val] of Object.entries(updates)) {
+      if (val !== undefined) {
+        (cleanUpdates as any)[key] = val;
+      }
+    }
+
     loads[idx] = {
       ...prev,
-      ...updates,
+      ...cleanUpdates,
       updatedAt: new Date().toISOString(),
     };
 
@@ -747,11 +754,20 @@ export const portalDb = {
       portalDb.updateLoad(load.id, {
         pickupCheckinSent: true,
         pickupCheckinSentAt: newLog.sentAt,
+        dispatcherMessageSent: true,
+        dispatcherMessageSentAt: newLog.sentAt,
       });
     } else if (data.milestone === "delivery_checkin_30m") {
       portalDb.updateLoad(load.id, {
         deliveryCheckinSent: true,
         deliveryCheckinSentAt: newLog.sentAt,
+        dispatcherMessageSent: true,
+        dispatcherMessageSentAt: newLog.sentAt,
+      });
+    } else {
+      portalDb.updateLoad(load.id, {
+        dispatcherMessageSent: true,
+        dispatcherMessageSentAt: newLog.sentAt,
       });
     }
 

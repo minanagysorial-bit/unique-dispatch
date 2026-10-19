@@ -126,7 +126,19 @@
 
     if (!tripId || tripId.length < 5) return null;
 
-    // Never emit child sub-trips (T-) when they belong to a parent block tour (B-)
+    // On Amazon Relay carrier trips & tours pages, all primary tours are Block Tours (B-...).
+    // Standalone T- items are internal sub-legs (like T-113P8DD9B) and must NEVER be emitted as standalone loads!
+    if (
+      tripId.startsWith("T-") &&
+      (typeof window !== "undefined" &&
+        (window.location.href.includes("/trips") ||
+          window.location.href.includes("/tours") ||
+          window.location.href.includes("/carrier") ||
+          window.location.href.includes("relay.amazon.com/trips")))
+    ) {
+      return null;
+    }
+
     if (tripId.startsWith("T-") && (item.blockTourId || item.parentTourId || item.parentTourReferenceId || (typeof item.tourId === "string" && item.tourId.startsWith("B-")))) {
       return null;
     }
@@ -470,6 +482,7 @@
 
     let candidateList = [];
     const skipChildKeys = new Set([
+      "trips", "carrierTrips", "driverTrips", "assignedTrips", "childTours", "segments",
       "legs", "tourLegs", "subTours", "workOpportunityLegs",
       "stops", "itinerary", "stopDetails", "locationSequence",
       "shipments", "auditTrail", "comments", "actions", "events",

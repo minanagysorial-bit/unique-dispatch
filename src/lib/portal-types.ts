@@ -195,6 +195,8 @@ export interface Load {
   pickupCheckinSentAt?: string;
   deliveryCheckinSent: boolean;
   deliveryCheckinSentAt?: string;
+  dispatcherMessageSent?: boolean;
+  dispatcherMessageSentAt?: string;
   
   // Urgent flags
   isCriticalAlert: boolean;
