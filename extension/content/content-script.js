@@ -12,8 +12,6 @@
 
   console.log("🚚 [Unique Dispatch] Relay High-Fidelity Multi-Leg Engine Active v1.1.0 in frame:", window.location.href);
 
-  let hasBlockTours = false;
-  let requireBlockTours = false;
   const capturedApiToursMap = new Map();
   let latestOrderedTours = [];
   let isSyncing = false;

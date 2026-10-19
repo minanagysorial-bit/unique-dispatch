@@ -649,14 +649,29 @@ export const portalDb = {
       const screenIndex = item.screenIndex !== undefined ? item.screenIndex : index;
       const existing = loads.find((l) => l.vrid === item.vrid);
       if (existing) {
+        // High-watermark data protection: Never downgrade rich sub-trips/stops with a shallow collapsed row scan
+        const incomingHasSubTrips = Array.isArray(item.subTrips) && item.subTrips.length > 0;
+        const existingHasSubTrips = Array.isArray(existing.subTrips) && existing.subTrips.length > 0;
+        const finalSubTrips = incomingHasSubTrips ? item.subTrips : existing.subTrips;
+        const finalSubTripsCount = incomingHasSubTrips
+          ? (item.subTrips?.length || 0)
+          : existingHasSubTrips
+          ? (existing.subTrips?.length || 0)
+          : (item.subTripsCount || existing.subTripsCount || 0);
+
+        const incomingStopsCount = item.stops?.length || 0;
+        const existingStopsCount = existing.stops?.length || 0;
+        const finalStops = incomingStopsCount >= existingStopsCount && incomingStopsCount > 0 ? item.stops : (existingStopsCount > 0 ? existing.stops : item.stops);
+        const finalTotalStopsCount = Math.max(item.totalStopsCount || 0, existing.totalStopsCount || 0, finalStops?.length || 0);
+
         portalDb.updateLoad(existing.id, {
           ...item,
           screenIndex,
-          stops: item.stops && item.stops.length > 0 ? item.stops : existing.stops,
-          subTrips: item.subTrips && item.subTrips.length > 0 ? item.subTrips : existing.subTrips,
-          subTripsCount: item.subTripsCount || (item.subTrips ? item.subTrips.length : existing.subTripsCount),
+          stops: finalStops,
+          subTrips: finalSubTrips,
+          subTripsCount: finalSubTripsCount,
           distanceMiles: item.distanceMiles || existing.distanceMiles,
-          totalStopsCount: item.totalStopsCount || item.stops?.length || existing.totalStopsCount,
+          totalStopsCount: finalTotalStopsCount,
           updatedAt: new Date().toISOString(),
         });
         updated++;
