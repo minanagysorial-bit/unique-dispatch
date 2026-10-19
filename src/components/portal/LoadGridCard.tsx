@@ -40,6 +40,7 @@ export default function LoadGridCard({
   const [copiedQuickMsg, setCopiedQuickMsg] = useState(false);
   const [copiedVrid, setCopiedVrid] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isSubTripsOpen, setIsSubTripsOpen] = useState(false);
 
   // Stop count
   const stopsCount = load.stops?.length || load.totalStopsCount || 2;
@@ -464,6 +465,103 @@ export default function LoadGridCard({
           </div>
 
         </div>
+
+        {/* Interactive Sub-Trips Breakdown Accordion in Grid Card */}
+        {((load.subTrips && load.subTrips.length > 0) || (load.stops && load.stops.length > 2)) && (
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/80 overflow-hidden shadow-2xs">
+            <button
+              type="button"
+              onClick={() => setIsSubTripsOpen(!isSubTripsOpen)}
+              className="w-full px-3 py-2 flex items-center justify-between text-xs font-bold text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse shrink-0"></span>
+                <span className="font-black text-slate-900 truncate">
+                  ⚡ {load.subTrips?.length || (load.stops ? load.stops.length - 1 : 0)} Sub-Trips Breakdown
+                </span>
+                <span className="text-[10px] text-slate-500 font-normal shrink-0">
+                  ({load.stops?.length || (load.subTrips ? load.subTrips.length + 1 : 0)} Stops)
+                </span>
+              </div>
+              <div className="flex items-center gap-1 text-orange-600 font-black text-[11px] shrink-0">
+                <span>{isSubTripsOpen ? "Hide" : "Show All"}</span>
+                <ChevronRight className={`w-3.5 h-3.5 transition-transform ${isSubTripsOpen ? "rotate-90" : ""}`} />
+              </div>
+            </button>
+
+            {isSubTripsOpen && (
+              <div className="p-2.5 border-t border-slate-200 bg-white space-y-2 max-h-60 overflow-y-auto">
+                {load.subTrips && load.subTrips.length > 0 ? (
+                  load.subTrips.map((leg, lIdx) => (
+                    <div
+                      key={lIdx}
+                      className="p-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-orange-50/40 hover:border-orange-200 transition-all flex flex-wrap items-center justify-between gap-1.5 text-xs"
+                    >
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="w-4 h-4 rounded-md bg-orange-600 text-white font-black text-[9px] flex items-center justify-center shrink-0">
+                          {leg.legIndex || lIdx + 1}
+                        </span>
+                        <span className="font-mono font-black text-slate-900 text-xs">
+                          {leg.id}
+                        </span>
+                        <div className="flex items-center gap-1 font-bold text-[11px] text-slate-700 truncate">
+                          <span className="text-orange-600">[{leg.fromFacility}]</span>
+                          <span>➔</span>
+                          <span className="text-blue-600">[{leg.toFacility}]</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {Boolean(leg.miles && leg.miles > 0) && (
+                          <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-bold">
+                            {leg.miles} mi
+                          </span>
+                        )}
+                        {leg.duration && (
+                          <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px]">
+                            {leg.duration}
+                          </span>
+                        )}
+                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
+                          leg.action?.toLowerCase().includes("drop")
+                            ? "bg-blue-100 text-blue-800"
+                            : "bg-purple-100 text-purple-800"
+                        }`}>
+                          {leg.action || "Drop"}
+                        </span>
+                        {leg.hasDelay && (
+                          <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 font-bold text-[9px] flex items-center gap-0.5" title={leg.delayReason || "Delay reported"}>
+                            <AlertTriangle className="w-2.5 h-2.5 text-amber-700" />
+                            <span>Delayed</span>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  load.stops && load.stops.slice(1).map((stop, sIdx) => (
+                    <div
+                      key={sIdx}
+                      className="p-2 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between text-xs"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="w-4 h-4 rounded-md bg-slate-800 text-white font-bold text-[9px] flex items-center justify-center">
+                          {sIdx + 2}
+                        </span>
+                        <span className="font-bold text-slate-900">
+                          {stop.facilityCode ? `[${stop.facilityCode}] ` : ""}{stop.city}, {stop.state}
+                        </span>
+                      </div>
+                      <span className="px-2 py-0.5 rounded bg-slate-200 text-slate-700 text-[10px] font-bold uppercase">
+                        {stop.activity || stop.type}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Equipment & Financials */}
         <div className="grid grid-cols-2 gap-2 text-xs">

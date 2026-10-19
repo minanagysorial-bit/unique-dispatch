@@ -656,8 +656,8 @@
           deliveryTime: blockStructure.deliveryTime,
           stops: blockStructure.stops,
           totalStopsCount: blockStructure.stops.length,
-          subTrips: blockStructure.subTrips,
-          subTripsCount: blockStructure.subTripsCount || (blockStructure.subTrips ? blockStructure.subTrips.length : 0),
+          subTrips: blockStructure.subTrips && blockStructure.subTrips.length > 0 ? blockStructure.subTrips : undefined,
+          subTripsCount: blockStructure.subTripsCount > 0 ? blockStructure.subTripsCount : undefined,
           contractCode,
           arnNumbers: blockStructure.arnNumbers,
           appointmentId: blockStructure.appointmentId,
@@ -688,6 +688,10 @@
           if (apiTour.stops && apiTour.stops.length > (tourObj.stops ? tourObj.stops.length : 0)) {
             tourObj.stops = apiTour.stops;
             tourObj.totalStopsCount = apiTour.stops.length;
+          }
+          if (apiTour.subTrips && apiTour.subTrips.length > (tourObj.subTrips ? tourObj.subTrips.length : 0)) {
+            tourObj.subTrips = apiTour.subTrips;
+            tourObj.subTripsCount = apiTour.subTrips.length;
           }
           if (apiTour.distanceMiles && !tourObj.distanceMiles) {
             tourObj.distanceMiles = apiTour.distanceMiles;
