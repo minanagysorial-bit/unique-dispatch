@@ -178,7 +178,7 @@
         const val = cleanCand((inp.value || inp.getAttribute("value") || "").trim());
         if (!isBadDriver(val)) {
           const m =
-            val.match(/\b([A-Z]\.\s+[A-Za-z0-9\-]+(?:\s+[A-Za-z0-9\-]+)?)\b/) ||
+            val.match(/\b([A-Z]\.\s+[A-Za-z]+(?:-[A-Za-z]+)?)\b/) ||
             val.match(/\b([A-Z]\.\s*[A-Z]{2,20})\b/) ||
             val.match(/\b([A-Z][a-z]{2,15}\s+[A-Z][a-z]{2,15})\b/);
           if (m && !isBadDriver(m[1])) return cleanCand(m[1]);
@@ -206,7 +206,7 @@
         const bText = cleanCand((btn.innerText || btn.textContent || "").trim());
         if (!isBadDriver(bText)) {
           const m =
-            bText.match(/\b([A-Z]\.\s+[A-Za-z0-9\-]+(?:\s+[A-Za-z0-9\-]+)?)\b/) ||
+            bText.match(/\b([A-Z]\.\s+[A-Za-z]+(?:-[A-Za-z]+)?)\b/) ||
             bText.match(/\b([A-Z]\.\s*[A-Z]{2,20})\b/) ||
             bText.match(/\b([A-Z][a-z]{2,15}\s+[A-Z][a-z]{2,15})\b/);
           if (m && !isBadDriver(m[1])) return cleanCand(m[1]);
@@ -221,7 +221,7 @@
           const cText = cleanCand((cells[c].innerText || cells[c].textContent || "").trim());
           if (isBadDriver(cText)) continue;
           const dMatch =
-            cText.match(/\b([A-Z]\.\s+[A-Za-z0-9\-]+(?:\s+[A-Za-z0-9\-]+)?)\b/) ||
+            cText.match(/\b([A-Z]\.\s+[A-Za-z]+(?:-[A-Za-z]+)?)\b/) ||
             cText.match(/\b([A-Z]\.\s*[A-Z]{2,20})\b/) ||
             cText.match(/\b([A-Z][a-z]{2,15}\s+[A-Z][a-z]{2,15})\b/);
           if (dMatch && !isBadDriver(dMatch[1])) {
@@ -234,7 +234,7 @@
     // 2. Pre-process spaced text to split glued text (e.g. "UIIA_MCF. Sanchez" -> "UIIA_MC F. Sanchez")
     const spaced = (text || "").replace(/([A-Za-z0-9_])([A-Z]\.\s*)/g, "$1 $2");
     const nameMatch =
-      spaced.match(/\b([A-Z]\.\s+[A-Za-z0-9\-]+(?:\s+[A-Za-z0-9\-]+)?)\b/) ||
+      spaced.match(/\b([A-Z]\.\s+[A-Za-z]+(?:-[A-Za-z]+)?)\b/) ||
       spaced.match(/\b([A-Z]\.\s*[A-Z]{2,20})\b/);
     if (nameMatch && nameMatch[1]) {
       const cand = cleanCand(nameMatch[1]);
@@ -313,6 +313,8 @@
     };
 
     // Layer 1: Inspect Sibling DOM Rows and Child Rows directly
+    const isBadFac = (f) => !f || /^(Contract|Starts|Solo|Team|Trailer|Driver|Action|Report|Delay|Drop|Hook|Live|Miles|Hour|Hours|Appointment|CDL|BNSF|UIIA|TWIC|FAST|San|Antonio|Buda|Austin)$/i.test(f);
+
     const nodesToInspect = [];
     if (Array.isArray(siblingNodes)) nodesToInspect.push(...siblingNodes);
     if (node && node.querySelectorAll) {
@@ -322,16 +324,17 @@
 
     for (const el of nodesToInspect) {
       const elText = (el.innerText || el.textContent || "").trim();
-      const idMatch = elText.match(/\b(11[A-Z0-9]{7}|T-[A-Z0-9]{9}|[0-9][A-Z0-9]{8})\b/i);
+      const idMatch = elText.match(/\b(11[A-Z0-9]{7}|T-[A-Z0-9]{9})\b/i);
       if (idMatch && (!currentTripId || idMatch[1].toUpperCase() !== currentTripId.toUpperCase())) {
         const subId = idMatch[1].toUpperCase();
-        if (subId.startsWith("B-")) continue;
+        if (subId.startsWith("B-") || subId.startsWith("C-")) continue;
 
-        const facMatches = Array.from(elText.matchAll(/\b([A-Z]{3,4}[0-9]{1,2})\b/g))
+        const facMatches = Array.from(elText.matchAll(/\b([A-Za-z0-9_]{3,24})\b/g))
           .map((m) => m[1])
-          .filter((f) => !["CDT", "CST", "EDT", "EST", "PDT", "PST", "MDT", "MST", "UTC", "CDL", "TWIC", "FAST", "TTA", "LCV"].includes(f.toUpperCase()));
+          .filter((f) => !["CDT", "CST", "EDT", "EST", "PDT", "PST", "MDT", "MST", "UTC", "CDL", "TWIC", "FAST", "TTA", "LCV"].includes(f.toUpperCase()))
+          .filter((f) => !isBadFac(f));
 
-        const seqMatches = Array.from(elText.matchAll(/(?:\((\d{1,2})\)|\b(\d{1,2})\b)\s*(?:[A-Z]{3,4}[0-9]{1,2})/g))
+        const seqMatches = Array.from(elText.matchAll(/(?:\((\d{1,2})\)|\b(\d{1,2})\b)\s*(?:[A-Za-z0-9_]{3,24})/g))
           .map((m) => parseInt(m[1] || m[2], 10));
 
         const milesMatch = elText.match(/\b(\d+)\s*mi\b/i);
@@ -340,24 +343,26 @@
         const actMatch = elText.match(/\b(Live\/Drop|Drop|Live|Hook|Pickup)\b/i);
         const driverCand = extractDriverName(el, elText);
 
-        addSubTrip({
-          id: subId,
-          fromSeq: seqMatches[0] || subTrips.length + 1,
-          fromFacility: facMatches[0] || "SAT41",
-          toSeq: seqMatches[1] || (seqMatches[0] ? seqMatches[0] + 1 : subTrips.length + 2),
-          toFacility: facMatches[1] || facMatches[0] || "SAT9",
-          miles: milesMatch ? parseInt(milesMatch[1], 10) : 0,
-          duration: durMatch ? durMatch[1] : undefined,
-          equipment: equipMatch ? equipMatch[1] : "53' Trailer",
-          action: actMatch ? actMatch[1] : "Drop",
-          driver: driverCand !== "Assigned Driver" ? driverCand : undefined,
-        });
+        if (facMatches.length >= 2) {
+          addSubTrip({
+            id: subId,
+            fromSeq: seqMatches[0] || subTrips.length + 1,
+            fromFacility: facMatches[0] || "SAT41",
+            toSeq: seqMatches[1] || (seqMatches[0] ? seqMatches[0] + 1 : subTrips.length + 2),
+            toFacility: facMatches[1] || facMatches[0] || "SAT9",
+            miles: milesMatch ? parseInt(milesMatch[1], 10) : 0,
+            duration: durMatch ? durMatch[1] : undefined,
+            equipment: equipMatch ? equipMatch[1] : "53' Trailer",
+            action: actMatch ? actMatch[1] : "Drop",
+            driver: driverCand !== "Assigned Driver" ? driverCand : undefined,
+          });
+        }
       }
     }
 
     // Layer 2: Flexible Regex Matching on full row text
-    // Handles with or without parentheses, with or without arrow: e.g. "1128SKPFX (1) SAT41 -> (2) SAT9 7 mi 0h 23m 53' Trailer Drop V. CHISM"
-    const flexibleSubRegex = /\b(11[A-Z0-9]{7}|T-[A-Z0-9]{9}|[0-9][A-Z0-9]{8})\b[^\n\r\w]*?(?:\(?(\d{1,2})\)?\s+)?([A-Z]{3,4}[0-9]{1,2})\s*(?:➔|->|→|to|—|–|>|\s+)\s*(?:\(?(\d{1,2})\)?\s+)?([A-Z]{3,4}[0-9]{1,2})([^\n\r]*)/gi;
+    // Handles with or without parentheses, with or without arrow: e.g. "114WPVJWK (1) SAT41 -> (2) SAT3 8 mi 0h 25m 53' Trailer Drop O. Lechhabi"
+    const flexibleSubRegex = /\b(11[A-Z0-9]{7}|T-[A-Z0-9]{9})\b[^\n\r\w]*?(?:\(?(\d{1,2})\)?\s+)?([A-Za-z0-9_]{3,24})\s*(?:➔|->|→|to|—|–|>|\s+)\s*(?:\(?(\d{1,2})\)?\s+)?([A-Za-z0-9_]{3,24})([^\n\r]*)/gi;
     let flexMatch;
     while ((flexMatch = flexibleSubRegex.exec(text)) !== null) {
       const subId = flexMatch[1].trim().toUpperCase();
@@ -366,6 +371,8 @@
       const toSeq = flexMatch[4] ? parseInt(flexMatch[4], 10) : undefined;
       const toFac = flexMatch[5].trim();
       const remainder = flexMatch[6] || "";
+
+      if (isBadFac(fromFac) || isBadFac(toFac)) continue;
 
       const milesMatch = remainder.match(/\b(\d+)\s*mi\b/i);
       const durMatch = remainder.match(/\b(\d+h\s*\d+m|\d+h|\d+m)\b/i);
@@ -395,9 +402,10 @@
       const idx = text.indexOf(sid);
       if (idx !== -1) {
         const chunk = text.slice(idx, idx + 180);
-        const facs = Array.from(chunk.matchAll(/\b([A-Z]{3,4}[0-9]{1,2})\b/g))
+        const facs = Array.from(chunk.matchAll(/\b([A-Za-z0-9_]{3,24})\b/g))
           .map((m) => m[1])
-          .filter((f) => !["CDT", "CST", "EDT", "EST", "PDT", "PST", "MDT", "MST", "UTC"].includes(f.toUpperCase()));
+          .filter((f) => !["CDT", "CST", "EDT", "EST", "PDT", "PST", "MDT", "MST", "UTC"].includes(f.toUpperCase()))
+          .filter((f) => !isBadFac(f));
         if (facs.length >= 2) {
           const milesMatch = chunk.match(/\b(\d+)\s*mi\b/i);
           const durMatch = chunk.match(/\b(\d+h\s*\d+m|\d+h|\d+m)\b/i);

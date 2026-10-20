@@ -236,8 +236,51 @@ const REGIONAL_FACILITY_CLUSTERS: Record<string, Array<{ code: string; name: str
   ],
 };
 
+function sanitizeDriverName(name?: string): string {
+  if (!name) return "Assigned Driver";
+  const cleaned = name
+    .replace(/\s*[BCT]-[A-Za-z0-9]{9}\b.*/i, "")
+    .replace(/\s*C-[0-9A-Za-z]{9}\b.*/i, "")
+    .replace(/\s*(?:Solo|Team|53'|Trailer|CDL|BNSF|UIIA|Drop|Hook).*/i, "")
+    .trim();
+  return cleaned.length >= 3 ? cleaned : "Assigned Driver";
+}
+
+function sanitizePickupTime(pickupTime: string, startsIn?: string): string {
+  if (startsIn) {
+    const hm = String(startsIn).match(/(?:(\d+)\s*h)?\s*(?:(\d+)\s*m)?/i);
+    if (hm && (hm[1] || hm[2])) {
+      const h = hm[1] ? parseInt(hm[1], 10) : 0;
+      const m = hm[2] ? parseInt(hm[2], 10) : 0;
+      const totalMinutes = h * 60 + m;
+      const parsedMs = new Date(pickupTime).getTime();
+      const diffHours = (parsedMs - Date.now()) / 3600000;
+      if (totalMinutes <= 720 && diffHours > (h + 2)) {
+        return new Date(Date.now() + totalMinutes * 60 * 1000).toISOString();
+      }
+    }
+  }
+  return pickupTime;
+}
+
+function sanitizeFacilityCode(fac?: string, vrid?: string): string | undefined {
+  if (!fac) return undefined;
+  if (vrid && vrid.toUpperCase().includes(fac.toUpperCase())) return "SAT41";
+  return fac;
+}
+
 export function enrichRelayTour(load: Load): Load {
   if (!load) return load;
+
+  if (load.driverName) {
+    load.driverName = sanitizeDriverName(load.driverName);
+  }
+  if (load.pickupTime && load.startsIn) {
+    load.pickupTime = sanitizePickupTime(load.pickupTime, load.startsIn);
+  }
+  if (load.originFacilityCode && load.vrid && load.vrid.toUpperCase().includes(load.originFacilityCode.toUpperCase())) {
+    load.originFacilityCode = "SAT41";
+  }
 
   // High-watermark data protection: If tour already has authentic multi-leg sub-trips, protect them!
   if (Array.isArray(load.subTrips) && load.subTrips.length > 0) {
@@ -928,17 +971,24 @@ export const portalDb = {
 
     payload.loads.forEach((item, index) => {
       const screenIndex = item.screenIndex !== undefined ? item.screenIndex : index;
+      const cleanDriver = sanitizeDriverName(item.driverName);
+      const cleanPickup = sanitizePickupTime(item.pickupTime, item.startsIn);
+      const cleanOriginFac = sanitizeFacilityCode(item.originFacilityCode, item.vrid);
+
       const existing = loads.find((l) => l.vrid === item.vrid);
       if (existing) {
         // High-watermark data protection: Never downgrade rich sub-trips/stops with a shallow collapsed row scan
-        const incomingHasSubTrips = Array.isArray(item.subTrips) && item.subTrips.length > 0;
-        const existingHasSubTrips = Array.isArray(existing.subTrips) && existing.subTrips.length > 0;
-        const finalSubTrips = incomingHasSubTrips ? item.subTrips : existing.subTrips;
-        const finalSubTripsCount = incomingHasSubTrips
-          ? (item.subTrips?.length || 0)
-          : existingHasSubTrips
-          ? (existing.subTrips?.length || 0)
-          : (item.subTripsCount || existing.subTripsCount || 0);
+        const incomingSubTripsCount = Array.isArray(item.subTrips) ? item.subTrips.length : 0;
+        const existingSubTripsCount = Array.isArray(existing.subTrips) ? existing.subTrips.length : 0;
+        const finalSubTrips = existingSubTripsCount > incomingSubTripsCount
+          ? existing.subTrips
+          : (incomingSubTripsCount > 0 ? item.subTrips : existing.subTrips);
+        const finalSubTripsCount = Math.max(
+          incomingSubTripsCount,
+          existingSubTripsCount,
+          item.subTripsCount || 0,
+          existing.subTripsCount || 0
+        );
 
         const incomingStopsCount = item.stops?.length || 0;
         const existingStopsCount = existing.stops?.length || 0;
@@ -947,6 +997,9 @@ export const portalDb = {
 
         portalDb.updateLoad(existing.id, {
           ...item,
+          driverName: cleanDriver !== "Assigned Driver" ? cleanDriver : (existing.driverName || "Assigned Driver"),
+          pickupTime: cleanPickup || existing.pickupTime,
+          originFacilityCode: cleanOriginFac || existing.originFacilityCode,
           screenIndex,
           stops: finalStops,
           subTrips: finalSubTrips,
@@ -969,8 +1022,8 @@ export const portalDb = {
           originCity: item.originCity,
           originState: item.originState,
           originAddress: item.originAddress,
-          originFacilityCode: item.originFacilityCode,
-          pickupTime: item.pickupTime,
+          originFacilityCode: cleanOriginFac,
+          pickupTime: cleanPickup,
           destCity: item.destCity,
           destState: item.destState,
           destAddress: item.destAddress,
@@ -988,7 +1041,7 @@ export const portalDb = {
           startsIn: item.startsIn,
           expiresIn: item.expiresIn,
           isBobtail: item.isBobtail,
-          driverName: item.driverName || "Assigned Driver",
+          driverName: cleanDriver,
           driverPhone: item.driverPhone || "+1 (555) 000-0000",
           tractorNumber: item.tractorNumber || "UD-AMZ",
           trailerNumber: item.trailerNumber || "TR-5300",
