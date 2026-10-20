@@ -38,7 +38,33 @@
   });
 
   // 2. High-Precision Date & Time Parser
-  function parseRelayDateTime(dateString, isDelivery = false) {
+  const TZ_OFFSETS = {
+    EDT: "-04:00",
+    EST: "-05:00",
+    CDT: "-05:00",
+    CST: "-06:00",
+    MDT: "-06:00",
+    MST: "-07:00",
+    PDT: "-07:00",
+    PST: "-08:00",
+    UTC: "Z",
+    GMT: "Z",
+  };
+
+  function parseRelayDateTime(dateString, isDelivery = false, startsIn = undefined) {
+    // 1. If startsIn is provided and we are calculating pickupTime, ground truth is now + startsIn
+    if (!isDelivery && startsIn) {
+      const hm = String(startsIn).match(/(?:(\d+)\s*h)?\s*(?:(\d+)\s*m)?/i);
+      if (hm && (hm[1] || hm[2])) {
+        const h = hm[1] ? parseInt(hm[1], 10) : 0;
+        const m = hm[2] ? parseInt(hm[2], 10) : 0;
+        const offsetMs = (h * 60 + m) * 60 * 1000;
+        if (offsetMs >= 0) {
+          return new Date(Date.now() + offsetMs).toISOString();
+        }
+      }
+    }
+
     if (!dateString) {
       const fallback = new Date();
       fallback.setHours(fallback.getHours() + (isDelivery ? 16 : 2));
@@ -46,11 +72,47 @@
     }
 
     const now = new Date();
-    let targetDate = new Date(now);
     const text = String(dateString).trim();
     const lower = text.toLowerCase();
 
-    // Check for "Tomorrow" or offsets
+    // Check for explicit Month + Day format first: e.g. "Tue, Oct 20, 11:45 CDT" or "Thu, Oct 22, 01:30 CDT"
+    const fullDateMatch = text.match(/\b(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun),?\s+)?(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{1,2})(?:st|nd|rd|th)?(?:\s*,?\s*(\d{4}))?,?\s+(\d{1,2}):(\d{2})\s*(AM|PM)?(?:\s*([A-Z]{3}))?\b/i)
+      || text.match(/\b(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*(?:\s*,?\s*(\d{4}))?,?\s+(\d{1,2}):(\d{2})\s*(AM|PM)?(?:\s*([A-Z]{3}))?\b/i);
+
+    if (fullDateMatch) {
+      const months = {
+        jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+        jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
+      };
+      const rawM = isNaN(parseInt(fullDateMatch[1], 10)) ? fullDateMatch[1] : fullDateMatch[2];
+      const rawD = isNaN(parseInt(fullDateMatch[1], 10)) ? fullDateMatch[2] : fullDateMatch[1];
+      const monthNum = months[rawM.toLowerCase().slice(0, 3)];
+      const dayNum = parseInt(rawD, 10);
+      const yearNum = fullDateMatch[3] ? parseInt(fullDateMatch[3], 10) : now.getFullYear();
+
+      let hours = parseInt(fullDateMatch[4], 10);
+      const minutes = parseInt(fullDateMatch[5], 10);
+      const meridian = fullDateMatch[6] ? fullDateMatch[6].toUpperCase() : null;
+      if (meridian === "PM" && hours < 12) hours += 12;
+      if (meridian === "AM" && hours === 12) hours = 0;
+
+      const tzStr = fullDateMatch[7] ? fullDateMatch[7].toUpperCase() : null;
+      const tzOffset = (tzStr && TZ_OFFSETS[tzStr]) ? TZ_OFFSETS[tzStr] : null;
+
+      if (tzOffset) {
+        const isoWithOffset = `${yearNum}-${String(monthNum + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}T${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:00${tzOffset}`;
+        const parsed = new Date(isoWithOffset);
+        if (!isNaN(parsed.getTime())) {
+          return parsed.toISOString();
+        }
+      }
+
+      const target = new Date(yearNum, monthNum, dayNum, hours, minutes, 0, 0);
+      return target.toISOString();
+    }
+
+    // Only check "tomorrow" / "in 1 day" if no calendar month was present in string!
+    let targetDate = new Date(now);
     if (lower.includes("tomorrow") || lower.includes("in 1 day") || lower.includes("in 24 hours")) {
       targetDate.setDate(targetDate.getDate() + 1);
     } else if (lower.includes("in 2 days") || lower.includes("in 48 hours")) {
@@ -59,29 +121,6 @@
       targetDate.setDate(targetDate.getDate() + 3);
     } else if (lower.includes("yesterday")) {
       targetDate.setDate(targetDate.getDate() - 1);
-    } else {
-      // Month + Day format: e.g. "Thu, Oct 8", "Fri, Oct 9", "Sat, Oct 10", "8 Oct", "9 Oct", "Mon, Oct 12"
-      const monthMatch = text.match(/\b(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun),?\s+)?(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{1,2})(?:st|nd|rd|th)?(?:\s*,?\s*(\d{4}))?\b/i)
-        || text.match(/\b(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*(?:\s*,?\s*(\d{4}))?\b/i);
-
-      if (monthMatch) {
-        const months = {
-          jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
-          jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
-        };
-        const rawM = isNaN(parseInt(monthMatch[1], 10)) ? monthMatch[1] : monthMatch[2];
-        const rawD = isNaN(parseInt(monthMatch[1], 10)) ? monthMatch[2] : monthMatch[1];
-        const monthNum = months[rawM.toLowerCase().slice(0, 3)];
-        const dayNum = parseInt(rawD, 10);
-        const yearNum = monthMatch[3] ? parseInt(monthMatch[3], 10) : now.getFullYear();
-
-        if (monthNum !== undefined && !isNaN(dayNum)) {
-          targetDate.setFullYear(yearNum, monthNum, dayNum);
-          if (!monthMatch[3] && targetDate.getTime() < now.getTime() - 30 * 24 * 3600 * 1000) {
-            targetDate.setFullYear(targetDate.getFullYear() + 1);
-          }
-        }
-      }
     }
 
     // Clock Time (e.g. "12:05", "18:03", "04:07", "17:30", "00:30")
@@ -110,12 +149,23 @@
   function extractDriverName(node, text) {
     if (!node && !text) return "Assigned Driver";
 
+    const cleanCand = (raw) => {
+      if (!raw) return "";
+      return String(raw)
+        .replace(/\s*[BCT]-[A-Za-z0-9]{9}\b.*/i, "")
+        .replace(/\s*C-[0-9A-Za-z]{9}\b.*/i, "")
+        .replace(/\s*(?:Solo|Team|53'|Trailer|CDL|BNSF|UIIA|Drop|Hook).*/i, "")
+        .trim();
+    };
+
     const isBadDriver = (cand) => {
-      if (!cand || cand.length < 3 || cand.length > 35) return true;
-      const lower = cand.toLowerCase();
+      if (!cand) return true;
+      const cleaned = cleanCand(cand);
+      if (cleaned.length < 3 || cleaned.length > 30) return true;
+      const lower = cleaned.toLowerCase();
       return (
         /select|assign|choose|driver|search|filter|^none$|action|detail|track|relay|amazon|contract|trailer|solo|team|starts|expires|hours|miles|drop|hook|cdl|fast|uiia|bnsf|epa|twic|load|trip|tour|upcoming|transit|history|export|bulk|accept|sort/i.test(
-          cand
+          lower
         )
       );
     };
@@ -125,14 +175,14 @@
       // Inputs (Cloudscape Autosuggest / Combobox where driver name is stored in input.value)
       const inputs = Array.from(node.querySelectorAll('input, [role="combobox"]'));
       for (const inp of inputs) {
-        const val = (inp.value || inp.getAttribute("value") || "").trim();
+        const val = cleanCand((inp.value || inp.getAttribute("value") || "").trim());
         if (!isBadDriver(val)) {
           const m =
             val.match(/\b([A-Z]\.\s+[A-Za-z0-9\-]+(?:\s+[A-Za-z0-9\-]+)?)\b/) ||
             val.match(/\b([A-Z]\.\s*[A-Z]{2,20})\b/) ||
             val.match(/\b([A-Z][a-z]{2,15}\s+[A-Z][a-z]{2,15})\b/);
-          if (m && !isBadDriver(m[1])) return m[1].trim();
-          if (/^[A-Z\s\.\-]{3,35}$/.test(val) && !isBadDriver(val)) return val;
+          if (m && !isBadDriver(m[1])) return cleanCand(m[1]);
+          if (/^[A-Z\s\.\-]{3,30}$/.test(val) && !isBadDriver(val)) return val;
         }
       }
 
@@ -140,7 +190,7 @@
       const selectEl = node.querySelector("select");
       if (selectEl) {
         const selectedOpt = selectEl.options[selectEl.selectedIndex];
-        const optText = (selectedOpt ? selectedOpt.text : selectEl.value || "").trim();
+        const optText = cleanCand((selectedOpt ? selectedOpt.text : selectEl.value || "").trim());
         if (!isBadDriver(optText)) {
           return optText;
         }
@@ -153,14 +203,14 @@
         )
       );
       for (const btn of triggerButtons) {
-        const bText = (btn.innerText || btn.textContent || "").trim();
+        const bText = cleanCand((btn.innerText || btn.textContent || "").trim());
         if (!isBadDriver(bText)) {
           const m =
             bText.match(/\b([A-Z]\.\s+[A-Za-z0-9\-]+(?:\s+[A-Za-z0-9\-]+)?)\b/) ||
             bText.match(/\b([A-Z]\.\s*[A-Z]{2,20})\b/) ||
             bText.match(/\b([A-Z][a-z]{2,15}\s+[A-Z][a-z]{2,15})\b/);
-          if (m && !isBadDriver(m[1])) return m[1].trim();
-          if (/^[A-Z\s\.\-]{3,35}$/.test(bText) && !isBadDriver(bText)) return bText;
+          if (m && !isBadDriver(m[1])) return cleanCand(m[1]);
+          if (/^[A-Z\s\.\-]{3,30}$/.test(bText) && !isBadDriver(bText)) return bText;
         }
       }
 
@@ -168,14 +218,14 @@
       const cells = Array.from(node.querySelectorAll('td, [role="cell"], [role="gridcell"]'));
       if (cells.length >= 4) {
         for (let c = cells.length - 1; c >= 3; c--) {
-          const cText = (cells[c].innerText || cells[c].textContent || "").trim();
+          const cText = cleanCand((cells[c].innerText || cells[c].textContent || "").trim());
           if (isBadDriver(cText)) continue;
           const dMatch =
             cText.match(/\b([A-Z]\.\s+[A-Za-z0-9\-]+(?:\s+[A-Za-z0-9\-]+)?)\b/) ||
             cText.match(/\b([A-Z]\.\s*[A-Z]{2,20})\b/) ||
             cText.match(/\b([A-Z][a-z]{2,15}\s+[A-Z][a-z]{2,15})\b/);
           if (dMatch && !isBadDriver(dMatch[1])) {
-            return dMatch[1].trim();
+            return cleanCand(dMatch[1]);
           }
         }
       }
@@ -187,7 +237,7 @@
       spaced.match(/\b([A-Z]\.\s+[A-Za-z0-9\-]+(?:\s+[A-Za-z0-9\-]+)?)\b/) ||
       spaced.match(/\b([A-Z]\.\s*[A-Z]{2,20})\b/);
     if (nameMatch && nameMatch[1]) {
-      const cand = nameMatch[1].trim();
+      const cand = cleanCand(nameMatch[1]);
       if (!isBadDriver(cand)) {
         return cand;
       }
@@ -196,7 +246,7 @@
     // Full name format e.g. "John Smith"
     const fullNameMatch = spaced.match(/\b([A-Z][a-z]{2,15}\s+[A-Z][a-z]{2,15})\b/);
     if (fullNameMatch && fullNameMatch[1]) {
-      const cand = fullNameMatch[1].trim();
+      const cand = cleanCand(fullNameMatch[1]);
       if (!isBadDriver(cand)) {
         return cand;
       }
@@ -206,55 +256,164 @@
   }
 
   // 4. Deep Multi-Stop & Sub-Leg Extractor for Amazon Relay Blocks
-  function extractBlockTourStructure(node, text) {
+  function extractBlockTourStructure(node, text, siblingNodes = [], startsIn = undefined, currentTripId = "") {
     const cells = node && node.querySelectorAll ? Array.from(node.querySelectorAll('td, [role="cell"], [role="gridcell"]')) : [];
 
-    // Pre-process text to insert spaces around glued tokens
-    const preprocessedText = (text || "")
+    // Pre-process text safely: Mask Tour IDs (B-..., T-..., C-...) so their substrings are NEVER mangled or matched as facility codes
+    const tourIdMap = new Map();
+    let maskCounter = 0;
+    const maskedText = (text || "").replace(/\b([BCT]-[A-Za-z0-9]{9})\b/g, (match) => {
+      const key = `__TOUR_ID_TOKEN_${maskCounter++}__`;
+      tourIdMap.set(key, match);
+      return key;
+    });
+
+    const preprocessedText = maskedText
       .replace(/([0-9])([A-Z]{3,4}[0-9]{1,2})/g, "$1 $2")
       .replace(/(CDT|CST|EDT|EST|PDT|PST|MDT|MST)([A-Z])/g, "$1 $2")
-      .replace(/(\d{5})([A-Z][a-z]{2})/g, "$1 $2");
+      .replace(/(\d{5})([A-Z][a-z]{2})/g, "$1 $2")
+      .replace(/__TOUR_ID_TOKEN_\d+__/g, (key) => tourIdMap.get(key) || key);
 
-    // 1. Extract Parent Start and End Times
+    // 1. Extract Parent Start and End Times (grounded with startsIn when available)
     const dateMatches = Array.from(
       preprocessedText.matchAll(/(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun),?\s+)?(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}|\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*)(?:st|nd|rd|th)?(?:\s*,?\s*\d{4})?,?\s+\d{1,2}:\d{2}\s*(?:AM|PM)?(?:\s*[A-Z]{3})?/gi)
     );
 
-    const parentPickupTime = dateMatches[0] ? parseRelayDateTime(dateMatches[0][0], false) : parseRelayDateTime(preprocessedText, false);
-    const parentDeliveryTime = dateMatches[1] ? parseRelayDateTime(dateMatches[1][0], true) : parseRelayDateTime(preprocessedText, true);
+    const parentPickupTime = dateMatches[0]
+      ? parseRelayDateTime(dateMatches[0][0], false, startsIn)
+      : parseRelayDateTime(preprocessedText, false, startsIn);
+    const parentDeliveryTime = dateMatches[1]
+      ? parseRelayDateTime(dateMatches[1][0], true)
+      : parseRelayDateTime(preprocessedText, true);
 
-    // 2. Extract Authentic Sub-Trips / Sub-Legs (e.g. "1153VFZF4 1 SAT41 -> 2 DAU5 62 mi 1h 46m 53' Trailer Drop A. Huerta")
-    const subTripRegex = /(?:^|\n)[^\w\n]*(11[A-Z0-9]{7}|T-[A-Z0-9]{9}|[0-9][A-Z0-9]{8})\s+(?:(\d+)\s+)?([A-Za-z0-9_]{3,24})\s*(?:➔|->|to|—|–|>)\s*(?:(\d+)\s+)?([A-Za-z0-9_]{3,24})(?:[^\n\r]*)/gi;
+    // 2. Extract Authentic Multi-Leg Sub-Trips using 3 complementary extraction layers
     const subTrips = [];
-    let subMatch;
+    const seenSubIds = new Set();
 
-    while ((subMatch = subTripRegex.exec(text)) !== null) {
-      const fullLine = subMatch[0];
-      const subId = subMatch[1].trim();
-      const fromSeq = subMatch[2] ? parseInt(subMatch[2], 10) : subTrips.length + 1;
-      const fromFac = subMatch[3].trim();
-      const toSeq = subMatch[4] ? parseInt(subMatch[4], 10) : fromSeq + 1;
-      const toFac = subMatch[5].trim();
-
-      const milesMatch = fullLine.match(/\b(\d+)\s*mi\b/i);
-      const durationMatch = fullLine.match(/\b(\d+h\s*\d+m|\d+h|\d+m)\b/i);
-      const equipmentMatch = fullLine.match(/(53'\s*Trailer|Trailer|Dry\s*Van)/i);
-      const actionMatch = fullLine.match(/\b(Live\/Drop|Drop|Live|Hook|Pickup)\b/i);
-      const driverMatch = fullLine.match(/([A-Z]\.\s*[A-Za-z]+)\b/);
-
+    const addSubTrip = (item) => {
+      if (!item || !item.id) return;
+      const cleanId = String(item.id).trim().toUpperCase();
+      if (seenSubIds.has(cleanId)) return;
+      if (currentTripId && cleanId === currentTripId.toUpperCase()) return;
+      if (cleanId.startsWith("B-")) return;
+      seenSubIds.add(cleanId);
       subTrips.push({
-        id: subId,
+        id: cleanId,
         legIndex: subTrips.length + 1,
+        fromSeq: item.fromSeq || subTrips.length + 1,
+        fromFacility: item.fromFacility || "SAT41",
+        toSeq: item.toSeq || subTrips.length + 2,
+        toFacility: item.toFacility || "SAT9",
+        miles: item.miles || 0,
+        duration: item.duration || undefined,
+        equipment: item.equipment || "53' Trailer",
+        action: item.action || "Drop",
+        driver: item.driver || undefined,
+      });
+    };
+
+    // Layer 1: Inspect Sibling DOM Rows and Child Rows directly
+    const nodesToInspect = [];
+    if (Array.isArray(siblingNodes)) nodesToInspect.push(...siblingNodes);
+    if (node && node.querySelectorAll) {
+      const childSubRows = Array.from(node.querySelectorAll('tr, [role="row"], li, [class*="sub-trip"], [class*="leg"]'));
+      nodesToInspect.push(...childSubRows);
+    }
+
+    for (const el of nodesToInspect) {
+      const elText = (el.innerText || el.textContent || "").trim();
+      const idMatch = elText.match(/\b(11[A-Z0-9]{7}|T-[A-Z0-9]{9}|[0-9][A-Z0-9]{8})\b/i);
+      if (idMatch && (!currentTripId || idMatch[1].toUpperCase() !== currentTripId.toUpperCase())) {
+        const subId = idMatch[1].toUpperCase();
+        if (subId.startsWith("B-")) continue;
+
+        const facMatches = Array.from(elText.matchAll(/\b([A-Z]{3,4}[0-9]{1,2})\b/g))
+          .map((m) => m[1])
+          .filter((f) => !["CDT", "CST", "EDT", "EST", "PDT", "PST", "MDT", "MST", "UTC", "CDL", "TWIC", "FAST", "TTA", "LCV"].includes(f.toUpperCase()));
+
+        const seqMatches = Array.from(elText.matchAll(/(?:\((\d{1,2})\)|\b(\d{1,2})\b)\s*(?:[A-Z]{3,4}[0-9]{1,2})/g))
+          .map((m) => parseInt(m[1] || m[2], 10));
+
+        const milesMatch = elText.match(/\b(\d+)\s*mi\b/i);
+        const durMatch = elText.match(/\b(\d+h\s*\d+m|\d+h|\d+m)\b/i);
+        const equipMatch = elText.match(/(53'\s*Trailer|Trailer|Dry\s*Van)/i);
+        const actMatch = elText.match(/\b(Live\/Drop|Drop|Live|Hook|Pickup)\b/i);
+        const driverCand = extractDriverName(el, elText);
+
+        addSubTrip({
+          id: subId,
+          fromSeq: seqMatches[0] || subTrips.length + 1,
+          fromFacility: facMatches[0] || "SAT41",
+          toSeq: seqMatches[1] || (seqMatches[0] ? seqMatches[0] + 1 : subTrips.length + 2),
+          toFacility: facMatches[1] || facMatches[0] || "SAT9",
+          miles: milesMatch ? parseInt(milesMatch[1], 10) : 0,
+          duration: durMatch ? durMatch[1] : undefined,
+          equipment: equipMatch ? equipMatch[1] : "53' Trailer",
+          action: actMatch ? actMatch[1] : "Drop",
+          driver: driverCand !== "Assigned Driver" ? driverCand : undefined,
+        });
+      }
+    }
+
+    // Layer 2: Flexible Regex Matching on full row text
+    // Handles with or without parentheses, with or without arrow: e.g. "1128SKPFX (1) SAT41 -> (2) SAT9 7 mi 0h 23m 53' Trailer Drop V. CHISM"
+    const flexibleSubRegex = /\b(11[A-Z0-9]{7}|T-[A-Z0-9]{9}|[0-9][A-Z0-9]{8})\b[^\n\r\w]*?(?:\(?(\d{1,2})\)?\s+)?([A-Z]{3,4}[0-9]{1,2})\s*(?:➔|->|→|to|—|–|>|\s+)\s*(?:\(?(\d{1,2})\)?\s+)?([A-Z]{3,4}[0-9]{1,2})([^\n\r]*)/gi;
+    let flexMatch;
+    while ((flexMatch = flexibleSubRegex.exec(text)) !== null) {
+      const subId = flexMatch[1].trim().toUpperCase();
+      const fromSeq = flexMatch[2] ? parseInt(flexMatch[2], 10) : undefined;
+      const fromFac = flexMatch[3].trim();
+      const toSeq = flexMatch[4] ? parseInt(flexMatch[4], 10) : undefined;
+      const toFac = flexMatch[5].trim();
+      const remainder = flexMatch[6] || "";
+
+      const milesMatch = remainder.match(/\b(\d+)\s*mi\b/i);
+      const durMatch = remainder.match(/\b(\d+h\s*\d+m|\d+h|\d+m)\b/i);
+      const equipMatch = remainder.match(/(53'\s*Trailer|Trailer|Dry\s*Van)/i);
+      const actMatch = remainder.match(/\b(Live\/Drop|Drop|Live|Hook|Pickup)\b/i);
+      const dMatch = remainder.match(/\b([A-Z]\.\s*[A-Za-z0-9\-]+)\b/);
+
+      addSubTrip({
+        id: subId,
         fromSeq,
         fromFacility: fromFac,
         toSeq,
         toFacility: toFac,
         miles: milesMatch ? parseInt(milesMatch[1], 10) : 0,
-        duration: durationMatch ? durationMatch[1] : undefined,
-        equipment: equipmentMatch ? equipmentMatch[1] : "53' Trailer",
-        action: actionMatch ? actionMatch[1] : "Drop",
-        driver: driverMatch ? driverMatch[1] : undefined,
+        duration: durMatch ? durMatch[1] : undefined,
+        equipment: equipMatch ? equipMatch[1] : "53' Trailer",
+        action: actMatch ? actMatch[1] : "Drop",
+        driver: dMatch ? dMatch[1] : undefined,
       });
+    }
+
+    // Layer 3: Chunk-based Token Fallback for any 11[A-Z0-9]{7} token found in text
+    const allSubIds = Array.from(text.matchAll(/\b(11[A-Z0-9]{7})\b/gi)).map((m) => m[1].toUpperCase());
+    for (const sid of allSubIds) {
+      if (seenSubIds.has(sid)) continue;
+      if (currentTripId && sid === currentTripId.toUpperCase()) continue;
+      const idx = text.indexOf(sid);
+      if (idx !== -1) {
+        const chunk = text.slice(idx, idx + 180);
+        const facs = Array.from(chunk.matchAll(/\b([A-Z]{3,4}[0-9]{1,2})\b/g))
+          .map((m) => m[1])
+          .filter((f) => !["CDT", "CST", "EDT", "EST", "PDT", "PST", "MDT", "MST", "UTC"].includes(f.toUpperCase()));
+        if (facs.length >= 2) {
+          const milesMatch = chunk.match(/\b(\d+)\s*mi\b/i);
+          const durMatch = chunk.match(/\b(\d+h\s*\d+m|\d+h|\d+m)\b/i);
+          const actMatch = chunk.match(/\b(Live\/Drop|Drop|Live|Hook|Pickup)\b/i);
+          const dMatch = chunk.match(/\b([A-Z]\.\s*[A-Za-z0-9\-]+)\b/);
+          addSubTrip({
+            id: sid,
+            fromFacility: facs[0],
+            toFacility: facs[1],
+            miles: milesMatch ? parseInt(milesMatch[1], 10) : 0,
+            duration: durMatch ? durMatch[1] : undefined,
+            action: actMatch ? actMatch[1] : "Drop",
+            driver: dMatch ? dMatch[1] : undefined,
+          });
+        }
+      }
     }
 
     // 3. Extract Clean Addresses e.g. "111 Gembler Rd, San Antonio, TX 78219" or "2956 MAIN ST BUDA, BUDA, TX 78610"
@@ -276,7 +435,7 @@
       });
     }
 
-    // 4. Extract Expanded Stop Times & Schedule Windows (from detailed stop breakdown)
+    // 4. Extract Expanded Stop Times & Schedule Windows
     const expandedStopRegex = /(?:^|\n)\s*(\d{1,2})\s+([A-Za-z0-9_]{3,24})[^\n\r]*(?:Tractor\s*ID[^\n\r]*?(bobtail|[A-Za-z0-9\-]+))?[^\n\r]*?Sch\.\s*(\d{1,2}\s+[A-Za-z]{3},?\s+\d{1,2}:\d{2}\s*(?:AM|PM)?[A-Z]{0,4})[^\n\r]*?Sch\.\s*(\d{1,2}\s+[A-Za-z]{3},?\s+\d{1,2}:\d{2}\s*(?:AM|PM)?[A-Z]{0,4})?/gi;
     const stopDetailsMap = new Map();
     let expMatch;
@@ -317,7 +476,7 @@
       const firstLeg = subTrips[0];
       const firstDetails = stopDetailsMap.get(firstLeg.fromSeq);
       const addr1 = foundAddresses[0];
-      const oCity = addr1?.city || (cityStateMatches[0] && cityStateMatches[0][1].trim()) || firstLeg.fromFacility;
+      const oCity = addr1?.city || (cityStateMatches[0] && cityStateMatches[0][1].trim()) || "San Antonio";
       const oState = addr1?.state || (cityStateMatches[0] && cityStateMatches[0][2].trim()) || "TX";
 
       stopsList.push({
@@ -327,8 +486,8 @@
         facilityCode: firstLeg.fromFacility,
         city: oCity,
         state: oState,
-        postalCode: addr1?.zip || undefined,
-        address: addr1?.street ? `${addr1.street}, ${oCity}, ${oState}` : `Amazon Logistics Facility [${firstLeg.fromFacility}]`,
+        postalCode: addr1?.zip || "78219",
+        address: addr1?.street ? `${addr1.street}, ${oCity}, ${oState}` : `Amazon Logistics Facility [${firstLeg.fromFacility}] - ${oCity}, ${oState}`,
         appointmentTime: firstDetails?.arrTime || parentPickupTime,
         departureTime: firstDetails?.depTime || undefined,
         tractorId: firstDetails?.tractor || (/bobtail/i.test(text) ? "bobtail" : undefined),
@@ -347,8 +506,8 @@
         const addr = foundAddresses[idx + 1] || (isLast ? (foundAddresses[foundAddresses.length - 1] || addr1) : undefined);
         const legCityMatch = (cityStateMatches[idx + 1] && cityStateMatches[idx + 1][1].trim()) || (cityStateMatches[cityStateMatches.length - 1] && cityStateMatches[cityStateMatches.length - 1][1].trim());
         const legStateMatch = (cityStateMatches[idx + 1] && cityStateMatches[idx + 1][2].trim()) || (cityStateMatches[cityStateMatches.length - 1] && cityStateMatches[cityStateMatches.length - 1][2].trim());
-        const dCity = addr?.city || legCityMatch || leg.toFacility;
-        const dState = addr?.state || legStateMatch || "TX";
+        const dCity = addr?.city || legCityMatch || (leg.toFacility.startsWith("SAT") ? "San Antonio" : leg.toFacility.startsWith("AUS") ? "Austin" : leg.toFacility.startsWith("BTR") ? "Baton Rouge" : leg.toFacility);
+        const dState = addr?.state || legStateMatch || (leg.toFacility.startsWith("BTR") ? "LA" : "TX");
 
         const stepEstimatedTime = new Date(new Date(parentPickupTime).getTime() + (idx + 1) * 2 * 3600000).toISOString();
         const legArn = arnMatches[idx] || (arnMatches.length === 1 ? arnMatches[0] : undefined);
@@ -361,7 +520,7 @@
           city: dCity,
           state: dState,
           postalCode: addr?.zip || undefined,
-          address: addr?.street ? `${addr.street}, ${dCity}, ${dState}` : `Amazon Facility [${leg.toFacility}]`,
+          address: addr?.street ? `${addr.street}, ${dCity}, ${dState}` : `Amazon Facility [${leg.toFacility}] - ${dCity}, ${dState}`,
           appointmentTime: isLast ? parentDeliveryTime : (legDetails?.arrTime || stepEstimatedTime),
           departureTime: legDetails?.depTime || undefined,
           tractorId: legDetails?.tractor || undefined,
@@ -384,15 +543,21 @@
       const facilityMatches = Array.from(preprocessedText.matchAll(/(?:\[([A-Z0-9]{3,6})\]|\b([A-Z]{3,4}[0-9]{1,2})\b)/g));
       const cleanFacilities = facilityMatches
         .map((m) => m[1] || m[2])
-        .filter((f) => !["POST", "TRIP", "TOUR", "LOAD", "TYPE", "RATE", "TIME", "STOP", "CITY", "DEST", "FROM", "AUTO", "VIEW", "INFO", "COST", "FEES", "PAID", "DAYS", "EDIT", "DATE", "USER", "MORE", "SHOW", "HIDE", "NAME", "PAGE", "NEXT", "BACK", "SAVE", "EXIT", "HELP", "TEAM", "UNIT", "TEST", "WARN", "ROLE", "LIVE", "DOCK", "GATE", "SEMI", "VANS", "FLAT", "REEF", "AMZN", "SYNC", "MENU", "AMAZON", "RELAY", "TOTAL", "DROP", "HOOK", "MILES", "HOUR", "HOURS", "WEEK", "CDT", "CST", "EDT", "EST", "PDT", "PST", "MDT", "MST", "UTC", "CDL", "TWIC", "FAST", "TTA", "LCV", "NC"].includes(f.toUpperCase()));
+        .filter((f) => {
+          const upper = f.toUpperCase();
+          if (["POST", "TRIP", "TOUR", "LOAD", "TYPE", "RATE", "TIME", "STOP", "CITY", "DEST", "FROM", "AUTO", "VIEW", "INFO", "COST", "FEES", "PAID", "DAYS", "EDIT", "DATE", "USER", "MORE", "SHOW", "HIDE", "NAME", "PAGE", "NEXT", "BACK", "SAVE", "EXIT", "HELP", "TEAM", "UNIT", "TEST", "WARN", "ROLE", "LIVE", "DOCK", "GATE", "SEMI", "VANS", "FLAT", "REEF", "AMZN", "SYNC", "MENU", "AMAZON", "RELAY", "TOTAL", "DROP", "HOOK", "MILES", "HOUR", "HOURS", "WEEK", "CDT", "CST", "EDT", "EST", "PDT", "PST", "MDT", "MST", "UTC", "CDL", "TWIC", "FAST", "TTA", "LCV", "NC"].includes(upper)) return false;
+          // Substring protection against VRID (e.g. XMB06 inside B-56T3XMB06)
+          if (currentTripId && currentTripId.toUpperCase().includes(upper)) return false;
+          return true;
+        });
 
-      const oFac = cleanFacilities[0] || (cellOriginText.match(/\b([A-Z]{3,4}[0-9]{1,2})\b/)?.[1]) || undefined;
+      const oFac = (cellOriginText.match(/\b([A-Z]{3,4}[0-9]{1,2})\b/)?.[1]) || cleanFacilities[0] || undefined;
       const oMatch = (cellOriginText && cellOriginText.match(/([A-Za-z\s\.\-]{3,24}),\s*([A-Z]{2})(?:\s+(\d{5}))?/)) || cityStateMatches[0];
       const oCity = (oMatch && oMatch[1].trim()) || (foundAddresses[0] && foundAddresses[0].city) || (oFac ? `Facility ${oFac}` : "San Antonio");
       const oState = (oMatch && oMatch[2].trim()) || (foundAddresses[0] && foundAddresses[0].state) || "TX";
       const oZip = (oMatch && oMatch[3]) || (foundAddresses[0] && foundAddresses[0].zip) || undefined;
 
-      const dFac = (cleanFacilities.length > 1 ? cleanFacilities[cleanFacilities.length - 1] : undefined) || (cellDestText.match(/\b([A-Z]{3,4}[0-9]{1,2})\b/)?.[1]) || undefined;
+      const dFac = (cellDestText.match(/\b([A-Z]{3,4}[0-9]{1,2})\b/)?.[1]) || (cleanFacilities.length > 1 ? cleanFacilities[cleanFacilities.length - 1] : undefined) || oFac;
       const dMatch = (cellDestText && cellDestText.match(/([A-Za-z\s\.\-]{3,24}),\s*([A-Z]{2})(?:\s+(\d{5}))?/)) || (cityStateMatches.length > 1 ? cityStateMatches[cityStateMatches.length - 1] : cityStateMatches[0]);
       const dCity = (dMatch && dMatch[1].trim()) || (foundAddresses[1] && foundAddresses[1].city) || oCity;
       const dState = (dMatch && dMatch[2].trim()) || (foundAddresses[1] && foundAddresses[1].state) || oState;
@@ -521,7 +686,7 @@
       }
     }
 
-    // 2. Sort rows strictly by vertical visual position (preserving exact Relay Screen Order)
+    // 2. Sort candidate rows strictly by vertical visual position
     candidateRows.sort((a, b) => {
       const rectA = a.nodeType === 1 ? a.getBoundingClientRect() : { top: 0, left: 0 };
       const rectB = b.nodeType === 1 ? b.getBoundingClientRect() : { top: 0, left: 0 };
@@ -533,9 +698,24 @@
       return rectA.left - rectB.left;
     });
 
-    // 3. Block-First Priority:
+    // 3. Filter out parent containers / wrappers that hold multiple tours
+    const singleTourRows = candidateRows.filter((r) => {
+      const t = (r.innerText || r.textContent || "").trim();
+      const bCount = (t.match(/\bB-[A-Za-z0-9]{9}\b/gi) || []).length;
+      if (bCount > 1) return false;
+      const tCount = (t.match(/\bT-[A-Za-z0-9]{9}\b/gi) || []).length;
+      if (bCount === 0 && tCount > 1) return false;
+      return true;
+    });
+
+    // Keep ONLY leaf candidate rows (discard any row that contains another candidate row)
+    const validCandidateRows = singleTourRows.filter((row) => {
+      return !singleTourRows.some((other) => other !== row && row.contains(other));
+    });
+
+    // 4. Block-First Priority:
     // On Carrier Trips pages, or if ANY Block Tours (B-...) exist on this screen, only B-... rows are primary tours.
-    const hasBlockTours = candidateRows.some((r) => blockIdRegex.test(r.innerText || r.textContent || ""));
+    const hasBlockTours = validCandidateRows.some((r) => blockIdRegex.test(r.innerText || r.textContent || ""));
     const isCarrierTripsPage =
       window.location.href.includes("/trips") ||
       window.location.href.includes("/tours") ||
@@ -543,9 +723,9 @@
 
     const requireBlockTours = hasBlockTours || isCarrierTripsPage;
 
-    // 4. Extract tours from each row
-    for (let i = 0; i < candidateRows.length; i++) {
-      const node = candidateRows[i];
+    // 5. Extract tours from each row
+    for (let i = 0; i < validCandidateRows.length; i++) {
+      const node = validCandidateRows[i];
       const rowRawText = (node.innerText || node.textContent || "").trim();
 
       const match = requireBlockTours
@@ -579,6 +759,7 @@
       }
 
       // Check if subsequent sibling rows are expanded sub-legs for this tour
+      const siblingNodes = [];
       let sib = node.nextElementSibling;
       while (sib) {
         const sibText = (sib.innerText || sib.textContent || "").trim();
@@ -586,6 +767,7 @@
         if (requireBlockTours && blockIdRegex.test(sibText)) break;
         if (!requireBlockTours && (blockIdRegex.test(sibText) || singleIdRegex.test(sibText))) break;
 
+        siblingNodes.push(sib);
         text += "\n" + sibText;
         if (sib.querySelectorAll) {
           const sibInputs = Array.from(sib.querySelectorAll("input, select"))
@@ -597,12 +779,19 @@
       }
 
       try {
+        // Extract Starts in / Expires in first so it can anchor pickupTime
+        const startsMatch = text.match(/Starts\s*in\s*(\d+h\s*\d+m|\d+h|\d+m)/i);
+        const startsIn = startsMatch ? startsMatch[1] : undefined;
+
+        const expiresMatch = text.match(/Expires\s*in\s*(\d+h\s*\d+m|\d+h|\d+m)/i);
+        const expiresIn = expiresMatch ? expiresMatch[1] : undefined;
+
         // Extract Multi-Leg Structure & All Stops
-        const blockStructure = extractBlockTourStructure(node, text);
+        const blockStructure = extractBlockTourStructure(node, text, siblingNodes, startsIn, tripId);
 
         // Extract Contract Code
         const contractMatch = text.match(/\b(C-[0-9A-Za-z]{9})\b/) || text.match(/(C-[0-9A-Za-z]{9})/);
-        const contractCode = contractMatch ? contractMatch[1] : "C-00039WP4K";
+        const contractCode = contractMatch ? contractMatch[1] : "C-0003CJ8P7";
 
         // Extract Driver Mode (e.g. Solo 38h, Solo 14h, Team)
         const driverModeMatch = text.match(/\b(Solo|Team)\s*(?:👤|👤👤)?\s*(\d{1,2}h)?\b/i);
@@ -617,13 +806,6 @@
         if (/\bFAST\b/i.test(text)) endorsements.push("FAST");
         if (/\bTTA\b/i.test(text)) endorsements.push("TTA");
         if (/\bLCV\b/i.test(text)) endorsements.push("LCV");
-
-        // Extract Starts in / Expires in
-        const startsMatch = text.match(/Starts\s*in\s*(\d+h\s*\d+m|\d+h|\d+m)/i);
-        const startsIn = startsMatch ? startsMatch[1] : undefined;
-
-        const expiresMatch = text.match(/Expires\s*in\s*(\d+h\s*\d+m|\d+h|\d+m)/i);
-        const expiresIn = expiresMatch ? expiresMatch[1] : undefined;
 
         const isAcceptable = /Accept\b/.test(text) && !/Accepted\b/.test(text);
         const acceptanceStatus = isAcceptable ? "pending_acceptance" : "confirmed";
