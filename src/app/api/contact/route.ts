@@ -57,7 +57,7 @@ export async function POST(req: Request) {
     const smtpPort = Number(process.env.SMTP_PORT) || 465;
     const smtpUser = process.env.SMTP_USER || process.env.EMAIL_USER;
     const smtpPass = process.env.SMTP_PASS || process.env.EMAIL_PASS || process.env.GMAIL_APP_PASSWORD;
-    const recipients = ["uniquedispatchh@gmail.com", "marvengerges2008@gmail.com"];
+    const recipients = ["uniquedispatchh@gmail.com"];
 
     if (smtpUser && smtpPass) {
       try {

@@ -65,16 +65,6 @@ export default function Services() {
                     ))}
                   </div>
                 </div>
-
-                <div className="pt-4 border-t border-slate-100">
-                  <a
-                    href="#contact-us"
-                    className="inline-flex items-center gap-2 text-sm font-bold text-orange-600 hover:text-orange-700 transition-colors"
-                  >
-                    <span>Get Dispatched On This Service</span>
-                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  </a>
-                </div>
               </div>
             </div>
           ))}

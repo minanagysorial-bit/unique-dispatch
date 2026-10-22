@@ -147,11 +147,8 @@ export default function ContactSection() {
                 </div>
                 <div className="overflow-hidden">
                   <h4 className="text-xs font-bold text-orange-400 uppercase tracking-wider">Official Email Inbox</h4>
-                  <a href={`mailto:${COMPANY_INFO.contacts.emailPrimary}`} className="text-xs sm:text-sm font-semibold text-white hover:text-orange-400 block transition-colors truncate">
-                    {COMPANY_INFO.contacts.emailPrimary}
-                  </a>
-                  <a href={`mailto:${COMPANY_INFO.contacts.emailSecondary}`} className="text-xs text-slate-400 hover:text-orange-400 block transition-colors mt-0.5 truncate">
-                    {COMPANY_INFO.contacts.emailSecondary}
+                  <a href="mailto:uniquedispatchh@gmail.com" className="text-xs sm:text-sm font-semibold text-white hover:text-orange-400 block transition-colors truncate">
+                    uniquedispatchh@gmail.com
                   </a>
                 </div>
               </div>
@@ -172,20 +169,6 @@ export default function ContactSection() {
                 </div>
               </div>
 
-              {/* Registered Physical Address */}
-              <div className="flex items-start gap-3.5 sm:gap-4 pt-2 border-t border-slate-800">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-orange-600 text-white flex items-center justify-center shrink-0">
-                  <MapPin className="w-4 h-4 sm:w-5 sm:h-5" />
-                </div>
-                <div className="text-xs text-slate-300 leading-relaxed">
-                  <h4 className="font-bold text-orange-400 uppercase tracking-wider">Registered Head Office</h4>
-                  <p className="font-semibold text-white mt-0.5">{COMPANY_INFO.name}</p>
-                  <p>{COMPANY_INFO.address.street}</p>
-                  <p>{COMPANY_INFO.address.district}, {COMPANY_INFO.address.city}</p>
-                  <p>Postal Code: <strong className="text-orange-400">{COMPANY_INFO.address.postalCode}</strong>, {COMPANY_INFO.address.country}</p>
-                </div>
-              </div>
-
               {/* WhatsApp Quick Link */}
               <a
                 href={COMPANY_INFO.contacts.whatsappUrl}
@@ -199,19 +182,29 @@ export default function ContactSection() {
 
             </div>
 
-            {/* Embedded Google Map */}
-            <div className="rounded-2xl overflow-hidden border border-slate-200 shadow-sm h-48 sm:h-56 w-full relative">
-              <iframe
-                title="Unique Dispatch Registered Physical Location"
-                src={COMPANY_INFO.address.embedMapUrl}
-                width="100%"
-                height="100%"
-                style={{ border: 0 }}
-                allowFullScreen={false}
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-                className="w-full h-full"
-              ></iframe>
+            {/* Operational Commitment Box */}
+            <div className="rounded-2xl bg-slate-900 border border-slate-800 p-6 text-white space-y-4 shadow-sm">
+              <h4 className="text-sm font-black text-orange-400 uppercase tracking-wider">
+                Operational Commitments
+              </h4>
+              <div className="space-y-3 text-xs text-slate-300">
+                <div className="flex items-center gap-2.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>100% No Forced Dispatch — Complete Carrier Autonomy</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Aggressive Spot Market Ceiling Rate Negotiations</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>24/7 Rapid Response Desk (Under 15 Minutes)</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Complete Factoring, NOA &amp; Carrier Packets Handling</span>
+                </div>
+              </div>
             </div>
 
           </div>

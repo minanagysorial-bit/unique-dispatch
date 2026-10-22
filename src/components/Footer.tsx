@@ -33,20 +33,6 @@ export default function Footer() {
               who are tired of wasting their time and energy on cheap freight. Top spot rate negotiation, 
               Amazon Relay middle-mile management, and 24/7 dedicated dispatch.
             </p>
-
-            {/* Owner badge */}
-            <div className="p-3.5 rounded-xl bg-[#0f172a] border border-slate-800 text-[11px] text-slate-300 space-y-1.5">
-              <div className="flex items-center gap-1.5 text-orange-400 font-bold">
-                <BadgeCheck className="w-4 h-4" />
-                <span>Executive Leadership &amp; Governance</span>
-              </div>
-              <p>
-                Founder &amp; Managing Director: <strong className="text-white">{COMPANY_INFO.founder.name}</strong>
-              </p>
-              <p className="text-slate-300">
-                Email: <a href="mailto:marvengerges2008@gmail.com" className="text-orange-400 hover:underline font-medium">marvengerges2008@gmail.com</a>
-              </p>
-            </div>
           </div>
 
           {/* Quick Links */}
@@ -81,11 +67,6 @@ export default function Footer() {
               <li>
                 <Link href="/#how-it-works" className="hover:text-orange-400 transition-colors flex items-center gap-1">
                   <ChevronRight className="w-3 h-3 text-orange-500" /> How It Works
-                </Link>
-              </li>
-              <li>
-                <Link href="/#leadership" className="hover:text-orange-400 transition-colors flex items-center gap-1">
-                  <ChevronRight className="w-3 h-3 text-orange-500" /> Leadership
                 </Link>
               </li>
               <li>
@@ -126,20 +107,18 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Contact & Registered Head Office */}
+          {/* Contact & 24/7 Dispatch Desk */}
           <div className="lg:col-span-3 space-y-3">
             <h4 className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
-              <MapPin className="w-3.5 h-3.5 text-orange-500" />
-              Registered Head Office
+              <Phone className="w-3.5 h-3.5 text-orange-500" />
+              24/7 Operations Desk
             </h4>
 
-            <div className="bg-[#0f172a] p-3.5 rounded-xl border border-slate-800 text-slate-300 leading-relaxed space-y-1">
+            <div className="bg-[#0f172a] p-4 rounded-xl border border-slate-800 text-slate-300 leading-relaxed space-y-2">
               <p className="font-bold text-white">{COMPANY_INFO.name}</p>
-              <p>{COMPANY_INFO.address.street}</p>
-              <p>{COMPANY_INFO.address.district}</p>
-              <p>{COMPANY_INFO.address.city}, {COMPANY_INFO.address.state}</p>
-              <p>Postal Code: <strong className="text-orange-400">{COMPANY_INFO.address.postalCode}</strong></p>
-              <p>{COMPANY_INFO.address.country}</p>
+              <p className="text-xs text-slate-400">
+                Professional US Freight Dispatch &amp; Amazon Relay Management for Owner-Operators.
+              </p>
             </div>
 
             <div className="space-y-1.5 pt-1 text-slate-300">
@@ -157,8 +136,8 @@ export default function Footer() {
               </p>
               <p>
                 <strong className="text-white">Email: </strong>
-                <a href={`mailto:${COMPANY_INFO.contacts.emailPrimary}`} className="text-orange-400 hover:underline">
-                  {COMPANY_INFO.contacts.emailPrimary}
+                <a href="mailto:uniquedispatchh@gmail.com" className="text-orange-400 hover:underline">
+                  uniquedispatchh@gmail.com
                 </a>
               </p>
             </div>
@@ -173,7 +152,7 @@ export default function Footer() {
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
             <span>
-              <strong>Verified Business Entity:</strong> Unique Dispatch is registered in Alexandria, Egypt, providing third-party freight coordination, Amazon Relay dispatch, and logistics support services worldwide.
+              <strong>Verified Freight Logistics:</strong> Unique Dispatch provides professional third-party freight coordination, Amazon Relay dispatch, and logistics support services across the United States.
             </span>
           </div>
           <div className="flex items-center gap-3 shrink-0 text-slate-300 font-semibold">
@@ -188,7 +167,7 @@ export default function Footer() {
       <div className="bg-[#050914] py-6 px-4 border-t border-slate-900">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
           <p className="text-slate-400">
-            &copy; 2026 Unique Dispatch. All rights reserved. Registered Address: Khaled Ibn El-Walid St., off El-Geish St. - Miami, Alexandria 21614, Egypt.
+            &copy; 2026 Unique Dispatch. All rights reserved. Professional Freight Dispatch &amp; Logistics Management.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-slate-400">
             <Link href="/privacy" className="hover:text-white transition-colors">
@@ -199,12 +178,8 @@ export default function Footer() {
               Terms of Service
             </Link>
             <span>•</span>
-            <Link href="/#leadership" className="hover:text-white transition-colors">
-              Owner Profile
-            </Link>
-            <span>•</span>
             <Link href="/#contact-us" className="hover:text-white transition-colors">
-              Office Location
+              Contact Us
             </Link>
           </div>
         </div>

@@ -45,9 +45,8 @@ export default function Hero() {
             </div>
 
             {/* Main Headline */}
-            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-[1.12]">
-              Freight Dispatch Service <br />
-              <span className="text-orange-500">&amp; Amazon Relay</span> Management
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-[1.15]">
+              Freight Dispatch Service &amp; <span className="text-orange-500">Amazon Relay</span> Management
             </h1>
 
             {/* Subtitle */}
@@ -126,27 +125,11 @@ export default function Hero() {
                 </div>
               </a>
 
-              {/* Verified Owner Card Link */}
-              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
-                <div>
-                  <p className="font-bold text-slate-800">{COMPANY_INFO.founder.name}</p>
-                  <p className="text-[11px] text-slate-500">{COMPANY_INFO.founder.title}</p>
-                </div>
-                <a
-                  href="#leadership"
-                  className="font-bold text-orange-600 hover:text-orange-700 underline underline-offset-2"
-                >
-                  Verified Profile ➜
-                </a>
+              {/* Fast 24/7 Response Guarantee */}
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-3 text-xs text-slate-600">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                <span>Average dispatcher connection &amp; rate response in under 15 minutes.</span>
               </div>
-
-              {/* Instant Onboarding Button */}
-              <a
-                href="#contact-us"
-                className="block text-center py-3.5 rounded-md bg-[#0f172a] hover:bg-orange-600 text-white font-bold text-sm transition-all duration-300 shadow-md hover:shadow-lg"
-              >
-                Start 24H Onboarding
-              </a>
 
             </div>
           </div>

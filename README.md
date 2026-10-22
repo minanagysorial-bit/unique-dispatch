@@ -9,23 +9,18 @@ Fully optimized for **1-click deployment on Vercel** and structured for **Payone
 ## 🏢 Business & Leadership Information (Verified)
 
 - **Company Name:** Unique Dispatch
-- **Owner / Managing Director:** Marven Awad
 - **Primary Dispatch Email:** `uniquedispatchh@gmail.com`
-- **Owner Direct Email:** `marvengerges2008@gmail.com`
 - **US Direct Dispatch Line:** `+1 (332) 244-5532`
 - **Support & WhatsApp Line:** `+20 1223306831`
-- **Registered Physical Office Address:**  
-  `Khaled Ibn El-Walid St., off El-Geish St. - Miami, Awal El-Montazah, Alexandria, Postal Code: 21614, Egypt`
 
 ---
 
 ## 🚀 Key Features
 
-1. **Payoneer Business Verification Ready:**
-   - Dedicated **Executive Leadership & Ownership** section highlighting Founder **Marven Awad**, complete bio, verified owner badge, direct phone, and direct email.
-   - Visible physical registered address embedded in the **Leadership**, **Contact & Office**, and **Footer** sections.
-   - Embedded Google Maps location for Miami, Alexandria (21614).
-   - Structured JSON-LD schema (`LogisticsService` + `PostalAddress` + `Founder`) for search engines and merchant crawlers.
+1. **Enterprise Logistics Web Platform:**
+   - Modern, high-converting responsive web application tailored for US freight carriers and owner-operators.
+   - Clean, professional 24/7 operations desk contact infrastructure.
+   - Integrated live chat, fast quote submission, and WhatsApp connectivity.
 
 2. **Core Freight & Amazon Relay Services:**
    - Amazon Relay middle-mile optimization, spot monitoring, Post-A-Truck (PAT), block bookings, and ROC delay dispute handling.

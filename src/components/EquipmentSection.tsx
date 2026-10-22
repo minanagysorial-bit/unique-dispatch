@@ -50,19 +50,10 @@ export default function EquipmentSection() {
                 </div>
               </div>
 
-              {/* Bottom Card Info & Action */}
-              <div className="p-5 bg-slate-50 flex items-center justify-between border-t border-slate-100">
-                <div className="flex items-center gap-1.5 text-xs text-slate-700 font-medium">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                  <span>{item.specialty}</span>
-                </div>
-                <a
-                  href="#contact-us"
-                  className="inline-flex items-center gap-1.5 text-xs font-black text-orange-600 hover:text-orange-700 transition-colors uppercase tracking-wider shrink-0 ml-2"
-                >
-                  <span>Dispatch</span>
-                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-                </a>
+              {/* Bottom Card Info */}
+              <div className="p-4 bg-slate-50 flex items-center gap-2 border-t border-slate-100">
+                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                <span className="text-xs text-slate-700 font-medium">{item.specialty}</span>
               </div>
             </div>
           ))}

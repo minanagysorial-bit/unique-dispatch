@@ -155,17 +155,17 @@ export default function TermsOfServicePage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 text-xs sm:text-sm text-slate-200">
                 <div className="space-y-1.5">
-                  <p className="text-slate-400 font-bold uppercase tracking-wider text-[11px]">Managing Entity</p>
+                  <p className="text-slate-400 font-bold uppercase tracking-wider text-[11px]">Operations &amp; Governance</p>
                   <p className="font-bold text-white">{COMPANY_INFO.name}</p>
-                  <p>Director: {COMPANY_INFO.founder.name}</p>
+                  <p className="text-slate-300">US Freight Dispatch Management</p>
                 </div>
 
                 <div className="space-y-1.5">
                   <p className="text-slate-400 font-bold uppercase tracking-wider text-[11px]">Direct Contacts</p>
                   <p className="flex items-center gap-1.5">
                     <Mail className="w-3.5 h-3.5 text-orange-400" />
-                    <a href={`mailto:${COMPANY_INFO.contacts.emailPrimary}`} className="text-orange-400 hover:underline">
-                      {COMPANY_INFO.contacts.emailPrimary}
+                    <a href="mailto:uniquedispatchh@gmail.com" className="text-orange-400 hover:underline">
+                      uniquedispatchh@gmail.com
                     </a>
                   </p>
                   <p className="flex items-center gap-1.5">
@@ -174,11 +174,6 @@ export default function TermsOfServicePage() {
                       {COMPANY_INFO.contacts.phoneUSDisplay}
                     </a>
                   </p>
-                </div>
-
-                <div className="sm:col-span-2 pt-2 border-t border-slate-800 flex items-start gap-2 text-slate-300">
-                  <MapPin className="w-4 h-4 text-orange-400 shrink-0 mt-0.5" />
-                  <span>{COMPANY_INFO.address.fullFormatted}</span>
                 </div>
               </div>
             </div>

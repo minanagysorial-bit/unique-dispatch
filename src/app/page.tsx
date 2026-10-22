@@ -8,7 +8,6 @@ import EquipmentSection from "@/components/EquipmentSection";
 import HowItWorks from "@/components/HowItWorks";
 import CarrierReviews from "@/components/CarrierReviews";
 import FAQSection from "@/components/FAQSection";
-import LeadershipSection from "@/components/LeadershipSection";
 import ContactSection from "@/components/ContactSection";
 import Footer from "@/components/Footer";
 import FloatingContactWidget from "@/components/FloatingContactWidget";
@@ -47,10 +46,7 @@ export default function Home() {
         {/* 8. Frequently Asked Questions */}
         <FAQSection />
 
-        {/* 9. Executive Leadership & Verified Ownership (Payoneer Verification Compliance) */}
-        <LeadershipSection />
-
-        {/* 10. Contact Us & Registered Physical Office with Map */}
+        {/* 9. Contact Us & Dispatch Desk */}
         <ContactSection />
       </main>
 

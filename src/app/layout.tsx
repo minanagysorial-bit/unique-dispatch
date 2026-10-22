@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     template: "%s | Unique Dispatch",
   },
   description:
-    "Unique Dispatch arranges professional freight dispatch services for owner-operators and truckers. Top rate-per-mile negotiation, Amazon Relay middle-mile & block booking, 24/7 dedicated dispatchers, and zero forced dispatch. Managed by Marven Awad.",
+    "Unique Dispatch arranges professional freight dispatch services for owner-operators and truckers. Top rate-per-mile negotiation, Amazon Relay middle-mile & block booking, 24/7 dedicated dispatchers, and zero forced dispatch.",
   keywords: [
     "Unique Dispatch",
     "Freight Dispatch Service",
@@ -30,17 +30,14 @@ export const metadata: Metadata = {
     "26ft Box Truck Dispatch",
     "US Freight Logistics",
     "Owner Operator Dispatch",
-    "Marven Awad",
-    "Alexandria Egypt Dispatch",
     "No Forced Dispatch",
     "Top Rate Per Mile",
   ],
-  authors: [{ name: "Marven Awad", url: "https://uniquedispatcher.com" }],
-  creator: "Marven Awad",
+  authors: [{ name: "Unique Dispatch Operations Team", url: "https://uniquedispatch.com" }],
   publisher: "Unique Dispatch",
   formatDetection: {
     email: true,
-    address: true,
+    address: false,
     telephone: true,
   },
   alternates: {
@@ -50,7 +47,7 @@ export const metadata: Metadata = {
     title: "Unique Dispatch | US Freight Dispatch Service & Amazon Relay Management",
     description:
       "For Owner Operators and Truckers. Professional dispatch services, top rate negotiations, Amazon Relay blocks, and 24/7 dedicated dispatch support.",
-    url: "https://uniquedispatcher.com",
+    url: "https://uniquedispatch.com",
     siteName: "Unique Dispatch",
     locale: "en_US",
     type: "website",
@@ -83,12 +80,6 @@ export const metadata: Metadata = {
       "max-snippet": -1,
     },
   },
-  other: {
-    "geo.region": "EG-ALX",
-    "geo.placename": "Alexandria, Egypt",
-    "geo.position": "31.2565;29.9863",
-    ICBM: "31.2565, 29.9863",
-  },
 };
 
 export default function RootLayout({
@@ -102,24 +93,9 @@ export default function RootLayout({
     name: COMPANY_INFO.name,
     alternateName: "Unique Dispatch Logistics",
     description: COMPANY_INFO.shortDesc,
-    url: "https://uniquedispatcher.com",
+    url: "https://uniquedispatch.com",
     telephone: COMPANY_INFO.contacts.phoneUS,
-    email: COMPANY_INFO.contacts.emailPrimary,
-    founder: {
-      "@type": "Person",
-      name: COMPANY_INFO.founder.name,
-      jobTitle: COMPANY_INFO.founder.title,
-      email: COMPANY_INFO.founder.email,
-      telephone: COMPANY_INFO.founder.phoneUS,
-    },
-    address: {
-      "@type": "PostalAddress",
-      streetAddress: COMPANY_INFO.address.street,
-      addressLocality: COMPANY_INFO.address.city,
-      addressRegion: COMPANY_INFO.address.state,
-      postalCode: COMPANY_INFO.address.postalCode,
-      addressCountry: COMPANY_INFO.address.country,
-    },
+    email: "uniquedispatchh@gmail.com",
     openingHoursSpecification: {
       "@type": "OpeningHoursSpecification",
       dayOfWeek: [

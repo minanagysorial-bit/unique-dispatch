@@ -10,11 +10,11 @@ export const COMPANY_INFO = {
     title: "Founder & Managing Director",
     role: "Director of US Freight Operations & Carrier Relations",
     bio: "Marven Awad is the Founder and Managing Director of Unique Dispatch. With over 5 years of specialized experience in North American freight markets, spot-market rate negotiation, and Amazon Relay Middle-Mile logistics, Marven oversees all carrier accounts to guarantee top gross revenue, zero forced dispatch, and effortless paperwork turnaround.",
-    email: "marvengerges2008@gmail.com",
+    email: "uniquedispatchh@gmail.com",
     workEmail: "uniquedispatchh@gmail.com",
     phoneUS: "+1 (332) 244-5532",
     phoneSupport: "+20 1223306831",
-    location: "Alexandria, Egypt / Global Operations",
+    location: "Global Freight Dispatch Operations",
     experience: "5+ Years in North American Freight Logistics",
   },
 
@@ -25,23 +25,16 @@ export const COMPANY_INFO = {
     phoneSupport: "+20 1223306831",
     phoneSupportDisplay: "+20 1223306831",
     emailPrimary: "uniquedispatchh@gmail.com",
-    emailSecondary: "marvengerges2008@gmail.com",
+    emailSecondary: "uniquedispatchh@gmail.com",
     whatsappUrl: "https://wa.me/201223306831",
     workingHours: "24/7 Live US Dispatch Desk",
     responseTime: "Under 15 Minutes",
   },
 
-  // Registered Business Physical Address
-  address: {
-    street: "Khaled Ibn El-Walid St., off El-Geish St. - Miami",
-    district: "Awal El-Montazah",
-    city: "Alexandria",
-    state: "Alexandria Governorate",
-    postalCode: "21614",
-    country: "Egypt",
-    fullFormatted: "Khaled Ibn El-Walid St., off El-Geish St. - Miami, Awal El-Montazah, Alexandria 21614, Egypt",
-    googleMapsSearch: "https://www.google.com/maps/search/?api=1&query=Khaled+Ibn+El-Walid+St+Miami+Alexandria+Egypt+21614",
-    embedMapUrl: "https://maps.google.com/maps?q=Khaled%20Ibn%20El-Walid%20St,%20Miami,%20Alexandria%2021614,%20Egypt&t=&z=15&ie=UTF8&iwloc=&output=embed",
+  // Operations Coverage
+  coverage: {
+    region: "United States (Lower 48 States)",
+    dispatchCoverage: "Nationwide 24/7 Operations",
   },
 
   stats: [
@@ -214,8 +207,8 @@ export const FAQS = [
     answer: "You only need 4 standard carrier documents: 1) Active MC/DOT Authority Certificate, 2) Certificate of Insurance (COI), 3) Signed W-9 Form, and 4) Factoring Notice of Assignment (NOA).",
   },
   {
-    question: "Who is the business owner and how can I verify your company?",
-    answer: "Unique Dispatch is founded and directed by Marven Awad. Our registered physical office is located at Khaled Ibn El-Walid St., off El-Geish St. - Miami, Awal El-Montazah, Alexandria 21614, Egypt. You can contact Marven Awad directly at +1 (332) 244-5532 or marvengerges2008@gmail.com / uniquedispatchh@gmail.com.",
+    question: "How quickly can you start dispatching my equipment?",
+    answer: "We can have your trucks set up and rolling within 24 hours. Once your carrier packet and authority documents are verified, our dedicated dispatch team begins immediately sourcing and negotiating top-paying loads for your preferred equipment and lanes.",
   },
   {
     question: "How do dispatch payments work?",
