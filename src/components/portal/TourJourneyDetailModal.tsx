@@ -31,6 +31,7 @@ import LiveCountdownTimer from "./LiveCountdownTimer";
 import MilestoneMessageModal from "./MilestoneMessageModal";
 import IssueEscalationModal from "./IssueEscalationModal";
 import { buildWhatsAppLink } from "@/lib/custom-templates";
+import { formatLoadTime } from "@/lib/date-utils";
 
 interface TourJourneyDetailModalProps {
   load: Load | null;
@@ -124,34 +125,10 @@ export default function TourJourneyDetailModal({
     load.status === "critical_alert" ||
     load.status === "delayed";
 
-  // Format Date & Time with relative tags (Today / Tomorrow / Specific Date)
+  // Format Date & Time with facility timezone
   const formatStopDateTime = (isoDate?: string) => {
     if (!isoDate) return "Time Pending";
-    const d = new Date(isoDate);
-    if (isNaN(d.getTime())) return "Time Pending";
-
-    const now = new Date();
-    const isToday = d.toDateString() === now.toDateString();
-
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const isTom = d.toDateString() === tomorrow.toDateString();
-
-    const timeStr = d.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
-
-    if (isToday) return `Today • ${timeStr} EST`;
-    if (isTom) return `Tomorrow • ${timeStr} EST`;
-
-    const monthDayStr = d.toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-    });
-    return `${monthDayStr} • ${timeStr} EST`;
+    return formatLoadTime(isoDate, load?.originState || "TX");
   };
 
   // Helper for stop activity badge

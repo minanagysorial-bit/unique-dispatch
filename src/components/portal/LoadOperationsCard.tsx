@@ -25,6 +25,7 @@ import { Load, MilestoneType, LoadStatus, User } from "@/lib/portal-types";
 import LiveCountdownTimer from "./LiveCountdownTimer";
 import MilestoneMessageModal from "./MilestoneMessageModal";
 import IssueEscalationModal from "./IssueEscalationModal";
+import { formatLoadTime } from "@/lib/date-utils";
 
 interface LoadOperationsCardProps {
   load: Load;
@@ -408,18 +409,7 @@ export default function LoadOperationsCard({
               <div className="flex items-center justify-between">
                 <span className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Origin Pickup</span>
                 <span className="text-xs font-bold text-slate-900">
-                  {(() => {
-                    const d = new Date(load.pickupTime);
-                    const now = new Date();
-                    const isToday = d.toDateString() === now.toDateString();
-                    const tomorrow = new Date();
-                    tomorrow.setDate(tomorrow.getDate() + 1);
-                    const isTom = d.toDateString() === tomorrow.toDateString();
-                    const tStr = d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
-                    if (isToday) return `Today • ${tStr}`;
-                    if (isTom) return `Tomorrow • ${tStr}`;
-                    return `${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })} • ${tStr}`;
-                  })()}
+                  {formatLoadTime(load.pickupTime, load.originState)}
                 </span>
               </div>
               <p className="text-sm font-black text-slate-900 truncate">
@@ -441,18 +431,7 @@ export default function LoadOperationsCard({
               <div className="flex items-center justify-between">
                 <span className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Destination Drop</span>
                 <span className="text-xs font-bold text-slate-900">
-                  {(() => {
-                    const d = new Date(load.deliveryTime);
-                    const now = new Date();
-                    const isToday = d.toDateString() === now.toDateString();
-                    const tomorrow = new Date();
-                    tomorrow.setDate(tomorrow.getDate() + 1);
-                    const isTom = d.toDateString() === tomorrow.toDateString();
-                    const tStr = d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
-                    if (isToday) return `Today • ${tStr}`;
-                    if (isTom) return `Tomorrow • ${tStr}`;
-                    return `${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })} • ${tStr}`;
-                  })()}
+                  {formatLoadTime(load.deliveryTime, load.destState || load.originState)}
                 </span>
               </div>
               <p className="text-sm font-black text-slate-900 truncate">

@@ -52,20 +52,18 @@
   };
 
   function parseRelayDateTime(dateString, isDelivery = false, startsIn = undefined) {
-    // 1. If startsIn is provided and we are calculating pickupTime, ground truth is now + startsIn
-    if (!isDelivery && startsIn) {
-      const hm = String(startsIn).match(/(?:(\d+)\s*h)?\s*(?:(\d+)\s*m)?/i);
-      if (hm && (hm[1] || hm[2])) {
-        const h = hm[1] ? parseInt(hm[1], 10) : 0;
-        const m = hm[2] ? parseInt(hm[2], 10) : 0;
-        const offsetMs = (h * 60 + m) * 60 * 1000;
-        if (offsetMs >= 0) {
-          return new Date(Date.now() + offsetMs).toISOString();
+    if (!dateString) {
+      if (!isDelivery && startsIn) {
+        const hm = String(startsIn).match(/(?:(\d+)\s*h)?\s*(?:(\d+)\s*m)?/i);
+        if (hm && (hm[1] || hm[2])) {
+          const h = hm[1] ? parseInt(hm[1], 10) : 0;
+          const m = hm[2] ? parseInt(hm[2], 10) : 0;
+          const offsetMs = (h * 60 + m) * 60 * 1000;
+          if (offsetMs >= 0) {
+            return new Date(Date.now() + offsetMs).toISOString();
+          }
         }
       }
-    }
-
-    if (!dateString) {
       const fallback = new Date();
       fallback.setHours(fallback.getHours() + (isDelivery ? 16 : 2));
       return fallback.toISOString();
@@ -109,6 +107,19 @@
 
       const target = new Date(yearNum, monthNum, dayNum, hours, minutes, 0, 0);
       return target.toISOString();
+    }
+
+    // If explicit calendar date was not in string, and startsIn is provided for pickup
+    if (!isDelivery && startsIn) {
+      const hm = String(startsIn).match(/(?:(\d+)\s*h)?\s*(?:(\d+)\s*m)?/i);
+      if (hm && (hm[1] || hm[2])) {
+        const h = hm[1] ? parseInt(hm[1], 10) : 0;
+        const m = hm[2] ? parseInt(hm[2], 10) : 0;
+        const offsetMs = (h * 60 + m) * 60 * 1000;
+        if (offsetMs >= 0) {
+          return new Date(Date.now() + offsetMs).toISOString();
+        }
+      }
     }
 
     // Only check "tomorrow" / "in 1 day" if no calendar month was present in string!

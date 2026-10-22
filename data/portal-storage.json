@@ -136,7 +136,7 @@
         "UIIA_MC"
       ],
       "acceptanceStatus": "confirmed",
-      "startsIn": "1h 14m",
+      "startsIn": "0h 51m",
       "status": "upcoming",
       "equipment": "Dry Van (53')",
       "rateUSD": 0,
@@ -148,12 +148,12 @@
       "originState": "TX",
       "originFacilityCode": "SAT41",
       "originAddress": "111 Gembler Rd, San Antonio, TX 78219",
-      "pickupTime": "2026-10-22T09:01:13.525Z",
+      "pickupTime": "2026-10-22T08:45:00.000Z",
       "destCity": "San Antonio",
       "destState": "TX",
       "destFacilityCode": "SAT41",
       "destAddress": "111 Gembler Rd, San Antonio, TX 78219",
-      "deliveryTime": "2026-10-22T21:47:13.525Z",
+      "deliveryTime": "2026-10-22T22:30:00.000Z",
       "screenIndex": 0,
       "notes": "Amazon Relay Contract: C-00039X58T | 10 Sub-Trips Authentic Tour",
       "subTrips": [
@@ -298,7 +298,7 @@
           "state": "TX",
           "postalCode": "78219",
           "address": "111 Gembler Rd, San Antonio, TX 78219",
-          "appointmentTime": "2026-10-22T09:01:13.525Z",
+          "appointmentTime": "2026-10-22T08:45:00.000Z",
           "subTripId": "112B553HR",
           "status": "pending"
         },
@@ -311,7 +311,7 @@
           "state": "TX",
           "postalCode": "78154",
           "address": "11210 Farm-To-Market 1518 N, Schertz, TX 78154",
-          "appointmentTime": "2026-10-22T09:26:13.525Z",
+          "appointmentTime": "2026-10-22T09:10:00.000Z",
           "subTripId": "112B553HR",
           "status": "pending"
         },
@@ -323,7 +323,7 @@
           "city": "San Antonio",
           "state": "TX",
           "address": "Amazon Facility [SAT9] - San Antonio, TX",
-          "appointmentTime": "2026-10-22T10:40:13.525Z",
+          "appointmentTime": "2026-10-22T10:24:00.000Z",
           "subTripId": "111TH6K1V",
           "status": "pending"
         },
@@ -335,7 +335,7 @@
           "city": "San Antonio",
           "state": "TX",
           "address": "Amazon Facility [DSX5] - San Antonio, TX",
-          "appointmentTime": "2026-10-22T12:26:13.525Z",
+          "appointmentTime": "2026-10-22T12:10:00.000Z",
           "subTripId": "1164PQK5F",
           "status": "pending"
         },
@@ -347,7 +347,7 @@
           "city": "San Antonio",
           "state": "TX",
           "address": "Amazon Facility [SAT4] - San Antonio, TX",
-          "appointmentTime": "2026-10-22T13:54:13.525Z",
+          "appointmentTime": "2026-10-22T13:38:00.000Z",
           "subTripId": "114F9S43Z",
           "status": "pending"
         },
@@ -359,7 +359,7 @@
           "city": "Schertz",
           "state": "TX",
           "address": "11210 Farm-To-Market 1518 N, Schertz, TX 78154",
-          "appointmentTime": "2026-10-22T15:34:13.525Z",
+          "appointmentTime": "2026-10-22T15:18:00.000Z",
           "subTripId": "113TN67BV",
           "status": "pending"
         },
@@ -371,7 +371,7 @@
           "city": "Austin",
           "state": "TX",
           "address": "Amazon Facility [KAUS] - Austin, TX",
-          "appointmentTime": "2026-10-22T19:32:13.525Z",
+          "appointmentTime": "2026-10-22T19:16:00.000Z",
           "subTripId": "111FL7HSQ",
           "status": "pending"
         },
@@ -383,7 +383,7 @@
           "city": "Austin",
           "state": "TX",
           "address": "Amazon Facility [DAU5] - Austin, TX",
-          "appointmentTime": "2026-10-22T21:04:13.525Z",
+          "appointmentTime": "2026-10-22T20:48:00.000Z",
           "subTripId": "1147W4HTK",
           "status": "pending"
         },
@@ -395,7 +395,7 @@
           "city": "Austin",
           "state": "TX",
           "address": "Amazon Facility [KAUS] - Austin, TX",
-          "appointmentTime": "2026-10-22T22:36:13.525Z",
+          "appointmentTime": "2026-10-22T22:20:00.000Z",
           "subTripId": "11321S7LV",
           "status": "pending"
         },
@@ -407,7 +407,7 @@
           "city": "San Antonio",
           "state": "TX",
           "address": "Amazon Facility [SAT9] - San Antonio, TX",
-          "appointmentTime": "2026-10-23T01:10:13.525Z",
+          "appointmentTime": "2026-10-22T22:54:00.000Z",
           "subTripId": "11128361Q",
           "status": "pending"
         },
@@ -420,7 +420,7 @@
           "state": "TX",
           "postalCode": "78219",
           "address": "111 Gembler Rd, San Antonio, TX 78219",
-          "appointmentTime": "2026-10-22T21:47:13.525Z",
+          "appointmentTime": "2026-10-22T22:30:00.000Z",
           "subTripId": "114RQKXNY",
           "status": "pending"
         }
@@ -456,12 +456,12 @@
       "originState": "TX",
       "originFacilityCode": "SAT41",
       "originAddress": "111 Gembler Rd, San Antonio, TX 78219",
-      "pickupTime": "2026-10-22T16:01:13.525Z",
+      "pickupTime": "2026-10-22T15:45:00.000Z",
       "destCity": "San Antonio",
       "destState": "TX",
       "destFacilityCode": "SAT41",
       "destAddress": "111 Gembler Rd, San Antonio, TX 78219",
-      "deliveryTime": "2026-10-23T05:47:13.525Z",
+      "deliveryTime": "2026-10-23T05:30:00.000Z",
       "screenIndex": 1,
       "notes": "Amazon Relay Contract: C-00039X58T | 4 Sub-Trips Authentic Tour",
       "subTrips": [
@@ -528,7 +528,7 @@
           "state": "TX",
           "postalCode": "78219",
           "address": "111 Gembler Rd, San Antonio, TX 78219",
-          "appointmentTime": "2026-10-22T16:01:13.525Z",
+          "appointmentTime": "2026-10-22T15:45:00.000Z",
           "subTripId": "114JC4ZJY",
           "status": "pending"
         },
@@ -540,7 +540,7 @@
           "city": "Austin",
           "state": "TX",
           "address": "Amazon Facility [AUS5] - Austin, TX",
-          "appointmentTime": "2026-10-22T17:27:13.525Z",
+          "appointmentTime": "2026-10-22T17:11:00.000Z",
           "subTripId": "114JC4ZJY",
           "status": "pending"
         },
@@ -552,7 +552,7 @@
           "city": "Buda",
           "state": "TX",
           "address": "Amazon Facility [TXZ5] - Buda, TX",
-          "appointmentTime": "2026-10-22T22:16:13.525Z",
+          "appointmentTime": "2026-10-22T22:00:00.000Z",
           "subTripId": "113ZQT1XY",
           "status": "pending"
         },
@@ -564,7 +564,7 @@
           "city": "San Antonio",
           "state": "TX",
           "address": "Amazon Facility [SAT9] - San Antonio, TX",
-          "appointmentTime": "2026-10-23T04:36:13.525Z",
+          "appointmentTime": "2026-10-23T04:20:00.000Z",
           "subTripId": "115MWJTZC",
           "status": "pending"
         },
@@ -577,7 +577,7 @@
           "state": "TX",
           "postalCode": "78219",
           "address": "111 Gembler Rd, San Antonio, TX 78219",
-          "appointmentTime": "2026-10-23T05:47:13.525Z",
+          "appointmentTime": "2026-10-23T05:30:00.000Z",
           "subTripId": "116BQP3J6",
           "status": "pending"
         }
@@ -589,7 +589,7 @@
   "handovers": [],
   "auditLogs": [],
   "syncMeta": {
-    "lastSyncAt": "2026-10-22T07:47:13.527Z",
+    "lastSyncAt": "2026-10-22T08:03:20.885Z",
     "lastSyncSource": "amazon_relay",
     "totalSyncedCount": 2
   }
