@@ -17,6 +17,14 @@
   let isSyncing = false;
   let debounceScanTimer = null;
 
+  function isExtensionValid() {
+    try {
+      return Boolean(typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.id);
+    } catch (e) {
+      return false;
+    }
+  }
+
   // 1. Listen for messages from Main-World API Interceptor
   window.addEventListener("message", (event) => {
     if (event.source !== window || !event.data) return;
@@ -1256,6 +1264,10 @@
   }
 
   function dispatchToursToBackground(tours, isManual = false, mode = "upsert") {
+    if (!isExtensionValid()) {
+      isSyncing = false;
+      return;
+    }
     try {
       chrome.runtime.sendMessage(
         {
@@ -1404,7 +1416,11 @@
   });
 
   // 11. Automated Continuous Background Sync Loop (Every 30 seconds)
-  setInterval(async () => {
+  const autoSyncInterval = setInterval(async () => {
+    if (!isExtensionValid()) {
+      clearInterval(autoSyncInterval);
+      return;
+    }
     try {
       let autoSyncEnabled = true;
       if (chrome.storage && chrome.storage.local) {
@@ -1421,6 +1437,10 @@
         extractAndSyncAll(false, "upsert");
       }
     } catch (e) {
+      if (String(e).includes("context invalidated") || !isExtensionValid()) {
+        clearInterval(autoSyncInterval);
+        return;
+      }
       console.warn("[Unique Dispatch] Background auto-sync interval notice:", e);
     }
   }, 30000);
