@@ -999,6 +999,10 @@
             <span id="ud-pill-dot" style="display:inline-block;width:10px;height:10px;border-radius:9999px;background:#10b981;box-shadow:0 0 8px #10b981;"></span>
             <span style="font-weight:900; color:#fb923c; letter-spacing:0.5px;">UNIQUE DISPATCH</span>
             <span id="ud-pill-count" style="background:#1e293b; color:#38bdf8; padding:2px 7px; border-radius:9999px; font-weight:800; font-size:10px;">0 Tours</span>
+            <span id="ud-pill-autosync" style="background:rgba(16,185,129,0.15); color:#10b981; border:1px solid rgba(16,185,129,0.3); padding:2px 7px; border-radius:9999px; font-weight:800; font-size:9px; display:inline-flex; align-items:center; gap:4px;" title="Continuous Background Sync Active (Every 30s)">
+              <span style="width:6px;height:6px;border-radius:9999px;background:#10b981;box-shadow:0 0 6px #10b981;display:inline-block;"></span>
+              AUTO-SYNC ON (30s)
+            </span>
           </div>
           <div style="display:flex; align-items:center; gap:6px;">
             <button id="ud-pill-expand-btn" style="
@@ -1153,6 +1157,7 @@
   function updateFloatingPillUI() {
     const countEl = document.getElementById("ud-pill-count");
     const dotEl = document.getElementById("ud-pill-dot");
+    const autoSyncEl = document.getElementById("ud-pill-autosync");
     const count = latestOrderedTours.length;
 
     if (countEl) {
@@ -1165,6 +1170,26 @@
       dotEl.style.background = count > 0 ? "#10b981" : "#f59e0b";
       dotEl.style.boxShadow = count > 0 ? "0 0 8px #10b981" : "0 0 8px #f59e0b";
     }
+
+    try {
+      if (chrome.storage && chrome.storage.local) {
+        chrome.storage.local.get(["autoSyncEnabled"], (cfg) => {
+          if (autoSyncEl) {
+            if (cfg && cfg.autoSyncEnabled === false) {
+              autoSyncEl.style.background = "rgba(148,163,184,0.1)";
+              autoSyncEl.style.color = "#94a3b8";
+              autoSyncEl.style.borderColor = "rgba(148,163,184,0.3)";
+              autoSyncEl.innerHTML = `<span style="width:6px;height:6px;border-radius:9999px;background:#94a3b8;display:inline-block;"></span> AUTO-SYNC PAUSED`;
+            } else {
+              autoSyncEl.style.background = "rgba(16,185,129,0.15)";
+              autoSyncEl.style.color = "#10b981";
+              autoSyncEl.style.borderColor = "rgba(16,185,129,0.3)";
+              autoSyncEl.innerHTML = `<span style="width:6px;height:6px;border-radius:9999px;background:#10b981;box-shadow:0 0 6px #10b981;display:inline-block;"></span> AUTO-SYNC ON (30s)`;
+            }
+          }
+        });
+      }
+    } catch (e) {}
 
     updateDrawerList();
   }
@@ -1377,4 +1402,26 @@
     childList: true,
     subtree: true,
   });
+
+  // 11. Automated Continuous Background Sync Loop (Every 30 seconds)
+  setInterval(async () => {
+    try {
+      let autoSyncEnabled = true;
+      if (chrome.storage && chrome.storage.local) {
+        const cfg = await chrome.storage.local.get(["autoSyncEnabled"]);
+        if (cfg && cfg.autoSyncEnabled === false) autoSyncEnabled = false;
+      }
+      if (!autoSyncEnabled) {
+        updateFloatingPillUI();
+        return;
+      }
+      const tours = scanDomForTours();
+      updateFloatingPillUI();
+      if (tours.length > 0) {
+        extractAndSyncAll(false, "upsert");
+      }
+    } catch (e) {
+      console.warn("[Unique Dispatch] Background auto-sync interval notice:", e);
+    }
+  }, 30000);
 })();
