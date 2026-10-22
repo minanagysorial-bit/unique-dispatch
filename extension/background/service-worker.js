@@ -79,7 +79,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         chrome.storage.local.set({ lastDetectedTours: latestCapturedTours });
       } catch (e) {}
     }
-    handleRelayToursSync(message.payload, message.mode || "upsert")
+    handleRelayToursSync(message.payload, message.mode || "upsert", Boolean(message.isManual))
       .then((res) => sendResponse({ success: true, result: res }))
       .catch((err) => sendResponse({ success: false, error: err.message }));
     return true; // Keep message channel open for async response
@@ -148,7 +148,7 @@ async function clearAllPortalLoads() {
 /**
  * Handle and dispatch Relay tour payload to Unique Dispatch portal
  */
-async function handleRelayToursSync(loads, mode = "upsert") {
+async function handleRelayToursSync(loads, mode = "upsert", isManual = false) {
   if (!Array.isArray(loads) || loads.length === 0) {
     return { synced: 0, message: "No active tours detected" };
   }
@@ -163,10 +163,24 @@ async function handleRelayToursSync(loads, mode = "upsert") {
   const apiKey = config.apiKey || DEFAULT_CONFIG.apiKey;
   const currentShift = config.currentShift || "morning";
 
-  // Check if payload actually changed (bypass cache check if replace_all mode)
-  const currentHash = simpleHash(JSON.stringify(loads.map((l) => `${l.vrid}-${l.status}-${l.pickupTime}`)));
-  if (mode !== "replace_all" && currentHash === lastPayloadHash) {
-    console.log("ℹ️ [Unique Dispatch Engine] Payload unchanged, skipping redundant request.");
+  // Comprehensive signature hashing including sub-trips count, stops, driver, and pickup
+  const currentHash = simpleHash(
+    JSON.stringify(
+      loads.map((l) => ({
+        id: l.vrid,
+        status: l.status,
+        pickup: l.pickupTime,
+        driver: l.driverName,
+        stops: l.stops ? l.stops.length : 0,
+        subCount: l.subTrips ? l.subTrips.length : 0,
+        subIds: l.subTrips ? l.subTrips.map((s) => s.id) : [],
+      }))
+    )
+  );
+
+  // NEVER skip if manual sync, replace_all mode, or payload signature changed!
+  if (!isManual && mode !== "replace_all" && currentHash === lastPayloadHash) {
+    console.log("ℹ️ [Unique Dispatch Engine] Payload unchanged, skipping redundant network request.");
     return { synced: loads.length, unchanged: true };
   }
 

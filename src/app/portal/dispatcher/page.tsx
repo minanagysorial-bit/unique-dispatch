@@ -40,6 +40,7 @@ import {
   CalendarDays,
   CalendarClock,
   Trash2,
+  Download,
 } from "lucide-react";
 import { Load, User, ShiftType, EquipmentType, MilestoneType } from "@/lib/portal-types";
 import { playMilestoneChime, playUrgentAlert, playEmergencySiren } from "@/lib/audio-alerts";
@@ -1120,30 +1121,94 @@ export default function DispatcherOperationsBoardPage() {
             <p className="text-sm font-bold text-slate-600">Loading Live Operations Board...</p>
           </div>
         ) : loads.length === 0 ? (
-          <div className="py-16 text-center bg-white rounded-3xl border border-slate-200 p-8 space-y-4 shadow-xs">
-            <div className="w-16 h-16 rounded-3xl bg-orange-50 border border-orange-200 text-orange-600 flex items-center justify-center mx-auto shadow-inner">
-              <Layers className="w-8 h-8" />
-            </div>
-            <div className="space-y-1.5 max-w-md mx-auto">
-              <h3 className="text-lg font-black text-slate-900">No Tours Synced Yet</h3>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Your dispatch board is clean and ready. Open <span className="font-bold text-slate-800">relay.amazon.com/tours</span> with the Unique Dispatch Extension enabled to automatically sync live tours, or create a load manually.
+          <div className="py-12 bg-white rounded-3xl border-2 border-orange-200/80 p-6 sm:p-10 space-y-6 shadow-sm">
+            <div className="max-w-2xl mx-auto text-center space-y-3">
+              <div className="w-16 h-16 rounded-3xl bg-orange-500 text-white flex items-center justify-center mx-auto shadow-lg shadow-orange-500/25 animate-pulse">
+                <Layers className="w-8 h-8" />
+              </div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-100 text-orange-800 text-xs font-black uppercase tracking-wider">
+                <span>تنبيه هام • Live Relay Synchronization Required</span>
+              </div>
+              <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                يجب تثبيت إضافة المتصفح أولاً لسحب الرحلات الحقيقية
+              </h3>
+              <p className="text-sm font-semibold text-slate-700 leading-relaxed">
+                Install Extension First to Stream Live Amazon Relay Tours
+              </p>
+              <p className="text-xs text-slate-500 max-w-xl mx-auto leading-relaxed">
+                تم مسح وتطهير النظام بالكامل من أي رحلات وهمية أو تجريبية سابقة. لعرض لوحة العمل برحلاتك الحقيقية ومواعيدها الدقيقة وسائقيها والـ Sub-Trips المفصلة، اتبع الخطوات الـ 3 التالية:
               </p>
             </div>
+
+            {/* 3 Step Interactive Setup Flow */}
+            <div className="max-w-3xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-3.5 pt-2">
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-left space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="w-7 h-7 rounded-full bg-orange-600 text-white font-black text-xs flex items-center justify-center">1</span>
+                  <span className="text-[10px] font-bold text-orange-600 uppercase">الخطوة الأولى</span>
+                </div>
+                <h4 className="text-xs font-black text-slate-900">تحميل وتثبيت الإضافة</h4>
+                <p className="text-[11px] text-slate-500 leading-normal">
+                  حمّل مجلد الإضافة (Extension ZIP)، وفك ضغطه، ثم ثبته في متصفحك عبر <span className="font-mono text-slate-700">chrome://extensions</span> (Load unpacked).
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-left space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="w-7 h-7 rounded-full bg-slate-900 text-white font-black text-xs flex items-center justify-center">2</span>
+                  <span className="text-[10px] font-bold text-slate-600 uppercase">الخطوة الثانية</span>
+                </div>
+                <h4 className="text-xs font-black text-slate-900">فتح حساب Amazon Relay</h4>
+                <p className="text-[11px] text-slate-500 leading-normal">
+                  افتح صفحة الرحلات على <a href="https://relay.amazon.com/tours/upcoming" target="_blank" rel="noreferrer" className="text-orange-600 font-bold hover:underline">relay.amazon.com/tours</a> وسيتعرف النظام على حسابك تلقائياً.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-left space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="w-7 h-7 rounded-full bg-emerald-600 text-white font-black text-xs flex items-center justify-center">3</span>
+                  <span className="text-[10px] font-bold text-emerald-600 uppercase">الخطوة الثالثة</span>
+                </div>
+                <h4 className="text-xs font-black text-slate-900">الضغط على Sync Now</h4>
+                <p className="text-[11px] text-slate-500 leading-normal">
+                  اضغط على زر <span className="font-bold text-orange-600">"Sync Now"</span> في الشريط العائم بصفحة أمازون ليتم توسيع وسحب كامل الرحلات الفرعية بدقة 100%.
+                </p>
+              </div>
+            </div>
+
+            {/* Direct Action Buttons */}
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              <a
+                href="/extension.zip"
+                download="unique-dispatch-extension.zip"
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-black uppercase tracking-wider transition-all shadow-md shadow-orange-600/20 active:scale-95"
+              >
+                <Download className="w-4 h-4" />
+                <span>تحميل الإضافة مباشرة (Download ZIP)</span>
+              </a>
+
               <button
                 onClick={() => setIsGuideOpen(true)}
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-colors shadow-xs"
+                className="inline-flex items-center gap-2 px-4 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-xs"
               >
                 <Layers className="w-4 h-4 text-orange-400" />
-                <span>Open Extension Setup Guide</span>
+                <span>دليل التثبيت السريع (Setup Guide)</span>
               </button>
+
+              <button
+                onClick={fetchLoads}
+                className="inline-flex items-center gap-2 px-4 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold border border-slate-300 transition-all"
+              >
+                <RefreshCw className="w-4 h-4 text-slate-600" />
+                <span>تحديث اللوحة الآن (Refresh Board)</span>
+              </button>
+
               <button
                 onClick={() => setIsCreateLoadOpen(true)}
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-black uppercase tracking-wider transition-colors shadow-xs"
+                className="inline-flex items-center gap-1.5 px-4 py-3 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold border border-slate-200 transition-colors"
               >
-                <Plus className="w-4 h-4" />
-                <span>+ Create Manual Load</span>
+                <Plus className="w-4 h-4 text-orange-600" />
+                <span>+ إضافة يدوية (Manual Load)</span>
               </button>
             </div>
           </div>

@@ -97,7 +97,7 @@
       if (meridian === "AM" && hours === 12) hours = 0;
 
       const tzStr = fullDateMatch[7] ? fullDateMatch[7].toUpperCase() : null;
-      const tzOffset = (tzStr && TZ_OFFSETS[tzStr]) ? TZ_OFFSETS[tzStr] : null;
+      const tzOffset = (tzStr && TZ_OFFSETS[tzStr]) ? TZ_OFFSETS[tzStr] : "-05:00";
 
       if (tzOffset) {
         const isoWithOffset = `${yearNum}-${String(monthNum + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}T${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:00${tzOffset}`;
@@ -1095,13 +1095,15 @@
 
     syncBtn.addEventListener("click", (e) => {
       e.stopPropagation();
-      extractAndSyncAll(true, "upsert");
+      expandAllRelayRows(true);
     });
 
     if (replaceBtn) {
       replaceBtn.addEventListener("click", (e) => {
         e.stopPropagation();
-        extractAndSyncAll(true, "replace_all");
+        expandAllRelayRows(false).then(() => {
+          extractAndSyncAll(true, "replace_all");
+        });
       });
     }
   }
@@ -1186,13 +1188,14 @@
     dispatchToursToBackground(tours, isManual, mode);
   }
 
-  function dispatchToursToBackground(tours, isManual, mode = "upsert") {
+  function dispatchToursToBackground(tours, isManual = false, mode = "upsert") {
     try {
       chrome.runtime.sendMessage(
         {
           type: "RELAY_TOURS_DETECTED",
           payload: tours,
           mode: mode,
+          isManual: isManual,
         },
         (response) => {
           const err = chrome.runtime.lastError;
