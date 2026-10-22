@@ -178,11 +178,11 @@
         const val = cleanCand((inp.value || inp.getAttribute("value") || "").trim());
         if (!isBadDriver(val)) {
           const m =
-            val.match(/\b([A-Z]\.\s+[A-Za-z]+(?:-[A-Za-z]+)?)\b/) ||
-            val.match(/\b([A-Z]\.\s*[A-Z]{2,20})\b/) ||
-            val.match(/\b([A-Z][a-z]{2,15}\s+[A-Z][a-z]{2,15})\b/);
+            val.match(/\b([A-Za-z]\.\s*[A-Za-z]+(?:-[A-Za-z]+)?)\b/) ||
+            val.match(/\b([A-Za-z]\.\s*[A-Za-z]{2,20})\b/) ||
+            val.match(/\b([A-Za-z][a-z]{1,15}\s+[A-Za-z][a-z]{1,15})\b/);
           if (m && !isBadDriver(m[1])) return cleanCand(m[1]);
-          if (/^[A-Z\s\.\-]{3,30}$/.test(val) && !isBadDriver(val)) return val;
+          if (/^[A-Za-z\s\.\-]{3,30}$/.test(val) && !isBadDriver(val)) return val;
         }
       }
 
@@ -206,11 +206,11 @@
         const bText = cleanCand((btn.innerText || btn.textContent || "").trim());
         if (!isBadDriver(bText)) {
           const m =
-            bText.match(/\b([A-Z]\.\s+[A-Za-z]+(?:-[A-Za-z]+)?)\b/) ||
-            bText.match(/\b([A-Z]\.\s*[A-Z]{2,20})\b/) ||
-            bText.match(/\b([A-Z][a-z]{2,15}\s+[A-Z][a-z]{2,15})\b/);
+            bText.match(/\b([A-Za-z]\.\s*[A-Za-z]+(?:-[A-Za-z]+)?)\b/) ||
+            bText.match(/\b([A-Za-z]\.\s*[A-Za-z]{2,20})\b/) ||
+            bText.match(/\b([A-Za-z][a-z]{1,15}\s+[A-Za-z][a-z]{1,15})\b/);
           if (m && !isBadDriver(m[1])) return cleanCand(m[1]);
-          if (/^[A-Z\s\.\-]{3,30}$/.test(bText) && !isBadDriver(bText)) return bText;
+          if (/^[A-Za-z\s\.\-]{3,30}$/.test(bText) && !isBadDriver(bText)) return bText;
         }
       }
 
@@ -221,9 +221,9 @@
           const cText = cleanCand((cells[c].innerText || cells[c].textContent || "").trim());
           if (isBadDriver(cText)) continue;
           const dMatch =
-            cText.match(/\b([A-Z]\.\s+[A-Za-z]+(?:-[A-Za-z]+)?)\b/) ||
-            cText.match(/\b([A-Z]\.\s*[A-Z]{2,20})\b/) ||
-            cText.match(/\b([A-Z][a-z]{2,15}\s+[A-Z][a-z]{2,15})\b/);
+            cText.match(/\b([A-Za-z]\.\s*[A-Za-z]+(?:-[A-Za-z]+)?)\b/) ||
+            cText.match(/\b([A-Za-z]\.\s*[A-Za-z]{2,20})\b/) ||
+            cText.match(/\b([A-Za-z][a-z]{1,15}\s+[A-Za-z][a-z]{1,15})\b/);
           if (dMatch && !isBadDriver(dMatch[1])) {
             return cleanCand(dMatch[1]);
           }
@@ -232,10 +232,10 @@
     }
 
     // 2. Pre-process spaced text to split glued text (e.g. "UIIA_MCF. Sanchez" -> "UIIA_MC F. Sanchez")
-    const spaced = (text || "").replace(/([A-Za-z0-9_])([A-Z]\.\s*)/g, "$1 $2");
+    const spaced = (text || "").replace(/([A-Za-z0-9_])([A-Za-z]\.\s*)/g, "$1 $2");
     const nameMatch =
-      spaced.match(/\b([A-Z]\.\s+[A-Za-z]+(?:-[A-Za-z]+)?)\b/) ||
-      spaced.match(/\b([A-Z]\.\s*[A-Z]{2,20})\b/);
+      spaced.match(/\b([A-Za-z]\.\s*[A-Za-z]+(?:-[A-Za-z]+)?)\b/) ||
+      spaced.match(/\b([A-Za-z]\.\s*[A-Za-z]{2,20})\b/);
     if (nameMatch && nameMatch[1]) {
       const cand = cleanCand(nameMatch[1]);
       if (!isBadDriver(cand)) {
@@ -244,7 +244,7 @@
     }
 
     // Full name format e.g. "John Smith"
-    const fullNameMatch = spaced.match(/\b([A-Z][a-z]{2,15}\s+[A-Z][a-z]{2,15})\b/);
+    const fullNameMatch = spaced.match(/\b([A-Za-z][a-z]{1,15}\s+[A-Za-z][a-z]{1,15})\b/);
     if (fullNameMatch && fullNameMatch[1]) {
       const cand = cleanCand(fullNameMatch[1]);
       if (!isBadDriver(cand)) {
@@ -256,7 +256,7 @@
   }
 
   // 4. Deep Multi-Stop & Sub-Leg Extractor for Amazon Relay Blocks
-  function extractBlockTourStructure(node, text, siblingNodes = [], startsIn = undefined, currentTripId = "") {
+  function extractBlockTourStructure(node, text, siblingNodes = [], startsIn = undefined, currentTripId = "", parentDriverName = "Assigned Driver") {
     const cells = node && node.querySelectorAll ? Array.from(node.querySelectorAll('td, [role="cell"], [role="gridcell"]')) : [];
 
     // Pre-process text safely: Mask Tour IDs (B-..., T-..., C-...) so their substrings are NEVER mangled or matched as facility codes
@@ -308,7 +308,7 @@
         duration: item.duration || undefined,
         equipment: item.equipment || "53' Trailer",
         action: item.action || "Drop",
-        driver: item.driver || undefined,
+        driver: item.driver || (parentDriverName !== "Assigned Driver" ? parentDriverName : undefined),
       });
     };
 
@@ -676,26 +676,54 @@
       }
     }
 
-    // C. Universal Leaf Text Node Search: Find ANY element directly displaying a Tour ID (B-... or T-...)
-    const allLeafElements = Array.from(
+    // C. Deep Element Search: Find elements containing Tour IDs and resolve to their true table row or card
+    const allIdElements = Array.from(
       document.querySelectorAll('a, button, span, div, p, strong, td, th')
     ).filter((el) => {
       if (el.id && el.id.includes("ud-")) return false;
-      if (el.children.length > 2) return false;
       const t = (el.innerText || el.textContent || "").trim();
       return blockIdRegex.test(t) || singleIdRegex.test(t);
     });
 
-    for (const el of allLeafElements) {
-      const row = el.closest('tr:not([class*="header" i]), [role="row"]:not([role="columnheader" i]), li, [class*="row" i], [class*="card" i], [class*="item" i]') || el.parentElement;
+    for (const el of allIdElements) {
+      // Find the true enclosing TR or Card container, avoiding intermediate item/cell wrappers
+      const row =
+        el.closest('table tbody tr:not([class*="header" i]), table tr:not([class*="header" i]), div[role="row"]:not([role="columnheader" i]), li[class*="awsui-cards-card-item" i], div[class*="awsui_card_" i], [class*="trip-card" i], [class*="tour-card" i], [class*="awsui-table-row" i]') ||
+        el.closest('tr, [role="row"]') ||
+        el.parentElement;
       if (row && !seenRowNodes.has(row) && row !== document.body && row !== document.documentElement) {
         seenRowNodes.add(row);
         candidateRows.push(row);
       }
     }
 
-    // 2. Sort candidate rows strictly by vertical visual position
-    candidateRows.sort((a, b) => {
+    // 2. Select the most complete enclosing container for each unique Tour ID
+    // Filter out parent wrappers holding multiple tours, and among candidates for a given Tour ID,
+    // select the one with the maximum text content (full table row or card) to retain dates, driver, and stops.
+    const tourRowMap = new Map();
+
+    for (const r of candidateRows) {
+      if (!r || r === document.body || r === document.documentElement) continue;
+      const t = (r.innerText || r.textContent || "").trim();
+      const bMatches = t.match(/\b(B-[A-Za-z0-9]{9})\b/gi) || [];
+      const tMatches = t.match(/\b(T-[A-Za-z0-9]{9})\b/gi) || [];
+
+      // If it contains multiple B- tours, it's a multi-tour table/container, skip it
+      if (bMatches.length > 1) continue;
+      if (bMatches.length === 0 && tMatches.length > 1) continue;
+
+      const primaryId = bMatches.length === 1 ? bMatches[0].toUpperCase() : (tMatches.length === 1 ? tMatches[0].toUpperCase() : null);
+      if (!primaryId) continue;
+
+      const existing = tourRowMap.get(primaryId);
+      if (!existing || t.length > (existing.innerText || existing.textContent || "").trim().length) {
+        tourRowMap.set(primaryId, r);
+      }
+    }
+
+    // 3. Sort candidate rows strictly by vertical visual position
+    const validCandidateRows = Array.from(tourRowMap.values());
+    validCandidateRows.sort((a, b) => {
       const rectA = a.nodeType === 1 ? a.getBoundingClientRect() : { top: 0, left: 0 };
       const rectB = b.nodeType === 1 ? b.getBoundingClientRect() : { top: 0, left: 0 };
       const topA = rectA.top + (window.scrollY || window.pageYOffset || 0);
@@ -704,21 +732,6 @@
         return topA - topB;
       }
       return rectA.left - rectB.left;
-    });
-
-    // 3. Filter out parent containers / wrappers that hold multiple tours
-    const singleTourRows = candidateRows.filter((r) => {
-      const t = (r.innerText || r.textContent || "").trim();
-      const bCount = (t.match(/\bB-[A-Za-z0-9]{9}\b/gi) || []).length;
-      if (bCount > 1) return false;
-      const tCount = (t.match(/\bT-[A-Za-z0-9]{9}\b/gi) || []).length;
-      if (bCount === 0 && tCount > 1) return false;
-      return true;
-    });
-
-    // Keep ONLY leaf candidate rows (discard any row that contains another candidate row)
-    const validCandidateRows = singleTourRows.filter((row) => {
-      return !singleTourRows.some((other) => other !== row && row.contains(other));
     });
 
     // 4. Block-First Priority:
@@ -748,7 +761,7 @@
       seenIds.add(tripId);
 
       // Extract driver directly from primary row BEFORE appending any sibling text
-      const driverName = extractDriverName(node, rowRawText);
+      let driverName = extractDriverName(node, rowRawText);
 
       // Build row text including input values (Cloudscape Autosuggest / inputs)
       let text = rowRawText;
@@ -764,6 +777,12 @@
           .map((btn) => (btn.innerText || btn.textContent || "").trim())
           .filter(Boolean);
         if (btnTexts.length > 0) text += " " + btnTexts.join(" ");
+      }
+
+      // If driver was not detected from rowRawText, try with extended node text
+      if (driverName === "Assigned Driver") {
+        const fallbackDriver = extractDriverName(node, text);
+        if (fallbackDriver !== "Assigned Driver") driverName = fallbackDriver;
       }
 
       // Check if subsequent sibling rows are expanded sub-legs for this tour
@@ -786,6 +805,18 @@
         sib = sib.nextElementSibling;
       }
 
+      // If driver is still Assigned Driver, check if any sibling row has the driver
+      if (driverName === "Assigned Driver") {
+        for (const sNode of siblingNodes) {
+          const sText = (sNode.innerText || sNode.textContent || "").trim();
+          const cand = extractDriverName(sNode, sText);
+          if (cand !== "Assigned Driver") {
+            driverName = cand;
+            break;
+          }
+        }
+      }
+
       try {
         // Extract Starts in / Expires in first so it can anchor pickupTime
         const startsMatch = text.match(/Starts\s*in\s*(\d+h\s*\d+m|\d+h|\d+m)/i);
@@ -795,7 +826,7 @@
         const expiresIn = expiresMatch ? expiresMatch[1] : undefined;
 
         // Extract Multi-Leg Structure & All Stops
-        const blockStructure = extractBlockTourStructure(node, text, siblingNodes, startsIn, tripId);
+        const blockStructure = extractBlockTourStructure(node, text, siblingNodes, startsIn, tripId, driverName);
 
         // Extract Contract Code
         const contractMatch = text.match(/\b(C-[0-9A-Za-z]{9})\b/) || text.match(/(C-[0-9A-Za-z]{9})/);

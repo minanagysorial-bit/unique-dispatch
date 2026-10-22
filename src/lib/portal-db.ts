@@ -195,10 +195,11 @@ function sanitizePickupTime(pickupTime: string, startsIn?: string): string {
       const h = hm[1] ? parseInt(hm[1], 10) : 0;
       const m = hm[2] ? parseInt(hm[2], 10) : 0;
       const totalMinutes = h * 60 + m;
-      const parsedMs = new Date(pickupTime).getTime();
-      const diffHours = (parsedMs - Date.now()) / 3600000;
-      if (totalMinutes <= 720 && diffHours > (h + 2)) {
-        return new Date(Date.now() + totalMinutes * 60 * 1000).toISOString();
+      const parsedMs = pickupTime ? new Date(pickupTime).getTime() : NaN;
+      const targetMs = Date.now() + totalMinutes * 60 * 1000;
+      // If pickupTime is invalid or diverges from the live countdown by > 15 minutes, calibrate to exact startsIn target
+      if (isNaN(parsedMs) || Math.abs(parsedMs - targetMs) > 15 * 60 * 1000) {
+        return new Date(targetMs).toISOString();
       }
     }
   }
