@@ -418,34 +418,37 @@ export default function DispatcherOperationsBoardPage() {
     }
   };
 
-  // Helper date matchers
+  // Helper date matchers (grounded on US Central Time for accurate route day alignment)
   const isDateToday = (isoStr: string) => {
+    if (!isoStr) return false;
     const d = new Date(isoStr);
-    const now = new Date();
-    return (
-      d.getFullYear() === now.getFullYear() &&
-      d.getMonth() === now.getMonth() &&
-      d.getDate() === now.getDate()
-    );
+    if (isNaN(d.getTime())) return false;
+    const tz = "America/Chicago";
+    const dateStr = d.toLocaleDateString("en-US", { timeZone: tz });
+    const nowStr = new Date().toLocaleDateString("en-US", { timeZone: tz });
+    return dateStr === nowStr;
   };
 
   const isDateTomorrow = (isoStr: string) => {
+    if (!isoStr) return false;
     const d = new Date(isoStr);
-    const tom = new Date();
-    tom.setDate(tom.getDate() + 1);
-    return (
-      d.getFullYear() === tom.getFullYear() &&
-      d.getMonth() === tom.getMonth() &&
-      d.getDate() === tom.getDate()
-    );
+    if (isNaN(d.getTime())) return false;
+    const tz = "America/Chicago";
+    const dateStr = d.toLocaleDateString("en-US", { timeZone: tz });
+    const tom = new Date(Date.now() + 24 * 3600 * 1000);
+    const tomStr = tom.toLocaleDateString("en-US", { timeZone: tz });
+    return dateStr === tomStr;
   };
 
   const isDateFuture = (isoStr: string) => {
+    if (!isoStr) return false;
     const d = new Date(isoStr);
-    const tom = new Date();
-    tom.setDate(tom.getDate() + 1);
-    tom.setHours(0, 0, 0, 0);
-    return d.getTime() >= tom.getTime();
+    if (isNaN(d.getTime())) return false;
+    const tz = "America/Chicago";
+    const tom = new Date(Date.now() + 24 * 3600 * 1000);
+    const tomDate = new Date(tom.toLocaleDateString("en-US", { timeZone: tz }));
+    const targetDate = new Date(d.toLocaleDateString("en-US", { timeZone: tz }));
+    return targetDate.getTime() >= tomDate.getTime();
   };
 
   // Metrics summary
