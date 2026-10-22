@@ -971,7 +971,9 @@
 
     latestOrderedTours = foundTours;
     try {
-      chrome.storage.local.set({ lastDetectedTours: latestOrderedTours });
+      if (isExtensionValid() && chrome.storage && chrome.storage.local) {
+        chrome.storage.local.set({ lastDetectedTours: latestOrderedTours });
+      }
     } catch (e) {}
 
     return latestOrderedTours;
@@ -1180,7 +1182,7 @@
     }
 
     try {
-      if (chrome.storage && chrome.storage.local) {
+      if (isExtensionValid() && chrome.storage && chrome.storage.local) {
         chrome.storage.local.get(["autoSyncEnabled"], (cfg) => {
           if (autoSyncEl) {
             if (cfg && cfg.autoSyncEnabled === false) {
@@ -1439,9 +1441,7 @@
     } catch (e) {
       if (String(e).includes("context invalidated") || !isExtensionValid()) {
         clearInterval(autoSyncInterval);
-        return;
       }
-      console.warn("[Unique Dispatch] Background auto-sync interval notice:", e);
     }
   }, 30000);
 })();
