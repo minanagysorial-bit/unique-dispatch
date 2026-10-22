@@ -584,23 +584,6 @@ export default function LoadGridCard({
           </div>
 
           <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              disabled={isTogglingMessage}
-              onClick={handleToggleMessageSent}
-              className={`p-1.5 rounded-lg text-xs font-bold transition-all ${
-                isMsgSent
-                  ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs"
-                  : "bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700"
-              }`}
-              title={
-                isMsgSent
-                  ? `Message marked as sent${load.pickupCheckinBy ? ` by ${load.pickupCheckinBy}` : ""}${msgSentTimeFormatted ? ` at ${msgSentTimeFormatted}` : ""}. Click to toggle.`
-                  : "Click when you have sent a message to the driver"
-              }
-            >
-              <CheckCircle2 className={`w-3.5 h-3.5 ${isMsgSent ? "text-white" : "text-emerald-400"}`} />
-            </button>
             <a
               href={`tel:${cleanPhone}`}
               className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200"

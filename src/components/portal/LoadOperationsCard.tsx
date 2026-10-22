@@ -754,32 +754,6 @@ export default function LoadOperationsCard({
 
         {/* Quick Action Buttons */}
         <div className="flex items-center gap-2">
-          {/* Dispatcher 1-Click Message Sent Button */}
-          <button
-            type="button"
-            disabled={isTogglingMessage}
-            onClick={handleToggleMessageSent}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all shadow-xs ${
-              isMsgSent
-                ? "bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-500 shadow-emerald-600/20"
-                : "bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-300"
-            }`}
-            title={
-              isMsgSent
-                ? `Message recorded as sent${msgSentTimeFormatted ? ` at ${msgSentTimeFormatted}` : ""}. Click to toggle.`
-                : "Click to record that you have sent a dispatch message to the driver"
-            }
-          >
-            <CheckCircle2 className={`w-3.5 h-3.5 ${isMsgSent ? "text-white" : "text-emerald-600"}`} />
-            <span>
-              {isTogglingMessage
-                ? "Saving..."
-                : isMsgSent
-                ? `✓ Msg Sent${msgSentTimeFormatted ? ` (${msgSentTimeFormatted})` : ""}`
-                : "✉️ Mark Msg Sent"}
-            </span>
-          </button>
-
           <button
             type="button"
             onClick={() => onViewDetails?.(load)}

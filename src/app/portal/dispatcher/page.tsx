@@ -997,24 +997,6 @@ export default function DispatcherOperationsBoardPage() {
               <span>Paste Tour</span>
             </button>
 
-            <button
-              onClick={() => setIsGuideOpen(true)}
-              className="hidden lg:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-colors"
-              title="Amazon Relay Extension Setup Guide"
-            >
-              <Layers className="w-3.5 h-3.5 text-orange-400" />
-              <span>Relay Sync</span>
-            </button>
-
-            <button
-              onClick={fetchLoads}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow border border-slate-700 active:scale-95"
-              title="Refresh Live Operations"
-            >
-              <RefreshCw className="w-3.5 h-3.5 text-orange-400" />
-              <span>Refresh Board</span>
-            </button>
-
             {loads.length > 0 && (
               <button
                 onClick={handleClearBoard}
