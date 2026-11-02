@@ -8,7 +8,7 @@ const DEFAULT_CONFIG = {
   apiKey: "ud_live_sync_8892f038c1a9",
   currentShift: "morning",
   autoSyncEnabled: true,
-  syncIntervalMinutes: 1,
+  syncIntervalMinutes: 30,
 };
 
 function normalizePortalUrl(rawUrl) {
@@ -34,12 +34,12 @@ function normalizePortalUrl(rawUrl) {
 chrome.runtime.onInstalled.addListener(async () => {
   const existing = await chrome.storage.local.get(Object.keys(DEFAULT_CONFIG));
   const normalizedUrl = normalizePortalUrl(existing.portalUrl || DEFAULT_CONFIG.portalUrl);
-  const toSave = { ...DEFAULT_CONFIG, ...existing, portalUrl: normalizedUrl };
+  const toSave = { ...DEFAULT_CONFIG, ...existing, portalUrl: normalizedUrl, syncIntervalMinutes: 30 };
   await chrome.storage.local.set(toSave);
 
   // Setup periodic sync alarm
   chrome.alarms.create("periodic_relay_sync", {
-    periodInMinutes: toSave.syncIntervalMinutes || 1,
+    periodInMinutes: toSave.syncIntervalMinutes || 30,
   });
 
   console.log("🚚 [Unique Dispatch Engine] Service Worker Initialized at:", normalizedUrl);

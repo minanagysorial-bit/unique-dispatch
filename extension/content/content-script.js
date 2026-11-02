@@ -8,9 +8,9 @@
   "use strict";
 
   window.__ud_content_script_initialized = true;
-  window.__ud_version = "1.1.0";
+  window.__ud_version = "3.0.0";
 
-  console.log("🚚 [Unique Dispatch] Relay High-Fidelity Multi-Leg Engine Active v1.1.0 in frame:", window.location.href);
+  console.log("🚚 [Unique Dispatch] Relay Ops Controller & CPT Engine v3.0 Active in frame:", window.location.href);
 
   const capturedApiToursMap = new Map();
   let latestOrderedTours = [];
@@ -38,7 +38,7 @@
       });
 
       const tours = scanDomForTours();
-      updateFloatingPillUI();
+      updateDockedSidebarUI();
       if (tours.length > 0) {
         extractAndSyncAll(false, "upsert");
       }
@@ -979,270 +979,1110 @@
     return latestOrderedTours;
   }
 
-  // 6. Floating Inspector Pill UI with Direct Visible Actions
-  function injectFloatingPill() {
+  // ==========================================
+  // 6. Web Audio Siren Synthesizer Engine
+  // ==========================================
+  class SirenAudioEngine {
+    constructor() {
+      this.audioCtx = null;
+      this.oscillator = null;
+      this.gainNode = null;
+      this.timer = null;
+      this.isPlaying = false;
+      this.isMuted = false;
+    }
+
+    init() {
+      if (!this.audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) {
+          this.audioCtx = new AudioContextClass();
+        }
+      }
+      if (this.audioCtx && this.audioCtx.state === "suspended") {
+        this.audioCtx.resume().catch(() => {});
+      }
+    }
+
+    start() {
+      if (this.isPlaying || this.isMuted) return;
+      this.init();
+      if (!this.audioCtx) return;
+
+      try {
+        this.isPlaying = true;
+        const osc = this.audioCtx.createOscillator();
+        const gain = this.audioCtx.createGain();
+
+        osc.type = "sawtooth";
+        osc.frequency.setValueAtTime(880, this.audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.35, this.audioCtx.currentTime);
+
+        osc.connect(gain);
+        gain.connect(this.audioCtx.destination);
+        osc.start();
+
+        let toggle = false;
+        this.timer = setInterval(() => {
+          if (!this.isPlaying || !this.audioCtx) return;
+          try {
+            const now = this.audioCtx.currentTime;
+            toggle = !toggle;
+            const target = toggle ? 880 : 660;
+            osc.frequency.cancelScheduledValues(now);
+            osc.frequency.linearRampToValueAtTime(target, now + 0.12);
+          } catch (e) {}
+        }, 250);
+
+        this.oscillator = osc;
+        this.gainNode = gain;
+      } catch (e) {
+        console.warn("[Unique Dispatch] SirenAudioEngine start warning:", e);
+      }
+    }
+
+    stop() {
+      if (!this.isPlaying) return;
+      this.isPlaying = false;
+      if (this.timer) {
+        clearInterval(this.timer);
+        this.timer = null;
+      }
+      if (this.oscillator) {
+        try {
+          this.oscillator.stop();
+          this.oscillator.disconnect();
+        } catch (e) {}
+        this.oscillator = null;
+      }
+    }
+
+    toggleMute() {
+      this.isMuted = !this.isMuted;
+      if (this.isMuted) {
+        this.stop();
+      }
+      return this.isMuted;
+    }
+
+    testSiren(durationMs = 2500) {
+      this.start();
+      setTimeout(() => {
+        if (!hasActiveUnacknowledgedAlerts()) {
+          this.stop();
+        }
+      }, durationMs);
+    }
+  }
+
+  const siren = new SirenAudioEngine();
+
+  // Unlock AudioContext on first user interaction anywhere on page
+  document.addEventListener("click", () => siren.init(), { once: true, passive: true });
+  document.addEventListener("keydown", () => siren.init(), { once: true, passive: true });
+
+  // ==========================================
+  // 7. Priority Dispatch & Milestone State
+  // ==========================================
+  let acknowledgedAlertKeys = new Set();
+  let evaluatedTourResults = [];
+  let evaluatedStats = {
+    totalLoads: 0,
+    actionRequired: 0,
+    unacknowledgedAlerts: 0,
+    delaysRaised: 0,
+    checkins35h: 0,
+    delivery30m: 0,
+    inTransit: 0,
+    plannedUpcoming: 0,
+    historyLoads: 0,
+  };
+  let activeFilterTab = "all"; // 'all', 'upcoming', 'in_transit', 'history'
+  let activeDateFilter = "";   // 'YYYY-MM-DD' or empty for all
+  let activeDateMode = "single"; // 'single' or 'range'
+  let searchQuery = "";
+  let isSidebarCollapsed = false;
+  let autoSyncEnabled = true;
+
+  const SYNC_INTERVAL_MS = 30 * 60 * 1000; // 30 Minutes
+  let nextSyncTimestamp = Date.now() + SYNC_INTERVAL_MS;
+  let countdownInterval = null;
+
+  // Initialize stored acknowledgments & preferences
+  try {
+    if (isExtensionValid() && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.get(["acknowledgedAlertKeys", "sidebarCollapsed", "autoSyncEnabled"], (data) => {
+        if (data && Array.isArray(data.acknowledgedAlertKeys)) {
+          data.acknowledgedAlertKeys.forEach((k) => acknowledgedAlertKeys.add(k));
+        }
+        if (data && typeof data.sidebarCollapsed === "boolean") {
+          isSidebarCollapsed = data.sidebarCollapsed;
+        }
+        if (data && typeof data.autoSyncEnabled === "boolean") {
+          autoSyncEnabled = data.autoSyncEnabled;
+        }
+      });
+    }
+  } catch (e) {}
+
+  function hasActiveUnacknowledgedAlerts() {
+    return evaluatedStats.unacknowledgedAlerts > 0;
+  }
+
+  // ==========================================
+  // 8. Priority & Milestone Evaluator
+  // ==========================================
+  function evaluateTourPriorities(tours) {
+    const now = Date.now();
+    let delayCount = 0;
+    let checkin35hCount = 0;
+    let delivery30mCount = 0;
+    let inTransitCount = 0;
+    let upcomingCount = 0;
+    let historyCount = 0;
+    let unacknowledgedAlertsCount = 0;
+
+    const evaluated = tours.map((tour) => {
+      const pickupMs = tour.pickupTime ? new Date(tour.pickupTime).getTime() : 0;
+      const deliveryMs = tour.deliveryTime ? new Date(tour.deliveryTime).getTime() : 0;
+
+      const minutesToPickup = pickupMs > 0 ? Math.floor((pickupMs - now) / 60000) : 999999;
+      const minutesToDelivery = deliveryMs > 0 ? Math.floor((deliveryMs - now) / 60000) : 999999;
+
+      const status = (tour.status || "").toLowerCase();
+      const isDelivered = status === "delivered" || status === "completed" || status === "cancelled";
+      const isDelayed =
+        status === "delayed" ||
+        /delayed|delay|at\s*risk|disrupted|late/i.test(tour.notes || "") ||
+        /delayed|delay|disrupted/i.test(tour.acceptanceStatus || "");
+
+      const alerts = [];
+
+      // Priority 1: Critical Delay / Disruption Raised
+      if (isDelayed && !isDelivered) {
+        delayCount++;
+        const alertKey = `${tour.vrid}_delay`;
+        const isAck = acknowledgedAlertKeys.has(alertKey);
+        if (!isAck) unacknowledgedAlertsCount++;
+
+        alerts.push({
+          key: alertKey,
+          vrid: tour.vrid,
+          type: "delay",
+          priorityRank: 1,
+          isAcknowledged: isAck,
+          badgeText: "🚨 DELAY RAISED",
+          badgeColor: "#ef4444",
+          badgeBg: "rgba(239, 68, 68, 0.2)",
+          title: "Critical Relay Delay / Disruption Flagged",
+          desc: "Tour marked as delayed or disrupted. Contact Amazon Relay Support & verify driver status immediately.",
+          actionLabel: "Call Driver & Notify Amazon",
+          suggestedMsg: `URGENT: Tour #${tour.vrid} (${tour.originFacilityCode || tour.originCity} to ${tour.destFacilityCode || tour.destCity}) has a disruption reported. Dispatcher is monitoring. Driver ${tour.driverName || ""}, please check in immediately.`,
+          tour: tour,
+        });
+      }
+
+      // Priority 2: 3.5h Pickup Milestone (<= 210 mins and not yet underway)
+      const isUpcoming = (status === "upcoming" || status === "confirmed" || status === "pending_acceptance") && !isDelivered;
+      if (isUpcoming && minutesToPickup > 0 && minutesToPickup <= 210) {
+        checkin35hCount++;
+        const alertKey = `${tour.vrid}_pickup_3.5h`;
+        const isAck = acknowledgedAlertKeys.has(alertKey);
+        if (!isAck) unacknowledgedAlertsCount++;
+
+        const h = Math.floor(minutesToPickup / 60);
+        const m = minutesToPickup % 60;
+        const timeStr = h > 0 ? `${h}h ${m}m` : `${m}m`;
+
+        alerts.push({
+          key: alertKey,
+          vrid: tour.vrid,
+          type: "pickup_3.5h",
+          priorityRank: 2,
+          isAcknowledged: isAck,
+          badgeText: "⚠️ 3.5H CHECK-IN DUE",
+          badgeColor: "#f59e0b",
+          badgeBg: "rgba(245, 158, 11, 0.2)",
+          title: `Pickup in ${timeStr} • Driver Check-in Required`,
+          desc: `Tour departs soon from ${tour.originFacilityCode || tour.originCity}. Send driver message to confirm on-time rolling status.`,
+          actionLabel: "Send Driver Message",
+          suggestedMsg: `Hello ${tour.driverName || "Driver"}, Unique Dispatch checking in. Your Amazon Relay Tour #${tour.vrid} pickup starts in ${timeStr} at ${tour.originFacilityCode || tour.originCity}. Please confirm you are on schedule with equipment ready. Thank you!`,
+          tour: tour,
+        });
+      }
+
+      // Priority 3: 30m Delivery Milestone (<= 30 mins and currently underway)
+      const isInTransit = (status === "in_transit" || status === "at_pickup" || status === "at_delivery" || (minutesToPickup <= 0 && minutesToDelivery > 0)) && !isDelivered;
+      if (isInTransit && minutesToDelivery > 0 && minutesToDelivery <= 30) {
+        delivery30mCount++;
+        const alertKey = `${tour.vrid}_delivery_30m`;
+        const isAck = acknowledgedAlertKeys.has(alertKey);
+        if (!isAck) unacknowledgedAlertsCount++;
+
+        alerts.push({
+          key: alertKey,
+          vrid: tour.vrid,
+          type: "delivery_30m",
+          priorityRank: 3,
+          isAcknowledged: isAck,
+          badgeText: "📞 30M DELIVERY CONFIRMATION",
+          badgeColor: "#38bdf8",
+          badgeBg: "rgba(56, 189, 248, 0.2)",
+          title: `Delivery in ${minutesToDelivery}m • Call Driver Now`,
+          desc: `Approaching destination ${tour.destFacilityCode || tour.destCity}. Call driver to ensure smooth gate arrival & guard check-in.`,
+          actionLabel: "Call Driver Immediately",
+          suggestedMsg: `Hello ${tour.driverName || "Driver"}, Unique Dispatch here. Tour #${tour.vrid} final delivery at ${tour.destFacilityCode || tour.destCity} is scheduled in ${minutesToDelivery} minutes. Please call dispatch or confirm arrival once at the guard shack.`,
+          tour: tour,
+        });
+      }
+
+      if (isDelivered) historyCount++;
+      else if (isInTransit) inTransitCount++;
+      else if (isUpcoming) upcomingCount++;
+
+      let minRank = 4;
+      let hasUnack = false;
+      if (alerts.length > 0) {
+        minRank = Math.min(...alerts.map((a) => a.priorityRank));
+        hasUnack = alerts.some((a) => !a.isAcknowledged);
+      }
+
+      return {
+        tour: tour,
+        alerts: alerts,
+        minRank: minRank,
+        hasUnacknowledgedAlerts: hasUnack,
+        minutesToPickup: minutesToPickup,
+        minutesToDelivery: minutesToDelivery,
+        isDelayed: isDelayed,
+        isInTransit: isInTransit,
+        isUpcoming: isUpcoming,
+        isDelivered: isDelivered,
+      };
+    });
+
+    // Sort order: Unacknowledged alerts first, then Rank 1 -> 2 -> 3 -> 4, then Screen Index
+    evaluated.sort((a, b) => {
+      if (a.hasUnacknowledgedAlerts !== b.hasUnacknowledgedAlerts) {
+        return a.hasUnacknowledgedAlerts ? -1 : 1;
+      }
+      if (a.minRank !== b.minRank) {
+        return a.minRank - b.minRank;
+      }
+      return (a.tour.screenIndex || 0) - (b.tour.screenIndex || 0);
+    });
+
+    evaluatedTourResults = evaluated;
+    evaluatedStats = {
+      totalLoads: tours.length,
+      actionRequired: delayCount + checkin35hCount + delivery30mCount,
+      unacknowledgedAlerts: unacknowledgedAlertsCount,
+      delaysRaised: delayCount,
+      checkins35h: checkin35hCount,
+      delivery30m: delivery30mCount,
+      inTransit: inTransitCount,
+      plannedUpcoming: upcomingCount,
+      historyLoads: historyCount,
+    };
+
+    // Siren alarm rule: Continuous loud alarm while unacknowledged alerts exist
+    if (unacknowledgedAlertsCount > 0) {
+      siren.start();
+    } else {
+      siren.stop();
+    }
+
+    return { evaluated: evaluatedTourResults, stats: evaluatedStats };
+  }
+
+  function acknowledgeAlert(alertKey) {
+    acknowledgedAlertKeys.add(alertKey);
+    try {
+      if (isExtensionValid() && chrome.storage && chrome.storage.local) {
+        chrome.storage.local.set({
+          acknowledgedAlertKeys: Array.from(acknowledgedAlertKeys),
+        });
+      }
+    } catch (e) {}
+
+    let remainingUnack = 0;
+    evaluatedTourResults.forEach((item) => {
+      item.alerts.forEach((alert) => {
+        if (!acknowledgedAlertKeys.has(alert.key)) remainingUnack++;
+      });
+    });
+
+    if (remainingUnack === 0) {
+      siren.stop();
+      showToast("✓ Alert acknowledged. Siren silenced.");
+    } else {
+      showToast(`✓ Alert acknowledged. (${remainingUnack} alert(s) remaining)`);
+    }
+
+    updateDockedSidebarUI();
+  }
+
+  function silenceAndAcknowledgeAll() {
+    evaluatedTourResults.forEach((item) => {
+      item.alerts.forEach((alert) => {
+        acknowledgedAlertKeys.add(alert.key);
+      });
+    });
+    try {
+      if (isExtensionValid() && chrome.storage && chrome.storage.local) {
+        chrome.storage.local.set({
+          acknowledgedAlertKeys: Array.from(acknowledgedAlertKeys),
+        });
+      }
+    } catch (e) {}
+    siren.stop();
+    showToast("✓ All active alerts acknowledged. Siren stopped.");
+    updateDockedSidebarUI();
+  }
+
+  // ==========================================
+  // 9. In-Page Docked Operations Sidebar UI
+  // ==========================================
+  function injectDockedSidebar() {
     if (window.self !== window.top) return;
-    if (document.getElementById("ud-relay-sync-pill")) return;
+    if (document.getElementById("ud-relay-ops-panel")) return;
 
-    const pill = document.createElement("div");
-    pill.id = "ud-relay-sync-pill";
-    pill.innerHTML = `
-      <div id="ud-pill-card" style="
-        position: fixed;
-        bottom: 24px;
-        right: 24px;
-        z-index: 9999999;
-        display: flex;
-        flex-direction: column;
-        background: #0a1128;
-        color: #ffffff;
-        border-radius: 16px;
-        box-shadow: 0 12px 35px rgba(0,0,0,0.65), 0 0 0 1px rgba(234,88,12,0.6);
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        font-size: 11px;
-        max-width: 480px;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        user-select: none;
-      ">
-        <div id="ud-pill-header" style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding: 10px 14px;">
-          <div style="display:flex; align-items:center; gap:8px;">
-            <span id="ud-pill-dot" style="display:inline-block;width:10px;height:10px;border-radius:9999px;background:#10b981;box-shadow:0 0 8px #10b981;"></span>
-            <span style="font-weight:900; color:#fb923c; letter-spacing:0.5px;">UNIQUE DISPATCH</span>
-            <span id="ud-pill-count" style="background:#1e293b; color:#38bdf8; padding:2px 7px; border-radius:9999px; font-weight:800; font-size:10px;">0 Tours</span>
-            <span id="ud-pill-autosync" style="background:rgba(16,185,129,0.15); color:#10b981; border:1px solid rgba(16,185,129,0.3); padding:2px 7px; border-radius:9999px; font-weight:800; font-size:9px; display:inline-flex; align-items:center; gap:4px;" title="Continuous Background Sync Active (Every 30s)">
-              <span style="width:6px;height:6px;border-radius:9999px;background:#10b981;box-shadow:0 0 6px #10b981;display:inline-block;"></span>
-              AUTO-SYNC ON (30s)
-            </span>
+    // Inject custom CSS styling
+    if (!document.getElementById("ud-docked-styles")) {
+      const styleTag = document.createElement("style");
+      styleTag.id = "ud-docked-styles";
+      styleTag.textContent = `
+        @keyframes udPulseSiren {
+          0%, 100% { background: #b91c1c; box-shadow: 0 0 16px rgba(239,68,68,0.8); }
+          50% { background: #7f1d1d; box-shadow: 0 0 4px rgba(239,68,68,0.4); }
+        }
+        @keyframes udBadgeGlow {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.03); }
+        }
+        #ud-relay-ops-panel * {
+          box-sizing: border-box;
+        }
+        #ud-relay-ops-panel ::-webkit-scrollbar {
+          width: 5px;
+          height: 5px;
+        }
+        #ud-relay-ops-panel ::-webkit-scrollbar-track {
+          background: #090e17;
+        }
+        #ud-relay-ops-panel ::-webkit-scrollbar-thumb {
+          background: #334155;
+          border-radius: 4px;
+        }
+        #ud-relay-ops-panel ::-webkit-scrollbar-thumb:hover {
+          background: #ea580c;
+        }
+        .ud-btn-hover:hover {
+          filter: brightness(1.15);
+          transform: translateY(-1px);
+        }
+        .ud-btn-hover:active {
+          transform: translateY(0);
+        }
+      `;
+      document.head.appendChild(styleTag);
+    }
+
+    // 1. Docked Sidebar Container
+    const panel = document.createElement("div");
+    panel.id = "ud-relay-ops-panel";
+    panel.style.cssText = `
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 380px;
+      height: 100vh;
+      z-index: 2147483640;
+      background: #090e17;
+      color: #f8fafc;
+      border-left: 1px solid #1e293b;
+      box-shadow: -10px 0 35px rgba(0, 0, 0, 0.65);
+      display: flex;
+      flex-direction: column;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-sizing: border-box;
+    `;
+
+    panel.innerHTML = `
+      <!-- Top Title Bar -->
+      <div id="ud-panel-topbar" style="background:#0f172a; border-bottom:1px solid #1e293b; padding:10px 14px; display:flex; align-items:center; justify-content:space-between; user-select:none;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:16px;">🚚</span>
+          <div>
+            <div style="font-weight:900; font-size:11px; color:#fb923c; letter-spacing:0.4px;">UNIQUE DISPATCH</div>
+            <div style="font-size:9px; color:#94a3b8; font-weight:600;">Relay Ops Controller v3.0</div>
           </div>
-          <div style="display:flex; align-items:center; gap:6px;">
-            <button id="ud-pill-expand-btn" style="
-              background: #9a3412;
-              border: 1px solid #ea580c;
-              color: #ffedd5;
-              padding: 5px 8px;
-              border-radius: 8px;
-              font-size: 10px;
-              font-weight: 800;
-              cursor: pointer;
-            " title="Expand all multi-leg sub-trips and stops on screen">📂 Expand All</button>
+        </div>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <button id="ud-sound-toggle-btn" class="ud-btn-hover" style="background:#1e293b; border:1px solid #334155; color:#f8fafc; padding:4px 7px; border-radius:6px; font-size:10px; cursor:pointer;" title="Toggle Siren Sound / Sound Test">🔊</button>
+          <button id="ud-minimize-btn" class="ud-btn-hover" style="background:#1e293b; border:1px solid #334155; color:#94a3b8; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer;" title="Minimize to edge tab">_</button>
+          <button id="ud-close-btn" class="ud-btn-hover" style="background:#1e293b; border:1px solid #334155; color:#94a3b8; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer;" title="Close Docked Panel">✕</button>
+        </div>
+      </div>
 
-            <button id="ud-pill-replace-btn" style="
-              background: #0284c7;
-              border: none;
-              color: #ffffff;
-              padding: 5px 8px;
-              border-radius: 8px;
-              font-size: 10px;
-              font-weight: 800;
-              cursor: pointer;
-            " title="Replace all loads in portal with fresh scan">🔄 Replace All</button>
+      <!-- Scrollable Main Content -->
+      <div id="ud-panel-scrollable" style="flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:10px;">
+        
+        <!-- Live Operational Status Banner -->
+        <div id="ud-ops-status-container"></div>
 
-            <button id="ud-pill-sync-btn" style="
-              background: #ea580c;
-              border: none;
-              color: #ffffff;
-              padding: 5px 10px;
-              border-radius: 8px;
-              font-size: 10px;
-              font-weight: 800;
-              cursor: pointer;
-              box-shadow: 0 2px 8px rgba(234,88,12,0.4);
-            " title="Sync live loads to portal">⚡ SYNC NOW</button>
+        <!-- Date Filtering Bar -->
+        <div style="background:#0f172a; border:1px solid #1e293b; border-radius:8px; padding:8px 10px;">
+          <div style="display:flex; gap:6px; margin-bottom:6px;">
+            <button id="ud-date-single-btn" class="ud-btn-hover" style="flex:1; background:#0284c7; color:#fff; border:none; padding:4px 8px; border-radius:5px; font-size:10px; font-weight:800; cursor:pointer;">Single Date</button>
+            <button id="ud-date-range-btn" class="ud-btn-hover" style="flex:1; background:#1e293b; color:#94a3b8; border:1px solid #334155; padding:4px 8px; border-radius:5px; font-size:10px; font-weight:700; cursor:pointer;">Date Range</button>
+          </div>
+          <div style="display:flex; gap:6px; align-items:center;">
+            <input type="date" id="ud-date-picker" style="flex:1; background:#090e17; color:#f8fafc; border:1px solid #334155; border-radius:5px; padding:4px 8px; font-size:10px; font-family:inherit;">
+            <button id="ud-date-today-btn" class="ud-btn-hover" style="background:#0284c7; color:#fff; border:none; padding:4px 8px; border-radius:5px; font-size:10px; font-weight:800; cursor:pointer;">Today</button>
+            <button id="ud-date-clear-btn" class="ud-btn-hover" style="background:#1e293b; color:#94a3b8; border:1px solid #334155; padding:4px 6px; border-radius:5px; font-size:10px; cursor:pointer;" title="Show All Dates">All</button>
           </div>
         </div>
 
-        <div id="ud-pill-drawer" style="display:none; border-top: 1px solid #1e293b; padding: 10px 14px; max-height: 240px; overflow-y: auto;">
-          <div style="font-weight:800; color:#cbd5e1; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center; gap:6px;">
-            <span>Relay Screen Order (#1 to #N):</span>
-            <span style="font-size:10px; color:#94a3b8;">Click card header to toggle view</span>
-          </div>
-          <div id="ud-pill-drawer-list" style="display:flex; flex-direction:column; gap:6px;">
-            <div style="color:#64748b; font-size:10px;">No tours captured yet. Browse tours or click Sync Now.</div>
+        <!-- 6 KPI Counter Cards Grid -->
+        <div id="ud-kpi-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+          <!-- Populated dynamically in updateDockedSidebarUI -->
+        </div>
+
+        <!-- Big Primary Action Button -->
+        <div>
+          <button id="ud-fetch-relay-btn" class="ud-btn-hover" style="
+            width: 100%;
+            background: linear-gradient(135deg, #1d4ed8 0%, #0369a1 100%);
+            color: #ffffff;
+            border: 1px solid #38bdf8;
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 12px;
+            font-weight: 900;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 4px 15px rgba(2,132,199,0.35);
+          ">
+            <span>⚡ Fetch Relay Loads</span>
+          </button>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px; padding:0 2px; font-size:9px; color:#94a3b8;">
+            <span>Next Auto-Sync in: <b id="ud-header-countdown" style="color:#38bdf8; font-family:monospace;">30:00</b></span>
+            <span id="ud-autosync-indicator" style="color:#10b981; font-weight:700;">● Active (Every 30m)</span>
           </div>
         </div>
+
+        <!-- Urgent Priority Action Queue Section -->
+        <div id="ud-priority-alert-queue" style="display:flex; flex-direction:column; gap:6px;">
+          <!-- Populated dynamically -->
+        </div>
+
+        <!-- Tri-Tab Switcher -->
+        <div style="border-top:1px solid #1e293b; padding-top:8px;">
+          <div id="ud-tri-tabs" style="display:flex; gap:4px; margin-bottom:6px; background:#0f172a; padding:3px; border-radius:6px; border:1px solid #1e293b;">
+            <button data-tab="all" class="ud-tab-btn" style="flex:1; background:#0284c7; color:#fff; border:none; padding:4px 6px; border-radius:4px; font-size:10px; font-weight:800; cursor:pointer;">All (<span id="ud-tab-count-all">0</span>)</button>
+            <button data-tab="upcoming" class="ud-tab-btn" style="flex:1; background:transparent; color:#94a3b8; border:none; padding:4px 6px; border-radius:4px; font-size:10px; font-weight:700; cursor:pointer;">Upcoming (<span id="ud-tab-count-upcoming">0</span>)</button>
+            <button data-tab="in_transit" class="ud-tab-btn" style="flex:1; background:transparent; color:#94a3b8; border:none; padding:4px 6px; border-radius:4px; font-size:10px; font-weight:700; cursor:pointer;">In Transit (<span id="ud-tab-count-transit">0</span>)</button>
+            <button data-tab="history" class="ud-tab-btn" style="flex:1; background:transparent; color:#94a3b8; border:none; padding:4px 6px; border-radius:4px; font-size:10px; font-weight:700; cursor:pointer;">History (<span id="ud-tab-count-history">0</span>)</button>
+          </div>
+
+          <!-- Search Filter Input -->
+          <div style="position:relative; margin-bottom:6px;">
+            <input type="text" id="ud-search-input" placeholder="🔍 Search VRID, Driver, Facility..." style="
+              width: 100%;
+              background: #090e17;
+              color: #f8fafc;
+              border: 1px solid #334155;
+              border-radius: 6px;
+              padding: 5px 8px;
+              font-size: 10px;
+              font-family: inherit;
+            ">
+          </div>
+        </div>
+
+        <!-- Tours List Cards -->
+        <div id="ud-tours-list-container" style="display:flex; flex-direction:column; gap:6px;">
+          <!-- Rendered in updateDockedSidebarUI -->
+        </div>
+
+      </div>
+
+      <!-- Panel Footer -->
+      <div id="ud-panel-footer" style="background:#0f172a; border-top:1px solid #1e293b; padding:8px 12px; display:flex; justify-content:space-between; align-items:center; font-size:9px; color:#64748b;">
+        <div style="display:flex; align-items:center; gap:6px;">
+          <button id="ud-expand-all-btn" class="ud-btn-hover" style="background:#9a3412; color:#ffedd5; border:1px solid #ea580c; border-radius:4px; padding:2px 6px; font-size:9px; font-weight:800; cursor:pointer;" title="Expand all rows to reveal sub-trips">📂 Expand All</button>
+          <button id="ud-replace-all-btn" class="ud-btn-hover" style="background:#0284c7; color:#fff; border:none; border-radius:4px; padding:2px 6px; font-size:9px; font-weight:800; cursor:pointer;" title="Replace all portal loads">🔄 Replace All</button>
+        </div>
+        <a href="https://www.uniquedispatch.com/portal" target="_blank" style="color:#38bdf8; text-decoration:none; font-weight:700;">Open Ops Portal ↗</a>
       </div>
     `;
 
-    document.body.appendChild(pill);
+    document.body.appendChild(panel);
 
-    const pillCard = document.getElementById("ud-pill-card");
-    const drawer = document.getElementById("ud-pill-drawer");
-    const syncBtn = document.getElementById("ud-pill-sync-btn");
-    const replaceBtn = document.getElementById("ud-pill-replace-btn");
-    const expandBtn = document.getElementById("ud-pill-expand-btn");
+    // 2. Collapsed Edge Launcher
+    const launcher = document.createElement("div");
+    launcher.id = "ud-collapsed-launcher";
+    launcher.style.cssText = `
+      position: fixed;
+      top: 140px;
+      right: 0;
+      z-index: 2147483645;
+      background: #090e17;
+      color: #ffffff;
+      border: 1px solid #ea580c;
+      border-right: none;
+      border-radius: 8px 0 0 8px;
+      padding: 8px 12px;
+      cursor: pointer;
+      box-shadow: -4px 4px 18px rgba(0,0,0,0.55);
+      display: none;
+      align-items: center;
+      gap: 8px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 11px;
+      user-select: none;
+      transition: all 0.2s ease;
+    `;
+    launcher.innerHTML = `
+      <span style="font-size:14px;">🚚</span>
+      <span style="font-weight:900; color:#fb923c;">UD OPS</span>
+      <span id="ud-launcher-status" style="background:#10b981; color:#fff; font-size:9px; font-weight:800; padding:2px 6px; border-radius:9999px;">0 Loads</span>
+      <span id="ud-launcher-countdown" style="font-size:9px; color:#94a3b8; font-family:monospace;">30:00</span>
+    `;
+    document.body.appendChild(launcher);
 
-    pillCard.addEventListener("click", (e) => {
-      if (
-        e.target === syncBtn || syncBtn?.contains(e.target) ||
-        e.target === replaceBtn || replaceBtn?.contains(e.target) ||
-        e.target === expandBtn || expandBtn?.contains(e.target)
-      ) return;
-      if (drawer.style.display === "none") {
-        drawer.style.display = "block";
-        updateDrawerList();
-      } else {
-        drawer.style.display = "none";
+    // Setup Event Listeners
+    setupDockedSidebarEvents();
+
+    // Set initial collapse state
+    toggleSidebar(isSidebarCollapsed);
+  }
+
+  function toggleSidebar(collapsed) {
+    isSidebarCollapsed = collapsed;
+    const panel = document.getElementById("ud-relay-ops-panel");
+    const launcher = document.getElementById("ud-collapsed-launcher");
+
+    if (collapsed) {
+      if (panel) panel.style.transform = "translateX(390px)";
+      if (launcher) launcher.style.display = "flex";
+      document.body.style.marginRight = "0px";
+    } else {
+      if (panel) {
+        panel.style.transform = "translateX(0)";
+        panel.style.display = "flex";
       }
-    });
+      if (launcher) launcher.style.display = "none";
+      document.body.style.marginRight = "380px";
+    }
 
-    if (expandBtn) {
-      expandBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        expandAllRelayRows();
+    try {
+      if (isExtensionValid() && chrome.storage && chrome.storage.local) {
+        chrome.storage.local.set({ sidebarCollapsed: isSidebarCollapsed });
+      }
+    } catch (e) {}
+  }
+
+  function setupDockedSidebarEvents() {
+    const minBtn = document.getElementById("ud-minimize-btn");
+    const closeBtn = document.getElementById("ud-close-btn");
+    const soundBtn = document.getElementById("ud-sound-toggle-btn");
+    const launcher = document.getElementById("ud-collapsed-launcher");
+    const fetchBtn = document.getElementById("ud-fetch-relay-btn");
+    const expandBtn = document.getElementById("ud-expand-all-btn");
+    const replaceBtn = document.getElementById("ud-replace-all-btn");
+    const datePicker = document.getElementById("ud-date-picker");
+    const todayBtn = document.getElementById("ud-date-today-btn");
+    const clearDateBtn = document.getElementById("ud-date-clear-btn");
+    const dateSingleBtn = document.getElementById("ud-date-single-btn");
+    const dateRangeBtn = document.getElementById("ud-date-range-btn");
+    const searchInput = document.getElementById("ud-search-input");
+    const tabBtns = document.querySelectorAll(".ud-tab-btn");
+
+    if (minBtn) minBtn.addEventListener("click", () => toggleSidebar(true));
+    if (closeBtn) closeBtn.addEventListener("click", () => toggleSidebar(true));
+    if (launcher) launcher.addEventListener("click", () => toggleSidebar(false));
+
+    if (soundBtn) {
+      soundBtn.addEventListener("click", () => {
+        const isMuted = siren.toggleMute();
+        soundBtn.innerText = isMuted ? "🔇" : "🔊";
+        soundBtn.style.color = isMuted ? "#ef4444" : "#f8fafc";
+        if (!isMuted && !hasActiveUnacknowledgedAlerts()) {
+          siren.testSiren(2000);
+        }
+        showToast(isMuted ? "Siren Muted" : "Siren Sound Enabled (2s Test)");
       });
     }
 
-    async function expandAllRelayRows(autoSync = true) {
-      const expandSelectors = [
-        'button[aria-expanded="false"]',
-        'button[aria-label*="expand" i]',
-        'button[aria-label*="detail" i]',
-        '[class*="expand-toggle"]',
-        '[class*="chevron-right"]',
-        '[class*="expandable"] button',
-        'tr[class*="awsui"] button[aria-expanded="false"]',
-        '[data-testid*="expand"]',
-        'svg[data-icon="angle-right"]',
-        'svg[data-icon="chevron-right"]',
-        '[aria-label*="open" i]',
-      ];
-
-      showToast("📂 Expanding all tours on screen to reveal multi-leg sub-trips...");
-
-      const rows = Array.from(
-        document.querySelectorAll(
-          'table tbody tr:not([class*="header" i]), [role="row"]:not([role="columnheader" i]), li[class*="awsui-cards-card-item" i], div[class*="card"]'
-        )
-      );
-
-      let clicked = 0;
-      for (const row of rows) {
-        const rowText = (row.innerText || row.textContent || "").trim();
-        if (!/\b(B-[A-Za-z0-9]{9})\b/i.test(rowText)) continue;
-
-        const btn = row.querySelector(expandSelectors.join(", "));
-        if (btn) {
-          try {
-            btn.click();
-            clicked++;
-            await new Promise((r) => setTimeout(r, 70));
-          } catch (e) {}
-        } else {
-          const clickable = row.querySelector('td:not(:last-child), [role="gridcell"]:not(:last-child)');
-          if (clickable && !clickable.querySelector("input, select, button, a")) {
-            try {
-              clickable.click();
-              clicked++;
-              await new Promise((r) => setTimeout(r, 60));
-            } catch (e) {}
-          }
-        }
-      }
-
-      showToast(`✓ Expanded ${clicked > 0 ? clicked : "all"} tours! Extracting multi-leg sub-trips...`);
-      await new Promise((r) => setTimeout(r, 1200));
-
-      scanDomForTours();
-      updateFloatingPillUI();
-      if (autoSync) {
-        extractAndSyncAll(true, "upsert");
-      }
+    if (fetchBtn) {
+      fetchBtn.addEventListener("click", () => {
+        nextSyncTimestamp = Date.now() + SYNC_INTERVAL_MS;
+        expandAllRelayRows(true);
+      });
     }
 
-    syncBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      expandAllRelayRows(true);
-    });
+    if (expandBtn) {
+      expandBtn.addEventListener("click", () => {
+        expandAllRelayRows(false);
+      });
+    }
 
     if (replaceBtn) {
-      replaceBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
+      replaceBtn.addEventListener("click", () => {
         expandAllRelayRows(false).then(() => {
           extractAndSyncAll(true, "replace_all");
         });
       });
     }
-  }
 
-  function updateFloatingPillUI() {
-    const countEl = document.getElementById("ud-pill-count");
-    const dotEl = document.getElementById("ud-pill-dot");
-    const autoSyncEl = document.getElementById("ud-pill-autosync");
-    const count = latestOrderedTours.length;
-
-    if (countEl) {
-      countEl.innerText = `${count} ${count === 1 ? "Tour" : "Tours"}`;
-      countEl.style.color = count > 0 ? "#38bdf8" : "#94a3b8";
-      countEl.style.background = count > 0 ? "rgba(56, 189, 248, 0.15)" : "#1e293b";
+    if (datePicker) {
+      datePicker.addEventListener("change", (e) => {
+        activeDateFilter = e.target.value;
+        updateDockedSidebarUI();
+      });
     }
 
-    if (dotEl) {
-      dotEl.style.background = count > 0 ? "#10b981" : "#f59e0b";
-      dotEl.style.boxShadow = count > 0 ? "0 0 8px #10b981" : "0 0 8px #f59e0b";
+    if (todayBtn) {
+      todayBtn.addEventListener("click", () => {
+        const todayStr = new Date().toISOString().split("T")[0];
+        activeDateFilter = todayStr;
+        if (datePicker) datePicker.value = todayStr;
+        updateDockedSidebarUI();
+      });
     }
 
-    try {
-      if (isExtensionValid() && chrome.storage && chrome.storage.local) {
-        chrome.storage.local.get(["autoSyncEnabled"], (cfg) => {
-          if (autoSyncEl) {
-            if (cfg && cfg.autoSyncEnabled === false) {
-              autoSyncEl.style.background = "rgba(148,163,184,0.1)";
-              autoSyncEl.style.color = "#94a3b8";
-              autoSyncEl.style.borderColor = "rgba(148,163,184,0.3)";
-              autoSyncEl.innerHTML = `<span style="width:6px;height:6px;border-radius:9999px;background:#94a3b8;display:inline-block;"></span> AUTO-SYNC PAUSED`;
-            } else {
-              autoSyncEl.style.background = "rgba(16,185,129,0.15)";
-              autoSyncEl.style.color = "#10b981";
-              autoSyncEl.style.borderColor = "rgba(16,185,129,0.3)";
-              autoSyncEl.innerHTML = `<span style="width:6px;height:6px;border-radius:9999px;background:#10b981;box-shadow:0 0 6px #10b981;display:inline-block;"></span> AUTO-SYNC ON (30s)`;
-            }
-          }
+    if (clearDateBtn) {
+      clearDateBtn.addEventListener("click", () => {
+        activeDateFilter = "";
+        if (datePicker) datePicker.value = "";
+        updateDockedSidebarUI();
+      });
+    }
+
+    if (dateSingleBtn && dateRangeBtn) {
+      dateSingleBtn.addEventListener("click", () => {
+        activeDateMode = "single";
+        dateSingleBtn.style.background = "#0284c7";
+        dateSingleBtn.style.color = "#fff";
+        dateRangeBtn.style.background = "#1e293b";
+        dateRangeBtn.style.color = "#94a3b8";
+      });
+      dateRangeBtn.addEventListener("click", () => {
+        activeDateMode = "range";
+        dateRangeBtn.style.background = "#0284c7";
+        dateRangeBtn.style.color = "#fff";
+        dateSingleBtn.style.background = "#1e293b";
+        dateSingleBtn.style.color = "#94a3b8";
+        showToast("Date Range filter mode active.");
+      });
+    }
+
+    if (searchInput) {
+      searchInput.addEventListener("input", (e) => {
+        searchQuery = (e.target.value || "").trim().toLowerCase();
+        updateDockedSidebarUI();
+      });
+    }
+
+    tabBtns.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        activeFilterTab = btn.getAttribute("data-tab") || "all";
+        tabBtns.forEach((b) => {
+          const isActive = b === btn;
+          b.style.background = isActive ? "#0284c7" : "transparent";
+          b.style.color = isActive ? "#ffffff" : "#94a3b8";
+          b.style.fontWeight = isActive ? "800" : "700";
         });
-      }
-    } catch (e) {}
-
-    updateDrawerList();
+        updateDockedSidebarUI();
+      });
+    });
   }
 
-  function updateDrawerList() {
-    const listEl = document.getElementById("ud-pill-drawer-list");
-    if (!listEl) return;
+  // ==========================================
+  // 10. Render & Update Operations Controller
+  // ==========================================
+  function updateDockedSidebarUI() {
+    if (window.self !== window.top) return;
+    if (!document.getElementById("ud-relay-ops-panel")) {
+      injectDockedSidebar();
+    }
 
-    if (latestOrderedTours.length === 0) {
-      listEl.innerHTML = `<div style="color:#64748b; font-size:10px;">No active tours on this screen. Open Amazon Relay Tours/Trips.</div>`;
+    const { evaluated, stats } = evaluateTourPriorities(latestOrderedTours);
+
+    // 1. Operational Status Banner
+    const statusContainer = document.getElementById("ud-ops-status-container");
+    if (statusContainer) {
+      if (stats.unacknowledgedAlerts > 0) {
+        statusContainer.innerHTML = `
+          <div style="background:#b91c1c; border:1px solid #ef4444; border-radius:8px; padding:10px; animation: udPulseSiren 1.5s infinite; color:#ffffff;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div style="font-weight:900; font-size:11px; display:flex; align-items:center; gap:6px;">
+                <span>🚨</span>
+                <span>SIREN ACTIVE • ${stats.unacknowledgedAlerts} ACTION ALERT(S)</span>
+              </div>
+              <button id="ud-silence-all-btn" class="ud-btn-hover" style="background:#ffffff; color:#b91c1c; border:none; padding:4px 8px; border-radius:5px; font-size:9px; font-weight:900; cursor:pointer;">✓ Silence All</button>
+            </div>
+            <div style="font-size:9px; color:#fecaca; margin-top:3px;">Continuous alarm playing until dispatcher acknowledges all pending alerts.</div>
+          </div>
+        `;
+        const silenceBtn = document.getElementById("ud-silence-all-btn");
+        if (silenceBtn) silenceBtn.addEventListener("click", silenceAndAcknowledgeAll);
+      } else if (stats.actionRequired > 0) {
+        statusContainer.innerHTML = `
+          <div style="background:rgba(245,158,11,0.15); border:1px solid #f59e0b; border-radius:8px; padding:8px 10px; color:#fbbf24;">
+            <div style="font-weight:800; font-size:10px; display:flex; align-items:center; gap:6px;">
+              <span>⚠️</span>
+              <span>${stats.actionRequired} Alert(s) Monitored • Siren Silenced</span>
+            </div>
+          </div>
+        `;
+      } else {
+        statusContainer.innerHTML = `
+          <div style="background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.4); border-radius:8px; padding:10px; color:#10b981; text-align:center;">
+            <div style="font-weight:900; font-size:11px;">🟢 All Nominal • Everything Under Control</div>
+            <div style="font-size:9px; color:#6ee7b7; margin-top:2px;">No active delays or pending 3.5h/30m check-ins required.</div>
+          </div>
+        `;
+      }
+    }
+
+    // 2. KPI Cards Grid (Matching competitor 2x3 layout)
+    const kpiGrid = document.getElementById("ud-kpi-grid");
+    if (kpiGrid) {
+      const actionColor = stats.actionRequired > 0 ? "#ef4444" : "#10b981";
+      const delayColor = stats.delaysRaised > 0 ? "#ef4444" : "#94a3b8";
+      const checkinColor = stats.checkins35h > 0 ? "#f59e0b" : "#94a3b8";
+      const deliveryColor = stats.delivery30m > 0 ? "#38bdf8" : "#94a3b8";
+
+      kpiGrid.innerHTML = `
+        <div style="background:#0f172a; border:1px solid #1e293b; border-radius:8px; padding:8px 10px; text-align:center;">
+          <div style="font-size:18px; font-weight:900; color:#ffffff;">${stats.totalLoads}</div>
+          <div style="font-size:9px; font-weight:700; color:#94a3b8; text-transform:uppercase;">Total Loads</div>
+        </div>
+
+        <div style="background:#0f172a; border:1px solid ${actionColor}; border-radius:8px; padding:8px 10px; text-align:center;">
+          <div style="font-size:18px; font-weight:900; color:${actionColor};">${stats.actionRequired}</div>
+          <div style="font-size:9px; font-weight:700; color:${actionColor}; text-transform:uppercase;">Action Required</div>
+        </div>
+
+        <div style="background:#0f172a; border:1px solid #1e293b; border-radius:8px; padding:8px 10px; text-align:center;">
+          <div style="font-size:18px; font-weight:900; color:${delayColor};">${stats.delaysRaised}</div>
+          <div style="font-size:9px; font-weight:700; color:#94a3b8; text-transform:uppercase;">Delays Raised</div>
+        </div>
+
+        <div style="background:#0f172a; border:1px solid #1e293b; border-radius:8px; padding:8px 10px; text-align:center;">
+          <div style="font-size:18px; font-weight:900; color:${checkinColor};">${stats.checkins35h}</div>
+          <div style="font-size:9px; font-weight:700; color:#94a3b8; text-transform:uppercase;">3.5h Check-ins</div>
+        </div>
+
+        <div style="background:#0f172a; border:1px solid #1e293b; border-radius:8px; padding:8px 10px; text-align:center;">
+          <div style="font-size:18px; font-weight:900; color:${deliveryColor};">${stats.delivery30m}</div>
+          <div style="font-size:9px; font-weight:700; color:#94a3b8; text-transform:uppercase;">30m Delivery</div>
+        </div>
+
+        <div style="background:#0f172a; border:1px solid #1e293b; border-radius:8px; padding:8px 10px; text-align:center;">
+          <div style="font-size:18px; font-weight:900; color:#10b981;">${stats.inTransit}</div>
+          <div style="font-size:9px; font-weight:700; color:#94a3b8; text-transform:uppercase;">In Transit</div>
+        </div>
+      `;
+    }
+
+    // 3. Tab Counts
+    const countAll = document.getElementById("ud-tab-count-all");
+    const countUpcoming = document.getElementById("ud-tab-count-upcoming");
+    const countTransit = document.getElementById("ud-tab-count-transit");
+    const countHistory = document.getElementById("ud-tab-count-history");
+
+    if (countAll) countAll.innerText = String(stats.totalLoads);
+    if (countUpcoming) countUpcoming.innerText = String(stats.plannedUpcoming);
+    if (countTransit) countTransit.innerText = String(stats.inTransit);
+    if (countHistory) countHistory.innerText = String(stats.historyLoads);
+
+    // 4. Launcher Badge
+    const launcherStatus = document.getElementById("ud-launcher-status");
+    if (launcherStatus) {
+      if (stats.unacknowledgedAlerts > 0) {
+        launcherStatus.style.background = "#ef4444";
+        launcherStatus.innerText = `🚨 ${stats.unacknowledgedAlerts} ALERTS`;
+      } else {
+        launcherStatus.style.background = "#10b981";
+        launcherStatus.innerText = `${stats.totalLoads} Loads (Nominal)`;
+      }
+    }
+
+    // 5. Render Priority Action Alert Cards
+    renderPriorityAlertCards();
+
+    // 6. Render Tour Cards List
+    renderToursList();
+  }
+
+  function renderPriorityAlertCards() {
+    const queue = document.getElementById("ud-priority-alert-queue");
+    if (!queue) return;
+
+    const allAlerts = [];
+    evaluatedTourResults.forEach((item) => {
+      item.alerts.forEach((alert) => {
+        allAlerts.push(alert);
+      });
+    });
+
+    if (allAlerts.length === 0) {
+      queue.innerHTML = "";
       return;
     }
 
-    listEl.innerHTML = latestOrderedTours
-      .map((t, idx) => {
-        const pDate = new Date(t.pickupTime);
-        const isTomorrow = pDate.getDate() === new Date(Date.now() + 24 * 3600 * 1000).getDate();
-        const dateTag = isTomorrow ? "Tomorrow" : `${pDate.getMonth() + 1}/${pDate.getDate()}`;
-        const stopsBadge = t.stops && t.stops.length > 2 ? `<span style="color:#fb923c; font-weight:800;">⚡ ${t.stops.length} Stops</span>` : "";
+    queue.innerHTML = `
+      <div style="font-size:10px; font-weight:800; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; margin-top:4px;">
+        Action Required (${allAlerts.length})
+      </div>
+    ` + allAlerts.map((alert) => {
+      const isAck = alert.isAcknowledged;
+      const borderCol = isAck ? "#334155" : alert.badgeColor;
+      const bgCol = isAck ? "#0f172a" : alert.badgeBg;
 
-        return `
-        <div style="background:#0f172a; padding:6px 10px; border-radius:8px; border:1px solid #1e293b; display:flex; flex-direction:column; gap:2px;">
+      return `
+        <div style="background:${bgCol}; border:1px solid ${borderCol}; border-radius:8px; padding:8px 10px; display:flex; flex-direction:column; gap:4px;">
           <div style="display:flex; justify-content:space-between; align-items:center;">
             <div style="display:flex; align-items:center; gap:6px;">
-              <span style="background:#ea580c; color:#fff; font-weight:900; font-size:9px; padding:1px 5px; border-radius:4px;">#${idx + 1}</span>
-              <span style="font-family:monospace; font-weight:900; color:#fb923c;">${t.vrid}</span>
+              <span style="background:${alert.badgeColor}; color:#ffffff; font-size:9px; font-weight:900; padding:2px 6px; border-radius:4px;">${alert.badgeText}</span>
+              <span style="font-family:monospace; font-weight:900; color:#fb923c; font-size:11px;">${alert.vrid}</span>
             </div>
-            <span style="color:#34d399; font-weight:800;">${t.driverName || "Assigned Driver"}</span>
+            <div>
+              ${isAck
+                ? `<span style="font-size:9px; font-weight:800; color:#10b981; display:flex; align-items:center; gap:3px;">✓ Acknowledged</span>`
+                : `<button class="ud-ack-btn ud-btn-hover" data-key="${alert.key}" style="background:#ea580c; color:#ffffff; border:none; padding:3px 7px; border-radius:4px; font-size:9px; font-weight:900; cursor:pointer;">✓ Acknowledge</button>`
+              }
+            </div>
           </div>
-          <div style="display:flex; justify-content:space-between; color:#94a3b8; font-size:9px;">
-            <span>${t.originFacilityCode || t.originCity} ➔ ${t.destFacilityCode || t.destCity}</span>
-            <div style="display:flex; gap:6px;">
-              ${stopsBadge}
-              <span style="color:#38bdf8; font-weight:700;">📅 ${dateTag}</span>
+
+          <div style="font-size:10px; font-weight:700; color:#f8fafc;">
+            ${alert.title}
+          </div>
+
+          <div style="font-size:9px; color:#cbd5e1; line-height:1.3;">
+            ${alert.desc}
+          </div>
+
+          <div style="display:flex; justify-content:space-between; align-items:center; color:#94a3b8; font-size:9px; border-top:1px solid rgba(255,255,255,0.07); padding-top:4px; margin-top:2px;">
+            <span>Driver: <b style="color:#34d399;">${alert.tour.driverName || "Assigned Driver"}</b></span>
+            <div style="display:flex; gap:4px;">
+              <button class="ud-copy-msg-btn ud-btn-hover" data-msg="${encodeURIComponent(alert.suggestedMsg)}" style="background:#1e293b; border:1px solid #334155; color:#38bdf8; padding:2px 6px; border-radius:4px; font-size:8px; font-weight:800; cursor:pointer;">📋 Copy Msg</button>
+              <a href="https://wa.me/?text=${encodeURIComponent(alert.suggestedMsg)}" target="_blank" class="ud-btn-hover" style="background:#059669; color:#ffffff; text-decoration:none; padding:2px 6px; border-radius:4px; font-size:8px; font-weight:800; display:inline-block;">💬 WhatsApp</a>
+              <a href="tel:${alert.tour.driverPhone || "+15550000000"}" class="ud-btn-hover" style="background:#1e293b; border:1px solid #334155; color:#f8fafc; text-decoration:none; padding:2px 6px; border-radius:4px; font-size:8px; font-weight:800; display:inline-block;">📞 Call</a>
             </div>
           </div>
         </div>
       `;
-      })
-      .join("");
+    }).join("");
+
+    // Attach click listeners for acknowledge & copy buttons
+    queue.querySelectorAll(".ud-ack-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const key = btn.getAttribute("data-key");
+        if (key) acknowledgeAlert(key);
+      });
+    });
+
+    queue.querySelectorAll(".ud-copy-msg-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const msg = decodeURIComponent(btn.getAttribute("data-msg") || "");
+        copyTextToClipboard(msg);
+      });
+    });
   }
 
-  // 7. Extraction & Dispatch in Strict Screen Order
+  function renderToursList() {
+    const listContainer = document.getElementById("ud-tours-list-container");
+    if (!listContainer) return;
+
+    let filtered = evaluatedTourResults.filter((item) => {
+      // 1. Tab filter
+      if (activeFilterTab === "upcoming" && !item.isUpcoming) return false;
+      if (activeFilterTab === "in_transit" && !item.isInTransit) return false;
+      if (activeFilterTab === "history" && !item.isDelivered) return false;
+
+      // 2. Date filter
+      if (activeDateFilter) {
+        const pickup = item.tour.pickupTime || "";
+        if (!pickup.startsWith(activeDateFilter)) {
+          const pDate = new Date(pickup);
+          const pDateStr = pDate.toISOString().split("T")[0];
+          if (pDateStr !== activeDateFilter) return false;
+        }
+      }
+
+      // 3. Search query
+      if (searchQuery) {
+        const t = item.tour;
+        const haystack = `${t.vrid} ${t.driverName} ${t.originFacilityCode} ${t.destFacilityCode} ${t.originCity} ${t.destCity} ${t.status}`.toLowerCase();
+        if (!haystack.includes(searchQuery)) return false;
+      }
+
+      return true;
+    });
+
+    if (filtered.length === 0) {
+      listContainer.innerHTML = `
+        <div style="background:#0f172a; border:1px solid #1e293b; border-radius:8px; padding:16px; text-align:center; color:#64748b; font-size:10px;">
+          No tours match the selected filters.
+        </div>
+      `;
+      return;
+    }
+
+    listContainer.innerHTML = filtered.map((item, idx) => {
+      const t = item.tour;
+      const pDate = new Date(t.pickupTime);
+      const isTomorrow = pDate.getDate() === new Date(Date.now() + 24 * 3600 * 1000).getDate();
+      const dateTag = isTomorrow ? "Tomorrow" : `${pDate.getMonth() + 1}/${pDate.getDate()}`;
+      const timeTag = pDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+      const stopsBadge = t.stops && t.stops.length > 2
+        ? `<span style="background:rgba(234,88,12,0.15); color:#fb923c; border:1px solid rgba(234,88,12,0.3); font-size:8px; font-weight:800; padding:1px 5px; border-radius:3px;">⚡ ${t.stops.length} Stops</span>`
+        : "";
+
+      let statusPillBg = "#1e293b";
+      let statusPillCol = "#94a3b8";
+      if (item.isDelayed) {
+        statusPillBg = "rgba(239,68,68,0.2)";
+        statusPillCol = "#ef4444";
+      } else if (item.isInTransit) {
+        statusPillBg = "rgba(16,185,129,0.2)";
+        statusPillCol = "#10b981";
+      } else if (item.isUpcoming) {
+        statusPillBg = "rgba(56,189,248,0.15)";
+        statusPillCol = "#38bdf8";
+      }
+
+      return `
+        <div style="background:#0f172a; border:1px solid #1e293b; border-radius:8px; padding:8px 10px; display:flex; flex-direction:column; gap:3px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="background:#ea580c; color:#ffffff; font-weight:900; font-size:8px; padding:1px 5px; border-radius:3px;">#${t.screenIndex || idx + 1}</span>
+              <span style="font-family:monospace; font-weight:900; color:#fb923c; font-size:11px;">${t.vrid}</span>
+            </div>
+            <span style="background:${statusPillBg}; color:${statusPillCol}; font-weight:800; font-size:8px; padding:2px 6px; border-radius:9999px; text-transform:uppercase;">${t.status || "Planned"}</span>
+          </div>
+
+          <div style="display:flex; justify-content:space-between; align-items:center; font-size:10px;">
+            <span style="font-weight:700; color:#f8fafc;">${t.originFacilityCode || t.originCity} ➔ ${t.destFacilityCode || t.destCity}</span>
+            <span style="color:#34d399; font-weight:700;">${t.driverName || "Assigned Driver"}</span>
+          </div>
+
+          <div style="display:flex; justify-content:space-between; align-items:center; color:#94a3b8; font-size:9px;">
+            <span>📅 ${dateTag}, ${timeTag}</span>
+            <div style="display:flex; gap:4px; align-items:center;">
+              ${stopsBadge}
+              <span style="color:#64748b;">${t.equipment || "53' Trailer"}</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  function copyTextToClipboard(text) {
+    if (!text) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        showToast("✓ Message copied to clipboard!");
+      }).catch(() => {
+        fallbackCopy(text);
+      });
+    } else {
+      fallbackCopy(text);
+    }
+  }
+
+  function fallbackCopy(text) {
+    const el = document.createElement("textarea");
+    el.value = text;
+    el.style.position = "fixed";
+    el.style.opacity = "0";
+    document.body.appendChild(el);
+    el.select();
+    try {
+      document.execCommand("copy");
+      showToast("✓ Message copied to clipboard!");
+    } catch (e) {
+      showToast("⚠️ Could not copy message.");
+    }
+    el.remove();
+  }
+
+  // ==========================================
+  // 11. Expand All Multi-Leg Rows
+  // ==========================================
+  async function expandAllRelayRows(autoSync = true) {
+    const expandSelectors = [
+      'button[aria-expanded="false"]',
+      'button[aria-label*="expand" i]',
+      'button[aria-label*="detail" i]',
+      '[class*="expand-toggle"]',
+      '[class*="chevron-right"]',
+      '[class*="expandable"] button',
+      'tr[class*="awsui"] button[aria-expanded="false"]',
+      '[data-testid*="expand"]',
+      'svg[data-icon="angle-right"]',
+      'svg[data-icon="chevron-right"]',
+      '[aria-label*="open" i]',
+    ];
+
+    showToast("📂 Expanding all tours on screen to reveal multi-leg sub-trips...");
+
+    const rows = Array.from(
+      document.querySelectorAll(
+        'table tbody tr:not([class*="header" i]), [role="row"]:not([role="columnheader" i]), li[class*="awsui-cards-card-item" i], div[class*="card"]'
+      )
+    );
+
+    let clicked = 0;
+    for (const row of rows) {
+      const rowText = (row.innerText || row.textContent || "").trim();
+      if (!/\b(B-[A-Za-z0-9]{9})\b/i.test(rowText)) continue;
+
+      const btn = row.querySelector(expandSelectors.join(", "));
+      if (btn) {
+        try {
+          btn.click();
+          clicked++;
+          await new Promise((r) => setTimeout(r, 70));
+        } catch (e) {}
+      } else {
+        const clickable = row.querySelector('td:not(:last-child), [role="gridcell"]:not(:last-child)');
+        if (clickable && !clickable.querySelector("input, select, button, a")) {
+          try {
+            clickable.click();
+            clicked++;
+            await new Promise((r) => setTimeout(r, 60));
+          } catch (e) {}
+        }
+      }
+    }
+
+    showToast(`✓ Expanded ${clicked > 0 ? clicked : "all"} tours! Extracting multi-leg sub-trips...`);
+    await new Promise((r) => setTimeout(r, 1200));
+
+    scanDomForTours();
+    updateDockedSidebarUI();
+    if (autoSync) {
+      extractAndSyncAll(true, "upsert");
+    }
+  }
+
+  // ==========================================
+  // 12. Extraction & Dispatch Pipeline
+  // ==========================================
   function extractAndSyncAll(isManual = false, mode = "upsert") {
     if (isSyncing) return;
     isSyncing = true;
@@ -1252,7 +2092,8 @@
     }
 
     const tours = scanDomForTours();
-    updateFloatingPillUI();
+    evaluateTourPriorities(tours);
+    updateDockedSidebarUI();
 
     if (tours.length === 0) {
       isSyncing = false;
@@ -1304,28 +2145,30 @@
     toast.style.cssText = `
       position: fixed;
       top: 24px;
-      right: 24px;
-      z-index: 10000000;
-      background: #0a1128;
+      right: 395px;
+      z-index: 2147483647;
+      background: #090e17;
       color: #ffffff;
-      padding: 12px 20px;
-      border-radius: 12px;
+      padding: 10px 16px;
+      border-radius: 8px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      font-size: 12px;
-      font-weight: bold;
+      font-size: 11px;
+      font-weight: 700;
       box-shadow: 0 10px 30px rgba(0,0,0,0.6);
       border: 1px solid #ea580c;
-      animation: fadeIn 0.3s ease;
+      transition: opacity 0.4s ease;
+      user-select: none;
     `;
     document.body.appendChild(toast);
     setTimeout(() => {
       toast.style.opacity = "0";
-      toast.style.transition = "opacity 0.5s ease";
-      setTimeout(() => toast.remove(), 500);
-    }, 4000);
+      setTimeout(() => toast.remove(), 400);
+    }, 3500);
   }
 
-  // 8. Message Listener
+  // ==========================================
+  // 13. Runtime Messages & API Interop
+  // ==========================================
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.type === "EXTRACT_NOW") {
       const mode = request.mode || "upsert";
@@ -1343,7 +2186,7 @@
     } else if (request.type === "CLEAR_CAPTURED_POOL") {
       capturedApiToursMap.clear();
       latestOrderedTours = [];
-      updateFloatingPillUI();
+      updateDockedSidebarUI();
       try {
         chrome.storage.local.set({ lastDetectedTours: [] });
       } catch (e) {}
@@ -1354,14 +2197,56 @@
 
   window.__ud_trigger_scan = () => {
     scanDomForTours();
-    updateFloatingPillUI();
+    updateDockedSidebarUI();
   };
 
-  // 9. Startup & Observers
+  // ==========================================
+  // 14. 30-Minute Interval & 1-Second Countdown
+  // ==========================================
+  function startCountdownTimer() {
+    if (countdownInterval) clearInterval(countdownInterval);
+    countdownInterval = setInterval(() => {
+      const remainingMs = Math.max(0, nextSyncTimestamp - Date.now());
+      const totalSecs = Math.floor(remainingMs / 1000);
+      const mins = Math.floor(totalSecs / 60);
+      const secs = totalSecs % 60;
+      const timeStr = `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+
+      const headerCd = document.getElementById("ud-header-countdown");
+      const launcherCd = document.getElementById("ud-launcher-countdown");
+
+      if (headerCd) headerCd.innerText = timeStr;
+      if (launcherCd) launcherCd.innerText = timeStr;
+
+      if (remainingMs <= 0) {
+        nextSyncTimestamp = Date.now() + SYNC_INTERVAL_MS;
+        if (autoSyncEnabled) {
+          triggerAutoSyncCycle();
+        }
+      }
+    }, 1000);
+  }
+
+  async function triggerAutoSyncCycle() {
+    if (!isExtensionValid() || isSyncing) return;
+    try {
+      const tours = scanDomForTours();
+      evaluateTourPriorities(tours);
+      updateDockedSidebarUI();
+      if (tours.length > 0) {
+        extractAndSyncAll(false, "upsert");
+      }
+    } catch (e) {}
+  }
+
+  // ==========================================
+  // 15. Startup & Observers
+  // ==========================================
   setTimeout(() => {
-    injectFloatingPill();
+    injectDockedSidebar();
     const tours = scanDomForTours();
-    updateFloatingPillUI();
+    updateDockedSidebarUI();
+    startCountdownTimer();
     if (tours.length > 0) {
       extractAndSyncAll(false, "upsert");
     }
@@ -1369,39 +2254,39 @@
 
   setTimeout(() => {
     const tours = scanDomForTours();
-    updateFloatingPillUI();
+    updateDockedSidebarUI();
     if (tours.length > 0) {
       extractAndSyncAll(false, "upsert");
     }
   }, 2500);
 
   const observer = new MutationObserver((mutations) => {
-    const isOurPill = mutations.every(
-      (m) => m.target && (m.target.id?.includes?.("ud-") || m.target.closest?.("#ud-relay-sync-pill"))
+    const isOurUi = mutations.every(
+      (m) => m.target && (m.target.id?.includes?.("ud-") || m.target.closest?.("#ud-relay-ops-panel") || m.target.closest?.("#ud-collapsed-launcher"))
     );
-    if (isOurPill) return;
+    if (isOurUi) return;
 
     if (debounceScanTimer) clearTimeout(debounceScanTimer);
     debounceScanTimer = setTimeout(() => {
       scanDomForTours();
-      updateFloatingPillUI();
+      updateDockedSidebarUI();
     }, 1000);
   });
 
-  // 10. Real-Time Row Expansion & Click Auto-Sync
+  // Real-Time Row Expansion & Click Auto-Sync
   document.addEventListener(
     "click",
     (e) => {
       const target = e.target;
       if (!target) return;
-      if (target.closest && target.closest("#ud-relay-sync-pill")) return;
+      if (target.closest && (target.closest("#ud-relay-ops-panel") || target.closest("#ud-collapsed-launcher"))) return;
       const row = target.closest ? target.closest('tr, [role="row"], li[class*="card" i], [class*="awsui-table-row"]') : null;
       if (row) {
         const rowText = (row.innerText || row.textContent || "").trim();
         if (/\b(B-[A-Za-z0-9]{9}|T-[A-Za-z0-9]{9})\b/i.test(rowText)) {
           setTimeout(() => {
             const tours = scanDomForTours();
-            updateFloatingPillUI();
+            updateDockedSidebarUI();
             if (tours.length > 0) {
               extractAndSyncAll(false, "upsert");
             }
@@ -1416,32 +2301,4 @@
     childList: true,
     subtree: true,
   });
-
-  // 11. Automated Continuous Background Sync Loop (Every 30 seconds)
-  const autoSyncInterval = setInterval(async () => {
-    if (!isExtensionValid()) {
-      clearInterval(autoSyncInterval);
-      return;
-    }
-    try {
-      let autoSyncEnabled = true;
-      if (chrome.storage && chrome.storage.local) {
-        const cfg = await chrome.storage.local.get(["autoSyncEnabled"]);
-        if (cfg && cfg.autoSyncEnabled === false) autoSyncEnabled = false;
-      }
-      if (!autoSyncEnabled) {
-        updateFloatingPillUI();
-        return;
-      }
-      const tours = scanDomForTours();
-      updateFloatingPillUI();
-      if (tours.length > 0) {
-        extractAndSyncAll(false, "upsert");
-      }
-    } catch (e) {
-      if (String(e).includes("context invalidated") || !isExtensionValid()) {
-        clearInterval(autoSyncInterval);
-      }
-    }
-  }, 30000);
 })();
