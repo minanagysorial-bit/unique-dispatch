@@ -614,6 +614,48 @@
     }
   }
 
+  // Sister Relay API query throttle
+  let lastSisterApiFetchTime = 0;
+  function triggerSisterApiQuery(originalUrl, originalOptions) {
+    const now = Date.now();
+    if (now - lastSisterApiFetchTime < 15000) return; // 15-second throttle
+
+    let sisterUrl = null;
+    let sisterBody = null;
+
+    if (/upcoming/i.test(originalUrl)) {
+      sisterUrl = originalUrl.replace(/upcoming/g, "in_transit").replace(/UPCOMING/g, "IN_TRANSIT");
+    } else if (/in[-_]transit/i.test(originalUrl)) {
+      sisterUrl = originalUrl.replace(/in[-_]transit/gi, "upcoming").replace(/IN_TRANSIT/g, "UPCOMING");
+    }
+
+    if (originalOptions && typeof originalOptions.body === "string") {
+      if (/UPCOMING/i.test(originalOptions.body)) {
+        sisterBody = originalOptions.body.replace(/UPCOMING/g, "IN_TRANSIT");
+      } else if (/IN_TRANSIT/i.test(originalOptions.body)) {
+        sisterBody = originalOptions.body.replace(/IN_TRANSIT/g, "UPCOMING");
+      }
+    }
+
+    if ((sisterUrl && sisterUrl !== originalUrl) || sisterBody) {
+      lastSisterApiFetchTime = now;
+      const fetchUrl = sisterUrl || originalUrl;
+      console.log("🚚 [Unique Dispatch] Automatically requesting sister Relay tab API:", fetchUrl);
+      originalFetch(fetchUrl, {
+        method: (originalOptions && originalOptions.method) || "GET",
+        headers: (originalOptions && originalOptions.headers) || undefined,
+        body: sisterBody || undefined,
+        credentials: "include",
+      })
+        .then((res) => res.text())
+        .then((text) => {
+          const parsed = safeParseJson(text);
+          if (parsed) handlePossibleRelayData(parsed, fetchUrl);
+        })
+        .catch(() => {});
+    }
+  }
+
   // 1. Hook fetch
   const originalFetch = window.fetch;
   window.fetch = async function (...args) {
@@ -628,6 +670,7 @@
             const parsed = safeParseJson(text);
             if (parsed) {
               handlePossibleRelayData(parsed, url);
+              triggerSisterApiQuery(url, args[1]);
             }
           }
         })

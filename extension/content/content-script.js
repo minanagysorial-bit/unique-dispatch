@@ -13,6 +13,7 @@
   console.log("🚚 [Unique Dispatch] Relay Ops Controller & CPT Engine v3.0 Active in frame:", window.location.href);
 
   const capturedApiToursMap = new Map();
+  const masterToursMap = new Map();
   let latestOrderedTours = [];
   let isSyncing = false;
   let debounceScanTimer = null;
@@ -25,7 +26,24 @@
     }
   }
 
-  // 1. Listen for messages from Main-World API Interceptor
+  // Load accumulated master tours from storage at startup
+  try {
+    if (isExtensionValid() && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.get(["udMasterToursPool"], (data) => {
+        if (data && Array.isArray(data.udMasterToursPool) && data.udMasterToursPool.length > 0) {
+          data.udMasterToursPool.forEach((t) => {
+            if (t && t.vrid) masterToursMap.set(t.vrid, t);
+          });
+          latestOrderedTours = Array.from(masterToursMap.values());
+          if (typeof updateDockedSidebarUI === "function") {
+            updateDockedSidebarUI();
+          }
+        }
+      });
+    }
+  } catch (e) {}
+
+  // 1. Listen for messages from Main-World API Interceptor & Sister Tab Scanner
   window.addEventListener("message", (event) => {
     if (event.source !== window || !event.data) return;
 
@@ -34,12 +52,56 @@
       event.data.tours.forEach((tour) => {
         if (tour && tour.vrid) {
           capturedApiToursMap.set(tour.vrid, tour);
+          if (masterToursMap.has(tour.vrid)) {
+            const existing = masterToursMap.get(tour.vrid);
+            masterToursMap.set(tour.vrid, {
+              ...existing,
+              ...tour,
+              driverName: (tour.driverName && tour.driverName !== "Assigned Driver") ? tour.driverName : existing.driverName,
+              stops: (tour.stops && tour.stops.length > (existing.stops ? existing.stops.length : 0)) ? tour.stops : existing.stops,
+              subTrips: (tour.subTrips && tour.subTrips.length > (existing.subTrips ? existing.subTrips.length : 0)) ? tour.subTrips : existing.subTrips,
+            });
+          } else {
+            masterToursMap.set(tour.vrid, tour);
+          }
         }
       });
 
-      const tours = scanDomForTours();
+      scanDomForTours();
       updateDockedSidebarUI();
-      if (tours.length > 0) {
+      if (latestOrderedTours.length > 0) {
+        extractAndSyncAll(false, "upsert");
+      }
+    }
+
+    if (event.data.type === "UD_SYNC_IFRAME_TOURS" && Array.isArray(event.data.tours)) {
+      console.log(`🚚 [Unique Dispatch] Auto-ingested ${event.data.tours.length} tours from sister Relay tab in background`);
+      event.data.tours.forEach((tour) => {
+        if (tour && tour.vrid) {
+          if (masterToursMap.has(tour.vrid)) {
+            const existing = masterToursMap.get(tour.vrid);
+            masterToursMap.set(tour.vrid, {
+              ...existing,
+              ...tour,
+              driverName: (tour.driverName && tour.driverName !== "Assigned Driver") ? tour.driverName : existing.driverName,
+              stops: (tour.stops && tour.stops.length > (existing.stops ? existing.stops.length : 0)) ? tour.stops : existing.stops,
+              subTrips: (tour.subTrips && tour.subTrips.length > (existing.subTrips ? existing.subTrips.length : 0)) ? tour.subTrips : existing.subTrips,
+            });
+          } else {
+            masterToursMap.set(tour.vrid, tour);
+          }
+        }
+      });
+
+      latestOrderedTours = Array.from(masterToursMap.values());
+      try {
+        if (isExtensionValid() && chrome.storage && chrome.storage.local) {
+          chrome.storage.local.set({ udMasterToursPool: latestOrderedTours });
+        }
+      } catch (e) {}
+
+      updateDockedSidebarUI();
+      if (latestOrderedTours.length > 0) {
         extractAndSyncAll(false, "upsert");
       }
     }
@@ -953,26 +1015,54 @@
       }
     }
 
-    // Merge any remaining API tours not caught in DOM (Strictly Block Tours when hasBlockTours is true)
+    // 6. Merge found tours into persistent masterToursMap
+    const isTransitPage = window.location.href.includes("in-transit") || window.location.href.includes("IN_TRANSIT");
+    const isUpcomingPage = window.location.href.includes("upcoming") || window.location.href.includes("UPCOMING");
+
+    foundTours.forEach((tour) => {
+      if (!tour || !tour.vrid) return;
+      if (isTransitPage && tour.status !== "delayed" && tour.status !== "delivered") {
+        tour.status = "in_transit";
+      } else if (isUpcomingPage && tour.status !== "delayed" && tour.status !== "in_transit" && tour.status !== "delivered") {
+        tour.status = "upcoming";
+      }
+
+      if (masterToursMap.has(tour.vrid)) {
+        const existing = masterToursMap.get(tour.vrid);
+        masterToursMap.set(tour.vrid, {
+          ...existing,
+          ...tour,
+          driverName: (tour.driverName && tour.driverName !== "Assigned Driver") ? tour.driverName : existing.driverName,
+          stops: (tour.stops && tour.stops.length > (existing.stops ? existing.stops.length : 0)) ? tour.stops : existing.stops,
+          subTrips: (tour.subTrips && tour.subTrips.length > (existing.subTrips ? existing.subTrips.length : 0)) ? tour.subTrips : existing.subTrips,
+        });
+      } else {
+        masterToursMap.set(tour.vrid, tour);
+      }
+    });
+
+    // 7. Also merge any captured API tours
     if (capturedApiToursMap.size > 0) {
-      capturedApiToursMap.forEach((apiTour) => {
-        if (
-          apiTour &&
-          apiTour.vrid &&
-          !seenIds.has(apiTour.vrid) &&
-          (!requireBlockTours || apiTour.vrid.startsWith("B-"))
-        ) {
-          seenIds.add(apiTour.vrid);
-          apiTour.screenIndex = currentScreenIndex++;
-          foundTours.push(apiTour);
+      capturedApiToursMap.forEach((apiTour, vrid) => {
+        if (apiTour && vrid) {
+          if (masterToursMap.has(vrid)) {
+            masterToursMap.set(vrid, { ...masterToursMap.get(vrid), ...apiTour });
+          } else if (!requireBlockTours || vrid.startsWith("B-")) {
+            apiTour.screenIndex = currentScreenIndex++;
+            masterToursMap.set(vrid, apiTour);
+          }
         }
       });
     }
 
-    latestOrderedTours = foundTours;
+    // 8. Compile ordered tours from master map (Always preserves both Upcoming & In Transit)
+    latestOrderedTours = Array.from(masterToursMap.values());
     try {
       if (isExtensionValid() && chrome.storage && chrome.storage.local) {
-        chrome.storage.local.set({ lastDetectedTours: latestOrderedTours });
+        chrome.storage.local.set({
+          lastDetectedTours: latestOrderedTours,
+          udMasterToursPool: latestOrderedTours,
+        });
       }
     } catch (e) {}
 
@@ -1082,7 +1172,7 @@
   document.addEventListener("keydown", () => siren.init(), { once: true, passive: true });
 
   // ==========================================
-  // 7. Priority Dispatch & Milestone State
+  // 7. Priority Dispatch & UI Ergonomics State
   // ==========================================
   let acknowledgedAlertKeys = new Set();
   let evaluatedTourResults = [];
@@ -1103,6 +1193,8 @@
   let searchQuery = "";
   let isSidebarCollapsed = false;
   let autoSyncEnabled = true;
+  let currentTheme = "light"; // 'light' (default matching competitor) or 'dark'
+  let currentPanelWidth = 380; // 380 (standard) or 460 (wide)
 
   const SYNC_INTERVAL_MS = 30 * 60 * 1000; // 30 Minutes
   let nextSyncTimestamp = Date.now() + SYNC_INTERVAL_MS;
@@ -1111,17 +1203,33 @@
   // Initialize stored acknowledgments & preferences
   try {
     if (isExtensionValid() && chrome.storage && chrome.storage.local) {
-      chrome.storage.local.get(["acknowledgedAlertKeys", "sidebarCollapsed", "autoSyncEnabled"], (data) => {
-        if (data && Array.isArray(data.acknowledgedAlertKeys)) {
-          data.acknowledgedAlertKeys.forEach((k) => acknowledgedAlertKeys.add(k));
+      chrome.storage.local.get(
+        ["acknowledgedAlertKeys", "sidebarCollapsed", "autoSyncEnabled", "uiTheme", "panelWidth", "udMasterToursPool"],
+        (data) => {
+          if (data && Array.isArray(data.acknowledgedAlertKeys)) {
+            data.acknowledgedAlertKeys.forEach((k) => acknowledgedAlertKeys.add(k));
+          }
+          if (data && typeof data.sidebarCollapsed === "boolean") {
+            isSidebarCollapsed = data.sidebarCollapsed;
+          }
+          if (data && typeof data.autoSyncEnabled === "boolean") {
+            autoSyncEnabled = data.autoSyncEnabled;
+          }
+          if (data && (data.uiTheme === "light" || data.uiTheme === "dark")) {
+            currentTheme = data.uiTheme;
+          }
+          if (data && (data.panelWidth === 380 || data.panelWidth === 460)) {
+            currentPanelWidth = data.panelWidth;
+          }
+          if (data && Array.isArray(data.udMasterToursPool) && data.udMasterToursPool.length > 0) {
+            data.udMasterToursPool.forEach((t) => {
+              if (t && t.vrid) masterToursMap.set(t.vrid, t);
+            });
+            latestOrderedTours = Array.from(masterToursMap.values());
+            updateDockedSidebarUI();
+          }
         }
-        if (data && typeof data.sidebarCollapsed === "boolean") {
-          isSidebarCollapsed = data.sidebarCollapsed;
-        }
-        if (data && typeof data.autoSyncEnabled === "boolean") {
-          autoSyncEnabled = data.autoSyncEnabled;
-        }
-      });
+      );
     }
   } catch (e) {}
 
@@ -1172,8 +1280,8 @@
           priorityRank: 1,
           isAcknowledged: isAck,
           badgeText: "🚨 DELAY RAISED",
-          badgeColor: "#ef4444",
-          badgeBg: "rgba(239, 68, 68, 0.2)",
+          badgeColor: "#dc2626",
+          badgeBg: "rgba(220, 38, 38, 0.12)",
           title: "Critical Relay Delay / Disruption Flagged",
           desc: "Tour marked as delayed or disrupted. Contact Amazon Relay Support & verify driver status immediately.",
           actionLabel: "Call Driver & Notify Amazon",
@@ -1201,8 +1309,8 @@
           priorityRank: 2,
           isAcknowledged: isAck,
           badgeText: "⚠️ 3.5H CHECK-IN DUE",
-          badgeColor: "#f59e0b",
-          badgeBg: "rgba(245, 158, 11, 0.2)",
+          badgeColor: "#d97706",
+          badgeBg: "rgba(217, 119, 6, 0.12)",
           title: `Pickup in ${timeStr} • Driver Check-in Required`,
           desc: `Tour departs soon from ${tour.originFacilityCode || tour.originCity}. Send driver message to confirm on-time rolling status.`,
           actionLabel: "Send Driver Message",
@@ -1226,8 +1334,8 @@
           priorityRank: 3,
           isAcknowledged: isAck,
           badgeText: "📞 30M DELIVERY CONFIRMATION",
-          badgeColor: "#38bdf8",
-          badgeBg: "rgba(56, 189, 248, 0.2)",
+          badgeColor: "#0284c7",
+          badgeBg: "rgba(2, 132, 199, 0.12)",
           title: `Delivery in ${minutesToDelivery}m • Call Driver Now`,
           desc: `Approaching destination ${tour.destFacilityCode || tour.destCity}. Call driver to ensure smooth gate arrival & guard check-in.`,
           actionLabel: "Call Driver Immediately",
@@ -1341,48 +1449,139 @@
   }
 
   // ==========================================
-  // 9. In-Page Docked Operations Sidebar UI
+  // 9. Autonomous Dual-Tab Background Scanner
+  // ==========================================
+  function triggerAutonomousDualTabScan() {
+    if (window.self !== window.top) return; // Only parent frame coordinates
+
+    const href = window.location.href.toLowerCase();
+    const isTransit = href.includes("in-transit");
+    const isUpcoming = href.includes("upcoming");
+
+    let targetPath = "";
+    if (isUpcoming) {
+      targetPath = "/tours/in-transit?ref=ud_auto_sync";
+    } else if (isTransit) {
+      targetPath = "/tours/upcoming?ref=ud_auto_sync";
+    } else {
+      targetPath = "/tours/in-transit?ref=ud_auto_sync";
+    }
+
+    let frame = document.getElementById("ud-bg-tab-scanner");
+    if (!frame) {
+      frame = document.createElement("iframe");
+      frame.id = "ud-bg-tab-scanner";
+      frame.style.cssText = "position:fixed; top:-9999px; left:-9999px; width:1px; height:1px; opacity:0; pointer-events:none; border:none; z-index:-1;";
+      document.body.appendChild(frame);
+    }
+    frame.src = targetPath;
+  }
+
+  // If executing inside background sync iframe, scan and transmit to parent
+  if (window.self !== window.top) {
+    setTimeout(() => {
+      try {
+        const iframeTours = scanDomForTours();
+        if (iframeTours && iframeTours.length > 0) {
+          window.parent.postMessage(
+            {
+              type: "UD_SYNC_IFRAME_TOURS",
+              tours: iframeTours,
+              url: window.location.href,
+            },
+            "*"
+          );
+        }
+      } catch (e) {}
+    }, 2800);
+  }
+
+  // ==========================================
+  // 10. In-Page Docked Operations Sidebar UI
   // ==========================================
   function injectDockedSidebar() {
     if (window.self !== window.top) return;
     if (document.getElementById("ud-relay-ops-panel")) return;
 
-    // Inject custom CSS styling
+    // Inject custom CSS styles with theme variables
     if (!document.getElementById("ud-docked-styles")) {
       const styleTag = document.createElement("style");
       styleTag.id = "ud-docked-styles";
       styleTag.textContent = `
         @keyframes udPulseSiren {
-          0%, 100% { background: #b91c1c; box-shadow: 0 0 16px rgba(239,68,68,0.8); }
-          50% { background: #7f1d1d; box-shadow: 0 0 4px rgba(239,68,68,0.4); }
+          0%, 100% { background: #dc2626; box-shadow: 0 0 16px rgba(220,38,38,0.7); }
+          50% { background: #991b1b; box-shadow: 0 0 4px rgba(220,38,38,0.3); }
         }
         @keyframes udBadgeGlow {
           0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.03); }
+          50% { transform: scale(1.02); }
         }
+
+        #ud-relay-ops-panel {
+          --ud-bg: #f8fafc;
+          --ud-header-bg: #ffffff;
+          --ud-surface: #ffffff;
+          --ud-border: #e2e8f0;
+          --ud-border-strong: #cbd5e1;
+          --ud-text-primary: #0f172a;
+          --ud-text-secondary: #64748b;
+          --ud-card-bg: #ffffff;
+          --ud-card-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+          --ud-input-bg: #ffffff;
+        }
+
+        #ud-relay-ops-panel.ud-dark {
+          --ud-bg: #090e17;
+          --ud-header-bg: #0f172a;
+          --ud-surface: #0f172a;
+          --ud-border: #1e293b;
+          --ud-border-strong: #334155;
+          --ud-text-primary: #f8fafc;
+          --ud-text-secondary: #94a3b8;
+          --ud-card-bg: #0f172a;
+          --ud-card-shadow: 0 4px 12px rgba(0,0,0,0.35);
+          --ud-input-bg: #090e17;
+        }
+
         #ud-relay-ops-panel * {
           box-sizing: border-box;
         }
+
         #ud-relay-ops-panel ::-webkit-scrollbar {
-          width: 5px;
-          height: 5px;
+          width: 6px;
+          height: 6px;
         }
         #ud-relay-ops-panel ::-webkit-scrollbar-track {
-          background: #090e17;
+          background: var(--ud-bg);
         }
         #ud-relay-ops-panel ::-webkit-scrollbar-thumb {
-          background: #334155;
+          background: #cbd5e1;
           border-radius: 4px;
+        }
+        #ud-relay-ops-panel.ud-dark ::-webkit-scrollbar-thumb {
+          background: #334155;
         }
         #ud-relay-ops-panel ::-webkit-scrollbar-thumb:hover {
           background: #ea580c;
         }
+
+        .ud-btn-hover {
+          transition: all 0.15s ease;
+        }
         .ud-btn-hover:hover {
-          filter: brightness(1.15);
+          filter: brightness(1.08);
           transform: translateY(-1px);
         }
         .ud-btn-hover:active {
           transform: translateY(0);
+        }
+
+        .ud-tour-card {
+          transition: all 0.2s ease;
+        }
+        .ud-tour-card:hover {
+          border-color: #ea580c !important;
+          box-shadow: 0 4px 14px rgba(234,88,12,0.12) !important;
         }
       `;
       document.head.appendChild(styleTag);
@@ -1391,38 +1590,42 @@
     // 1. Docked Sidebar Container
     const panel = document.createElement("div");
     panel.id = "ud-relay-ops-panel";
+    if (currentTheme === "dark") panel.classList.add("ud-dark");
+
     panel.style.cssText = `
       position: fixed;
       top: 0;
       right: 0;
-      width: 380px;
+      width: ${currentPanelWidth}px;
       height: 100vh;
       z-index: 2147483640;
-      background: #090e17;
-      color: #f8fafc;
-      border-left: 1px solid #1e293b;
-      box-shadow: -10px 0 35px rgba(0, 0, 0, 0.65);
+      background: var(--ud-bg);
+      color: var(--ud-text-primary);
+      border-left: 1px solid var(--ud-border);
+      box-shadow: -8px 0 30px rgba(0, 0, 0, 0.25);
       display: flex;
       flex-direction: column;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.2s ease;
       box-sizing: border-box;
     `;
 
     panel.innerHTML = `
       <!-- Top Title Bar -->
-      <div id="ud-panel-topbar" style="background:#0f172a; border-bottom:1px solid #1e293b; padding:10px 14px; display:flex; align-items:center; justify-content:space-between; user-select:none;">
+      <div id="ud-panel-topbar" style="background:var(--ud-header-bg); border-bottom:1px solid var(--ud-border); padding:10px 14px; display:flex; align-items:center; justify-content:space-between; user-select:none;">
         <div style="display:flex; align-items:center; gap:8px;">
-          <span style="font-size:16px;">🚚</span>
+          <span style="font-size:18px;">🚚</span>
           <div>
-            <div style="font-weight:900; font-size:11px; color:#fb923c; letter-spacing:0.4px;">UNIQUE DISPATCH</div>
-            <div style="font-size:9px; color:#94a3b8; font-weight:600;">Relay Ops Controller v3.0</div>
+            <div style="font-weight:900; font-size:12px; color:#ea580c; letter-spacing:0.4px;">UNIQUE DISPATCH</div>
+            <div style="font-size:9px; color:var(--ud-text-secondary); font-weight:600;">Relay Ops Controller & CPT Engine v3.0</div>
           </div>
         </div>
-        <div style="display:flex; align-items:center; gap:6px;">
-          <button id="ud-sound-toggle-btn" class="ud-btn-hover" style="background:#1e293b; border:1px solid #334155; color:#f8fafc; padding:4px 7px; border-radius:6px; font-size:10px; cursor:pointer;" title="Toggle Siren Sound / Sound Test">🔊</button>
-          <button id="ud-minimize-btn" class="ud-btn-hover" style="background:#1e293b; border:1px solid #334155; color:#94a3b8; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer;" title="Minimize to edge tab">_</button>
-          <button id="ud-close-btn" class="ud-btn-hover" style="background:#1e293b; border:1px solid #334155; color:#94a3b8; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer;" title="Close Docked Panel">✕</button>
+        <div style="display:flex; align-items:center; gap:5px;">
+          <button id="ud-theme-toggle-btn" class="ud-btn-hover" style="background:transparent; border:1px solid var(--ud-border); color:var(--ud-text-primary); padding:4px 7px; border-radius:6px; font-size:11px; cursor:pointer;" title="Toggle Light / Dark Mode">${currentTheme === "dark" ? "☀️" : "🌙"}</button>
+          <button id="ud-width-toggle-btn" class="ud-btn-hover" style="background:transparent; border:1px solid var(--ud-border); color:var(--ud-text-primary); padding:4px 7px; border-radius:6px; font-size:11px; cursor:pointer;" title="Toggle Standard (380px) / Wide (460px)">↔</button>
+          <button id="ud-sound-toggle-btn" class="ud-btn-hover" style="background:transparent; border:1px solid var(--ud-border); color:var(--ud-text-primary); padding:4px 7px; border-radius:6px; font-size:11px; cursor:pointer;" title="Toggle Siren Sound / Sound Test">🔊</button>
+          <button id="ud-minimize-btn" class="ud-btn-hover" style="background:transparent; border:1px solid var(--ud-border); color:var(--ud-text-secondary); padding:4px 8px; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer;" title="Minimize to edge tab">_</button>
+          <button id="ud-close-btn" class="ud-btn-hover" style="background:transparent; border:1px solid var(--ud-border); color:var(--ud-text-secondary); padding:4px 8px; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer;" title="Close Docked Panel">✕</button>
         </div>
       </div>
 
@@ -1432,21 +1635,21 @@
         <!-- Live Operational Status Banner -->
         <div id="ud-ops-status-container"></div>
 
-        <!-- Date Filtering Bar -->
-        <div style="background:#0f172a; border:1px solid #1e293b; border-radius:8px; padding:8px 10px;">
+        <!-- Date Filtering Bar (Matching Competitor Layout) -->
+        <div style="background:var(--ud-surface); border:1px solid var(--ud-border); border-radius:8px; padding:8px 10px; box-shadow:var(--ud-card-shadow);">
           <div style="display:flex; gap:6px; margin-bottom:6px;">
-            <button id="ud-date-single-btn" class="ud-btn-hover" style="flex:1; background:#0284c7; color:#fff; border:none; padding:4px 8px; border-radius:5px; font-size:10px; font-weight:800; cursor:pointer;">Single Date</button>
-            <button id="ud-date-range-btn" class="ud-btn-hover" style="flex:1; background:#1e293b; color:#94a3b8; border:1px solid #334155; padding:4px 8px; border-radius:5px; font-size:10px; font-weight:700; cursor:pointer;">Date Range</button>
+            <button id="ud-date-single-btn" class="ud-btn-hover" style="flex:1; background:#0284c7; color:#fff; border:none; padding:5px 8px; border-radius:6px; font-size:10px; font-weight:800; cursor:pointer;">Single Date</button>
+            <button id="ud-date-range-btn" class="ud-btn-hover" style="flex:1; background:transparent; color:var(--ud-text-secondary); border:1px solid var(--ud-border); padding:5px 8px; border-radius:6px; font-size:10px; font-weight:700; cursor:pointer;">Date Range</button>
           </div>
           <div style="display:flex; gap:6px; align-items:center;">
-            <input type="date" id="ud-date-picker" style="flex:1; background:#090e17; color:#f8fafc; border:1px solid #334155; border-radius:5px; padding:4px 8px; font-size:10px; font-family:inherit;">
-            <button id="ud-date-today-btn" class="ud-btn-hover" style="background:#0284c7; color:#fff; border:none; padding:4px 8px; border-radius:5px; font-size:10px; font-weight:800; cursor:pointer;">Today</button>
-            <button id="ud-date-clear-btn" class="ud-btn-hover" style="background:#1e293b; color:#94a3b8; border:1px solid #334155; padding:4px 6px; border-radius:5px; font-size:10px; cursor:pointer;" title="Show All Dates">All</button>
+            <input type="date" id="ud-date-picker" style="flex:1; background:var(--ud-input-bg); color:var(--ud-text-primary); border:1px solid var(--ud-border-strong); border-radius:6px; padding:5px 8px; font-size:10px; font-family:inherit;">
+            <button id="ud-date-today-btn" class="ud-btn-hover" style="background:#0284c7; color:#fff; border:none; padding:5px 10px; border-radius:6px; font-size:10px; font-weight:800; cursor:pointer;">Today</button>
+            <button id="ud-date-clear-btn" class="ud-btn-hover" style="background:transparent; color:var(--ud-text-secondary); border:1px solid var(--ud-border); padding:5px 8px; border-radius:6px; font-size:10px; cursor:pointer;" title="Show All Dates">All</button>
           </div>
         </div>
 
-        <!-- 6 KPI Counter Cards Grid -->
-        <div id="ud-kpi-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+        <!-- 6 KPI Counter Cards Grid (Matching Competitor 2x3 Layout) -->
+        <div id="ud-kpi-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
           <!-- Populated dynamically in updateDockedSidebarUI -->
         </div>
 
@@ -1458,8 +1661,8 @@
             color: #ffffff;
             border: 1px solid #38bdf8;
             border-radius: 8px;
-            padding: 10px;
-            font-size: 12px;
+            padding: 11px;
+            font-size: 13px;
             font-weight: 900;
             cursor: pointer;
             display: flex;
@@ -1468,11 +1671,11 @@
             gap: 8px;
             box-shadow: 0 4px 15px rgba(2,132,199,0.35);
           ">
-            <span>⚡ Fetch Relay Loads</span>
+            <span>⚡ Fetch & Sync All Loads</span>
           </button>
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px; padding:0 2px; font-size:9px; color:#94a3b8;">
-            <span>Next Auto-Sync in: <b id="ud-header-countdown" style="color:#38bdf8; font-family:monospace;">30:00</b></span>
-            <span id="ud-autosync-indicator" style="color:#10b981; font-weight:700;">● Active (Every 30m)</span>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px; padding:0 3px; font-size:10px; color:var(--ud-text-secondary);">
+            <span>Next Auto-Sync: <b id="ud-header-countdown" style="color:#0284c7; font-family:monospace; font-weight:800;">30:00</b></span>
+            <span id="ud-autosync-indicator" style="color:#059669; font-weight:800;">● Active (Every 30m)</span>
           </div>
         </div>
 
@@ -1481,25 +1684,25 @@
           <!-- Populated dynamically -->
         </div>
 
-        <!-- Tri-Tab Switcher -->
-        <div style="border-top:1px solid #1e293b; padding-top:8px;">
-          <div id="ud-tri-tabs" style="display:flex; gap:4px; margin-bottom:6px; background:#0f172a; padding:3px; border-radius:6px; border:1px solid #1e293b;">
-            <button data-tab="all" class="ud-tab-btn" style="flex:1; background:#0284c7; color:#fff; border:none; padding:4px 6px; border-radius:4px; font-size:10px; font-weight:800; cursor:pointer;">All (<span id="ud-tab-count-all">0</span>)</button>
-            <button data-tab="upcoming" class="ud-tab-btn" style="flex:1; background:transparent; color:#94a3b8; border:none; padding:4px 6px; border-radius:4px; font-size:10px; font-weight:700; cursor:pointer;">Upcoming (<span id="ud-tab-count-upcoming">0</span>)</button>
-            <button data-tab="in_transit" class="ud-tab-btn" style="flex:1; background:transparent; color:#94a3b8; border:none; padding:4px 6px; border-radius:4px; font-size:10px; font-weight:700; cursor:pointer;">In Transit (<span id="ud-tab-count-transit">0</span>)</button>
-            <button data-tab="history" class="ud-tab-btn" style="flex:1; background:transparent; color:#94a3b8; border:none; padding:4px 6px; border-radius:4px; font-size:10px; font-weight:700; cursor:pointer;">History (<span id="ud-tab-count-history">0</span>)</button>
+        <!-- Tri-Tab Switcher & Live Search -->
+        <div style="border-top:1px solid var(--ud-border); padding-top:8px;">
+          <div id="ud-tri-tabs" style="display:flex; gap:4px; margin-bottom:8px; background:var(--ud-surface); padding:4px; border-radius:8px; border:1px solid var(--ud-border);">
+            <button data-tab="all" class="ud-tab-btn" style="flex:1; background:#0284c7; color:#fff; border:none; padding:5px 6px; border-radius:6px; font-size:10px; font-weight:800; cursor:pointer;">All (<span id="ud-tab-count-all">0</span>)</button>
+            <button data-tab="upcoming" class="ud-tab-btn" style="flex:1; background:transparent; color:var(--ud-text-secondary); border:none; padding:5px 6px; border-radius:6px; font-size:10px; font-weight:700; cursor:pointer;">Upcoming (<span id="ud-tab-count-upcoming">0</span>)</button>
+            <button data-tab="in_transit" class="ud-tab-btn" style="flex:1; background:transparent; color:var(--ud-text-secondary); border:none; padding:5px 6px; border-radius:6px; font-size:10px; font-weight:700; cursor:pointer;">Transit (<span id="ud-tab-count-transit">0</span>)</button>
+            <button data-tab="history" class="ud-tab-btn" style="flex:1; background:transparent; color:var(--ud-text-secondary); border:none; padding:5px 6px; border-radius:6px; font-size:10px; font-weight:700; cursor:pointer;">History (<span id="ud-tab-count-history">0</span>)</button>
           </div>
 
           <!-- Search Filter Input -->
           <div style="position:relative; margin-bottom:6px;">
             <input type="text" id="ud-search-input" placeholder="🔍 Search VRID, Driver, Facility..." style="
               width: 100%;
-              background: #090e17;
-              color: #f8fafc;
-              border: 1px solid #334155;
+              background: var(--ud-input-bg);
+              color: var(--ud-text-primary);
+              border: 1px solid var(--ud-border-strong);
               border-radius: 6px;
-              padding: 5px 8px;
-              font-size: 10px;
+              padding: 6px 10px;
+              font-size: 11px;
               font-family: inherit;
             ">
           </div>
@@ -1513,12 +1716,12 @@
       </div>
 
       <!-- Panel Footer -->
-      <div id="ud-panel-footer" style="background:#0f172a; border-top:1px solid #1e293b; padding:8px 12px; display:flex; justify-content:space-between; align-items:center; font-size:9px; color:#64748b;">
+      <div id="ud-panel-footer" style="background:var(--ud-header-bg); border-top:1px solid var(--ud-border); padding:8px 12px; display:flex; justify-content:space-between; align-items:center; font-size:10px; color:var(--ud-text-secondary);">
         <div style="display:flex; align-items:center; gap:6px;">
-          <button id="ud-expand-all-btn" class="ud-btn-hover" style="background:#9a3412; color:#ffedd5; border:1px solid #ea580c; border-radius:4px; padding:2px 6px; font-size:9px; font-weight:800; cursor:pointer;" title="Expand all rows to reveal sub-trips">📂 Expand All</button>
-          <button id="ud-replace-all-btn" class="ud-btn-hover" style="background:#0284c7; color:#fff; border:none; border-radius:4px; padding:2px 6px; font-size:9px; font-weight:800; cursor:pointer;" title="Replace all portal loads">🔄 Replace All</button>
+          <button id="ud-expand-all-btn" class="ud-btn-hover" style="background:#ea580c; color:#ffffff; border:none; border-radius:5px; padding:3px 8px; font-size:9px; font-weight:800; cursor:pointer;" title="Expand all rows to reveal multi-stop sub-trips">📂 Expand All</button>
+          <button id="ud-replace-all-btn" class="ud-btn-hover" style="background:#0284c7; color:#fff; border:none; border-radius:5px; padding:3px 8px; font-size:9px; font-weight:800; cursor:pointer;" title="Replace all portal loads">🔄 Replace All</button>
         </div>
-        <a href="https://www.uniquedispatch.com/portal" target="_blank" style="color:#38bdf8; text-decoration:none; font-weight:700;">Open Ops Portal ↗</a>
+        <a href="https://www.uniquedispatch.com/portal" target="_blank" style="color:#0284c7; text-decoration:none; font-weight:700;">Open Portal ↗</a>
       </div>
     `;
 
@@ -1532,12 +1735,12 @@
       top: 140px;
       right: 0;
       z-index: 2147483645;
-      background: #090e17;
+      background: #0f172a;
       color: #ffffff;
       border: 1px solid #ea580c;
       border-right: none;
       border-radius: 8px 0 0 8px;
-      padding: 8px 12px;
+      padding: 9px 12px;
       cursor: pointer;
       box-shadow: -4px 4px 18px rgba(0,0,0,0.55);
       display: none;
@@ -1551,8 +1754,8 @@
     launcher.innerHTML = `
       <span style="font-size:14px;">🚚</span>
       <span style="font-weight:900; color:#fb923c;">UD OPS</span>
-      <span id="ud-launcher-status" style="background:#10b981; color:#fff; font-size:9px; font-weight:800; padding:2px 6px; border-radius:9999px;">0 Loads</span>
-      <span id="ud-launcher-countdown" style="font-size:9px; color:#94a3b8; font-family:monospace;">30:00</span>
+      <span id="ud-launcher-status" style="background:#059669; color:#fff; font-size:9px; font-weight:800; padding:2px 7px; border-radius:9999px;">0 Loads</span>
+      <span id="ud-launcher-countdown" style="font-size:9px; color:#cbd5e1; font-family:monospace;">30:00</span>
     `;
     document.body.appendChild(launcher);
 
@@ -1569,16 +1772,17 @@
     const launcher = document.getElementById("ud-collapsed-launcher");
 
     if (collapsed) {
-      if (panel) panel.style.transform = "translateX(390px)";
+      if (panel) panel.style.transform = `translateX(${currentPanelWidth + 20}px)`;
       if (launcher) launcher.style.display = "flex";
       document.body.style.marginRight = "0px";
     } else {
       if (panel) {
         panel.style.transform = "translateX(0)";
         panel.style.display = "flex";
+        panel.style.width = `${currentPanelWidth}px`;
       }
       if (launcher) launcher.style.display = "none";
-      document.body.style.marginRight = "380px";
+      document.body.style.marginRight = `${currentPanelWidth}px`;
     }
 
     try {
@@ -1592,6 +1796,8 @@
     const minBtn = document.getElementById("ud-minimize-btn");
     const closeBtn = document.getElementById("ud-close-btn");
     const soundBtn = document.getElementById("ud-sound-toggle-btn");
+    const themeBtn = document.getElementById("ud-theme-toggle-btn");
+    const widthBtn = document.getElementById("ud-width-toggle-btn");
     const launcher = document.getElementById("ud-collapsed-launcher");
     const fetchBtn = document.getElementById("ud-fetch-relay-btn");
     const expandBtn = document.getElementById("ud-expand-all-btn");
@@ -1608,11 +1814,46 @@
     if (closeBtn) closeBtn.addEventListener("click", () => toggleSidebar(true));
     if (launcher) launcher.addEventListener("click", () => toggleSidebar(false));
 
+    if (themeBtn) {
+      themeBtn.addEventListener("click", () => {
+        const panel = document.getElementById("ud-relay-ops-panel");
+        currentTheme = currentTheme === "light" ? "dark" : "light";
+        if (panel) {
+          if (currentTheme === "dark") panel.classList.add("ud-dark");
+          else panel.classList.remove("ud-dark");
+        }
+        themeBtn.innerText = currentTheme === "dark" ? "☀️" : "🌙";
+        try {
+          if (isExtensionValid() && chrome.storage && chrome.storage.local) {
+            chrome.storage.local.set({ uiTheme: currentTheme });
+          }
+        } catch (e) {}
+        updateDockedSidebarUI();
+      });
+    }
+
+    if (widthBtn) {
+      widthBtn.addEventListener("click", () => {
+        currentPanelWidth = currentPanelWidth === 380 ? 460 : 380;
+        const panel = document.getElementById("ud-relay-ops-panel");
+        if (panel) panel.style.width = `${currentPanelWidth}px`;
+        if (!isSidebarCollapsed) {
+          document.body.style.marginRight = `${currentPanelWidth}px`;
+        }
+        try {
+          if (isExtensionValid() && chrome.storage && chrome.storage.local) {
+            chrome.storage.local.set({ panelWidth: currentPanelWidth });
+          }
+        } catch (e) {}
+        showToast(`Layout width set to ${currentPanelWidth}px`);
+      });
+    }
+
     if (soundBtn) {
       soundBtn.addEventListener("click", () => {
         const isMuted = siren.toggleMute();
         soundBtn.innerText = isMuted ? "🔇" : "🔊";
-        soundBtn.style.color = isMuted ? "#ef4444" : "#f8fafc";
+        soundBtn.style.color = isMuted ? "#dc2626" : "var(--ud-text-primary)";
         if (!isMuted && !hasActiveUnacknowledgedAlerts()) {
           siren.testSiren(2000);
         }
@@ -1623,7 +1864,10 @@
     if (fetchBtn) {
       fetchBtn.addEventListener("click", () => {
         nextSyncTimestamp = Date.now() + SYNC_INTERVAL_MS;
-        expandAllRelayRows(true);
+        showToast("⚡ Fetching loads from both Upcoming and In Transit...");
+        expandAllRelayRows(true).then(() => {
+          triggerAutonomousDualTabScan();
+        });
       });
     }
 
@@ -1670,15 +1914,15 @@
         activeDateMode = "single";
         dateSingleBtn.style.background = "#0284c7";
         dateSingleBtn.style.color = "#fff";
-        dateRangeBtn.style.background = "#1e293b";
-        dateRangeBtn.style.color = "#94a3b8";
+        dateRangeBtn.style.background = "transparent";
+        dateRangeBtn.style.color = "var(--ud-text-secondary)";
       });
       dateRangeBtn.addEventListener("click", () => {
         activeDateMode = "range";
         dateRangeBtn.style.background = "#0284c7";
         dateRangeBtn.style.color = "#fff";
-        dateSingleBtn.style.background = "#1e293b";
-        dateSingleBtn.style.color = "#94a3b8";
+        dateSingleBtn.style.background = "transparent";
+        dateSingleBtn.style.color = "var(--ud-text-secondary)";
         showToast("Date Range filter mode active.");
       });
     }
@@ -1696,7 +1940,7 @@
         tabBtns.forEach((b) => {
           const isActive = b === btn;
           b.style.background = isActive ? "#0284c7" : "transparent";
-          b.style.color = isActive ? "#ffffff" : "#94a3b8";
+          b.style.color = isActive ? "#ffffff" : "var(--ud-text-secondary)";
           b.style.fontWeight = isActive ? "800" : "700";
         });
         updateDockedSidebarUI();
@@ -1705,7 +1949,7 @@
   }
 
   // ==========================================
-  // 10. Render & Update Operations Controller
+  // 11. Render & Update Operations Controller
   // ==========================================
   function updateDockedSidebarUI() {
     if (window.self !== window.top) return;
@@ -1720,23 +1964,23 @@
     if (statusContainer) {
       if (stats.unacknowledgedAlerts > 0) {
         statusContainer.innerHTML = `
-          <div style="background:#b91c1c; border:1px solid #ef4444; border-radius:8px; padding:10px; animation: udPulseSiren 1.5s infinite; color:#ffffff;">
+          <div style="background:#dc2626; border:1px solid #ef4444; border-radius:8px; padding:10px 12px; animation: udPulseSiren 1.5s infinite; color:#ffffff; box-shadow: 0 4px 12px rgba(220,38,38,0.35);">
             <div style="display:flex; justify-content:space-between; align-items:center;">
               <div style="font-weight:900; font-size:11px; display:flex; align-items:center; gap:6px;">
                 <span>🚨</span>
                 <span>SIREN ACTIVE • ${stats.unacknowledgedAlerts} ACTION ALERT(S)</span>
               </div>
-              <button id="ud-silence-all-btn" class="ud-btn-hover" style="background:#ffffff; color:#b91c1c; border:none; padding:4px 8px; border-radius:5px; font-size:9px; font-weight:900; cursor:pointer;">✓ Silence All</button>
+              <button id="ud-silence-all-btn" class="ud-btn-hover" style="background:#ffffff; color:#dc2626; border:none; padding:4px 9px; border-radius:5px; font-size:9px; font-weight:900; cursor:pointer;">✓ Silence All</button>
             </div>
-            <div style="font-size:9px; color:#fecaca; margin-top:3px;">Continuous alarm playing until dispatcher acknowledges all pending alerts.</div>
+            <div style="font-size:9px; color:#fee2e2; margin-top:3px;">Continuous alarm playing until dispatcher acknowledges all pending alerts.</div>
           </div>
         `;
         const silenceBtn = document.getElementById("ud-silence-all-btn");
         if (silenceBtn) silenceBtn.addEventListener("click", silenceAndAcknowledgeAll);
       } else if (stats.actionRequired > 0) {
         statusContainer.innerHTML = `
-          <div style="background:rgba(245,158,11,0.15); border:1px solid #f59e0b; border-radius:8px; padding:8px 10px; color:#fbbf24;">
-            <div style="font-weight:800; font-size:10px; display:flex; align-items:center; gap:6px;">
+          <div style="background:rgba(217,119,6,0.12); border:1px solid #f59e0b; border-radius:8px; padding:8px 12px; color:#d97706;">
+            <div style="font-weight:800; font-size:11px; display:flex; align-items:center; gap:6px;">
               <span>⚠️</span>
               <span>${stats.actionRequired} Alert(s) Monitored • Siren Silenced</span>
             </div>
@@ -1744,51 +1988,57 @@
         `;
       } else {
         statusContainer.innerHTML = `
-          <div style="background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.4); border-radius:8px; padding:10px; color:#10b981; text-align:center;">
+          <div style="background:rgba(5,150,105,0.1); border:1px solid rgba(5,150,105,0.3); border-radius:8px; padding:10px 12px; color:#059669; text-align:center;">
             <div style="font-weight:900; font-size:11px;">🟢 All Nominal • Everything Under Control</div>
-            <div style="font-size:9px; color:#6ee7b7; margin-top:2px;">No active delays or pending 3.5h/30m check-ins required.</div>
+            <div style="font-size:9px; color:#10b981; margin-top:2px;">${stats.totalLoads} total loads tracked across all tabs with zero active disruptions.</div>
           </div>
         `;
       }
     }
 
-    // 2. KPI Cards Grid (Matching competitor 2x3 layout)
+    // 2. KPI Cards Grid (Matching competitor 2x3 layout with crisp high-contrast values)
     const kpiGrid = document.getElementById("ud-kpi-grid");
     if (kpiGrid) {
-      const actionColor = stats.actionRequired > 0 ? "#ef4444" : "#10b981";
-      const delayColor = stats.delaysRaised > 0 ? "#ef4444" : "#94a3b8";
-      const checkinColor = stats.checkins35h > 0 ? "#f59e0b" : "#94a3b8";
-      const deliveryColor = stats.delivery30m > 0 ? "#38bdf8" : "#94a3b8";
+      const isDark = currentTheme === "dark";
+      const cardBg = isDark ? "#0f172a" : "#ffffff";
+      const borderCol = isDark ? "#1e293b" : "#e2e8f0";
+      const textCol = isDark ? "#f8fafc" : "#0f172a";
+      const subCol = isDark ? "#94a3b8" : "#64748b";
+
+      const actionColor = stats.actionRequired > 0 ? "#dc2626" : "#059669";
+      const delayColor = stats.delaysRaised > 0 ? "#dc2626" : subCol;
+      const checkinColor = stats.checkins35h > 0 ? "#d97706" : subCol;
+      const deliveryColor = stats.delivery30m > 0 ? "#0284c7" : subCol;
 
       kpiGrid.innerHTML = `
-        <div style="background:#0f172a; border:1px solid #1e293b; border-radius:8px; padding:8px 10px; text-align:center;">
-          <div style="font-size:18px; font-weight:900; color:#ffffff;">${stats.totalLoads}</div>
-          <div style="font-size:9px; font-weight:700; color:#94a3b8; text-transform:uppercase;">Total Loads</div>
+        <div style="background:${cardBg}; border:1px solid ${borderCol}; border-radius:8px; padding:8px 10px; text-align:center; box-shadow:var(--ud-card-shadow);">
+          <div style="font-size:22px; font-weight:900; color:${textCol};">${stats.totalLoads}</div>
+          <div style="font-size:9px; font-weight:700; color:${subCol}; text-transform:uppercase; letter-spacing:0.3px;">Total Loads</div>
         </div>
 
-        <div style="background:#0f172a; border:1px solid ${actionColor}; border-radius:8px; padding:8px 10px; text-align:center;">
-          <div style="font-size:18px; font-weight:900; color:${actionColor};">${stats.actionRequired}</div>
-          <div style="font-size:9px; font-weight:700; color:${actionColor}; text-transform:uppercase;">Action Required</div>
+        <div style="background:${cardBg}; border:1px solid ${actionColor}; border-radius:8px; padding:8px 10px; text-align:center; box-shadow:var(--ud-card-shadow);">
+          <div style="font-size:22px; font-weight:900; color:${actionColor};">${stats.actionRequired}</div>
+          <div style="font-size:9px; font-weight:700; color:${actionColor}; text-transform:uppercase; letter-spacing:0.3px;">Action Required</div>
         </div>
 
-        <div style="background:#0f172a; border:1px solid #1e293b; border-radius:8px; padding:8px 10px; text-align:center;">
-          <div style="font-size:18px; font-weight:900; color:${delayColor};">${stats.delaysRaised}</div>
-          <div style="font-size:9px; font-weight:700; color:#94a3b8; text-transform:uppercase;">Delays Raised</div>
+        <div style="background:${cardBg}; border:1px solid ${borderCol}; border-radius:8px; padding:8px 10px; text-align:center; box-shadow:var(--ud-card-shadow);">
+          <div style="font-size:22px; font-weight:900; color:${delayColor};">${stats.delaysRaised}</div>
+          <div style="font-size:9px; font-weight:700; color:${subCol}; text-transform:uppercase; letter-spacing:0.3px;">Delays Raised</div>
         </div>
 
-        <div style="background:#0f172a; border:1px solid #1e293b; border-radius:8px; padding:8px 10px; text-align:center;">
-          <div style="font-size:18px; font-weight:900; color:${checkinColor};">${stats.checkins35h}</div>
-          <div style="font-size:9px; font-weight:700; color:#94a3b8; text-transform:uppercase;">3.5h Check-ins</div>
+        <div style="background:${cardBg}; border:1px solid ${borderCol}; border-radius:8px; padding:8px 10px; text-align:center; box-shadow:var(--ud-card-shadow);">
+          <div style="font-size:22px; font-weight:900; color:${checkinColor};">${stats.checkins35h}</div>
+          <div style="font-size:9px; font-weight:700; color:${subCol}; text-transform:uppercase; letter-spacing:0.3px;">3.5h Check-ins</div>
         </div>
 
-        <div style="background:#0f172a; border:1px solid #1e293b; border-radius:8px; padding:8px 10px; text-align:center;">
-          <div style="font-size:18px; font-weight:900; color:${deliveryColor};">${stats.delivery30m}</div>
-          <div style="font-size:9px; font-weight:700; color:#94a3b8; text-transform:uppercase;">30m Delivery</div>
+        <div style="background:${cardBg}; border:1px solid ${borderCol}; border-radius:8px; padding:8px 10px; text-align:center; box-shadow:var(--ud-card-shadow);">
+          <div style="font-size:22px; font-weight:900; color:${deliveryColor};">${stats.delivery30m}</div>
+          <div style="font-size:9px; font-weight:700; color:${subCol}; text-transform:uppercase; letter-spacing:0.3px;">30m Delivery</div>
         </div>
 
-        <div style="background:#0f172a; border:1px solid #1e293b; border-radius:8px; padding:8px 10px; text-align:center;">
-          <div style="font-size:18px; font-weight:900; color:#10b981;">${stats.inTransit}</div>
-          <div style="font-size:9px; font-weight:700; color:#94a3b8; text-transform:uppercase;">In Transit</div>
+        <div style="background:${cardBg}; border:1px solid ${borderCol}; border-radius:8px; padding:8px 10px; text-align:center; box-shadow:var(--ud-card-shadow);">
+          <div style="font-size:22px; font-weight:900; color:#059669;">${stats.inTransit}</div>
+          <div style="font-size:9px; font-weight:700; color:${subCol}; text-transform:uppercase; letter-spacing:0.3px;">In Transit</div>
         </div>
       `;
     }
@@ -1808,11 +2058,11 @@
     const launcherStatus = document.getElementById("ud-launcher-status");
     if (launcherStatus) {
       if (stats.unacknowledgedAlerts > 0) {
-        launcherStatus.style.background = "#ef4444";
+        launcherStatus.style.background = "#dc2626";
         launcherStatus.innerText = `🚨 ${stats.unacknowledgedAlerts} ALERTS`;
       } else {
-        launcherStatus.style.background = "#10b981";
-        launcherStatus.innerText = `${stats.totalLoads} Loads (Nominal)`;
+        launcherStatus.style.background = "#059669";
+        launcherStatus.innerText = `${stats.totalLoads} Loads`;
       }
     }
 
@@ -1839,51 +2089,54 @@
       return;
     }
 
+    const isDark = currentTheme === "dark";
+
     queue.innerHTML = `
-      <div style="font-size:10px; font-weight:800; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; margin-top:4px;">
+      <div style="font-size:10px; font-weight:900; color:#ea580c; text-transform:uppercase; letter-spacing:0.5px; margin-top:4px;">
         Action Required (${allAlerts.length})
       </div>
     ` + allAlerts.map((alert) => {
       const isAck = alert.isAcknowledged;
-      const borderCol = isAck ? "#334155" : alert.badgeColor;
-      const bgCol = isAck ? "#0f172a" : alert.badgeBg;
+      const borderCol = isAck ? (isDark ? "#334155" : "#e2e8f0") : alert.badgeColor;
+      const bgCol = isAck ? (isDark ? "#0f172a" : "#ffffff") : alert.badgeBg;
+      const titleCol = isDark ? "#f8fafc" : "#0f172a";
+      const descCol = isDark ? "#cbd5e1" : "#475569";
 
       return `
-        <div style="background:${bgCol}; border:1px solid ${borderCol}; border-radius:8px; padding:8px 10px; display:flex; flex-direction:column; gap:4px;">
+        <div style="background:${bgCol}; border:1px solid ${borderCol}; border-radius:8px; padding:9px 11px; display:flex; flex-direction:column; gap:4px; box-shadow:var(--ud-card-shadow);">
           <div style="display:flex; justify-content:space-between; align-items:center;">
             <div style="display:flex; align-items:center; gap:6px;">
               <span style="background:${alert.badgeColor}; color:#ffffff; font-size:9px; font-weight:900; padding:2px 6px; border-radius:4px;">${alert.badgeText}</span>
-              <span style="font-family:monospace; font-weight:900; color:#fb923c; font-size:11px;">${alert.vrid}</span>
+              <span style="font-family:monospace; font-weight:900; color:#ea580c; font-size:12px;">${alert.vrid}</span>
             </div>
             <div>
               ${isAck
-                ? `<span style="font-size:9px; font-weight:800; color:#10b981; display:flex; align-items:center; gap:3px;">✓ Acknowledged</span>`
-                : `<button class="ud-ack-btn ud-btn-hover" data-key="${alert.key}" style="background:#ea580c; color:#ffffff; border:none; padding:3px 7px; border-radius:4px; font-size:9px; font-weight:900; cursor:pointer;">✓ Acknowledge</button>`
+                ? `<span style="font-size:9px; font-weight:800; color:#059669; display:flex; align-items:center; gap:3px;">✓ Acknowledged</span>`
+                : `<button class="ud-ack-btn ud-btn-hover" data-key="${alert.key}" style="background:#ea580c; color:#ffffff; border:none; padding:4px 8px; border-radius:5px; font-size:9px; font-weight:900; cursor:pointer;">✓ Acknowledge</button>`
               }
             </div>
           </div>
 
-          <div style="font-size:10px; font-weight:700; color:#f8fafc;">
+          <div style="font-size:11px; font-weight:800; color:${titleCol};">
             ${alert.title}
           </div>
 
-          <div style="font-size:9px; color:#cbd5e1; line-height:1.3;">
+          <div style="font-size:10px; color:${descCol}; line-height:1.3;">
             ${alert.desc}
           </div>
 
-          <div style="display:flex; justify-content:space-between; align-items:center; color:#94a3b8; font-size:9px; border-top:1px solid rgba(255,255,255,0.07); padding-top:4px; margin-top:2px;">
-            <span>Driver: <b style="color:#34d399;">${alert.tour.driverName || "Assigned Driver"}</b></span>
+          <div style="display:flex; justify-content:space-between; align-items:center; color:var(--ud-text-secondary); font-size:9px; border-top:1px solid var(--ud-border); padding-top:5px; margin-top:2px;">
+            <span>Driver: <b style="color:#059669;">${alert.tour.driverName || "Assigned Driver"}</b></span>
             <div style="display:flex; gap:4px;">
-              <button class="ud-copy-msg-btn ud-btn-hover" data-msg="${encodeURIComponent(alert.suggestedMsg)}" style="background:#1e293b; border:1px solid #334155; color:#38bdf8; padding:2px 6px; border-radius:4px; font-size:8px; font-weight:800; cursor:pointer;">📋 Copy Msg</button>
-              <a href="https://wa.me/?text=${encodeURIComponent(alert.suggestedMsg)}" target="_blank" class="ud-btn-hover" style="background:#059669; color:#ffffff; text-decoration:none; padding:2px 6px; border-radius:4px; font-size:8px; font-weight:800; display:inline-block;">💬 WhatsApp</a>
-              <a href="tel:${alert.tour.driverPhone || "+15550000000"}" class="ud-btn-hover" style="background:#1e293b; border:1px solid #334155; color:#f8fafc; text-decoration:none; padding:2px 6px; border-radius:4px; font-size:8px; font-weight:800; display:inline-block;">📞 Call</a>
+              <button class="ud-copy-msg-btn ud-btn-hover" data-msg="${encodeURIComponent(alert.suggestedMsg)}" style="background:var(--ud-surface); border:1px solid var(--ud-border); color:#0284c7; padding:3px 7px; border-radius:4px; font-size:9px; font-weight:800; cursor:pointer;">📋 Copy Msg</button>
+              <a href="https://wa.me/?text=${encodeURIComponent(alert.suggestedMsg)}" target="_blank" class="ud-btn-hover" style="background:#059669; color:#ffffff; text-decoration:none; padding:3px 7px; border-radius:4px; font-size:9px; font-weight:800; display:inline-block;">💬 WhatsApp</a>
+              <a href="tel:${alert.tour.driverPhone || "+15550000000"}" class="ud-btn-hover" style="background:var(--ud-surface); border:1px solid var(--ud-border); color:var(--ud-text-primary); text-decoration:none; padding:3px 7px; border-radius:4px; font-size:9px; font-weight:800; display:inline-block;">📞 Call</a>
             </div>
           </div>
         </div>
       `;
     }).join("");
 
-    // Attach click listeners for acknowledge & copy buttons
     queue.querySelectorAll(".ud-ack-btn").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -1933,57 +2186,69 @@
 
     if (filtered.length === 0) {
       listContainer.innerHTML = `
-        <div style="background:#0f172a; border:1px solid #1e293b; border-radius:8px; padding:16px; text-align:center; color:#64748b; font-size:10px;">
-          No tours match the selected filters.
+        <div style="background:var(--ud-surface); border:1px solid var(--ud-border); border-radius:8px; padding:18px; text-align:center; color:var(--ud-text-secondary); font-size:11px;">
+          No tours match the selected tab or date filter.
         </div>
       `;
       return;
     }
 
+    const isDark = currentTheme === "dark";
+    const cardBg = isDark ? "#0f172a" : "#ffffff";
+    const borderCol = isDark ? "#1e293b" : "#e2e8f0";
+    const titleCol = isDark ? "#f8fafc" : "#0f172a";
+    const subCol = isDark ? "#94a3b8" : "#64748b";
+
     listContainer.innerHTML = filtered.map((item, idx) => {
       const t = item.tour;
       const pDate = new Date(t.pickupTime);
       const isTomorrow = pDate.getDate() === new Date(Date.now() + 24 * 3600 * 1000).getDate();
-      const dateTag = isTomorrow ? "Tomorrow" : `${pDate.getMonth() + 1}/${pDate.getDate()}`;
+      const isToday = pDate.getDate() === new Date().getDate();
+      const dateTag = isToday ? "Today" : isTomorrow ? "Tomorrow" : `${pDate.getMonth() + 1}/${pDate.getDate()}`;
       const timeTag = pDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
       const stopsBadge = t.stops && t.stops.length > 2
-        ? `<span style="background:rgba(234,88,12,0.15); color:#fb923c; border:1px solid rgba(234,88,12,0.3); font-size:8px; font-weight:800; padding:1px 5px; border-radius:3px;">⚡ ${t.stops.length} Stops</span>`
+        ? `<span style="background:rgba(234,88,12,0.12); color:#ea580c; border:1px solid rgba(234,88,12,0.25); font-size:9px; font-weight:800; padding:1px 6px; border-radius:4px;">⚡ ${t.stops.length} Stops</span>`
         : "";
 
-      let statusPillBg = "#1e293b";
-      let statusPillCol = "#94a3b8";
+      let statusPillBg = isDark ? "#1e293b" : "#f1f5f9";
+      let statusPillCol = subCol;
+      let statusLabel = t.status || "Planned";
+
       if (item.isDelayed) {
-        statusPillBg = "rgba(239,68,68,0.2)";
-        statusPillCol = "#ef4444";
+        statusPillBg = "rgba(220,38,38,0.15)";
+        statusPillCol = "#dc2626";
+        statusLabel = "Delayed";
       } else if (item.isInTransit) {
-        statusPillBg = "rgba(16,185,129,0.2)";
-        statusPillCol = "#10b981";
+        statusPillBg = "rgba(5,150,105,0.15)";
+        statusPillCol = "#059669";
+        statusLabel = "In Transit";
       } else if (item.isUpcoming) {
-        statusPillBg = "rgba(56,189,248,0.15)";
-        statusPillCol = "#38bdf8";
+        statusPillBg = "rgba(2,132,199,0.15)";
+        statusPillCol = "#0284c7";
+        statusLabel = "Upcoming";
       }
 
       return `
-        <div style="background:#0f172a; border:1px solid #1e293b; border-radius:8px; padding:8px 10px; display:flex; flex-direction:column; gap:3px;">
+        <div class="ud-tour-card" style="background:${cardBg}; border:1px solid ${borderCol}; border-radius:8px; padding:9px 11px; display:flex; flex-direction:column; gap:3px; box-shadow:var(--ud-card-shadow);">
           <div style="display:flex; justify-content:space-between; align-items:center;">
             <div style="display:flex; align-items:center; gap:6px;">
-              <span style="background:#ea580c; color:#ffffff; font-weight:900; font-size:8px; padding:1px 5px; border-radius:3px;">#${t.screenIndex || idx + 1}</span>
-              <span style="font-family:monospace; font-weight:900; color:#fb923c; font-size:11px;">${t.vrid}</span>
+              <span style="background:#ea580c; color:#ffffff; font-weight:900; font-size:9px; padding:1px 6px; border-radius:4px;">#${t.screenIndex || idx + 1}</span>
+              <span style="font-family:monospace; font-weight:900; color:#ea580c; font-size:12px;">${t.vrid}</span>
             </div>
-            <span style="background:${statusPillBg}; color:${statusPillCol}; font-weight:800; font-size:8px; padding:2px 6px; border-radius:9999px; text-transform:uppercase;">${t.status || "Planned"}</span>
+            <span style="background:${statusPillBg}; color:${statusPillCol}; font-weight:800; font-size:9px; padding:2px 7px; border-radius:9999px; text-transform:uppercase;">● ${statusLabel}</span>
           </div>
 
-          <div style="display:flex; justify-content:space-between; align-items:center; font-size:10px;">
-            <span style="font-weight:700; color:#f8fafc;">${t.originFacilityCode || t.originCity} ➔ ${t.destFacilityCode || t.destCity}</span>
-            <span style="color:#34d399; font-weight:700;">${t.driverName || "Assigned Driver"}</span>
+          <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; margin-top:2px;">
+            <span style="font-weight:800; color:${titleCol};">${t.originFacilityCode || t.originCity} ➔ ${t.destFacilityCode || t.destCity}</span>
+            <span style="color:#059669; font-weight:800;">${t.driverName || "Assigned Driver"}</span>
           </div>
 
-          <div style="display:flex; justify-content:space-between; align-items:center; color:#94a3b8; font-size:9px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; color:${subCol}; font-size:10px; margin-top:2px;">
             <span>📅 ${dateTag}, ${timeTag}</span>
-            <div style="display:flex; gap:4px; align-items:center;">
+            <div style="display:flex; gap:5px; align-items:center;">
               ${stopsBadge}
-              <span style="color:#64748b;">${t.equipment || "53' Trailer"}</span>
+              <span style="color:${subCol};">${t.equipment || "53' Trailer"}</span>
             </div>
           </div>
         </div>
@@ -2021,7 +2286,7 @@
   }
 
   // ==========================================
-  // 11. Expand All Multi-Leg Rows
+  // 12. Expand All Multi-Leg Rows
   // ==========================================
   async function expandAllRelayRows(autoSync = true) {
     const expandSelectors = [
@@ -2081,7 +2346,7 @@
   }
 
   // ==========================================
-  // 12. Extraction & Dispatch Pipeline
+  // 13. Extraction & Dispatch Pipeline
   // ==========================================
   function extractAndSyncAll(isManual = false, mode = "upsert") {
     if (isSyncing) return;
@@ -2089,6 +2354,7 @@
 
     if (mode === "replace_all") {
       capturedApiToursMap.clear();
+      masterToursMap.clear();
     }
 
     const tours = scanDomForTours();
@@ -2145,9 +2411,9 @@
     toast.style.cssText = `
       position: fixed;
       top: 24px;
-      right: 395px;
+      right: ${currentPanelWidth + 20}px;
       z-index: 2147483647;
-      background: #090e17;
+      background: #0f172a;
       color: #ffffff;
       padding: 10px 16px;
       border-radius: 8px;
@@ -2167,13 +2433,14 @@
   }
 
   // ==========================================
-  // 13. Runtime Messages & API Interop
+  // 14. Runtime Messages & API Interop
   // ==========================================
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.type === "EXTRACT_NOW") {
       const mode = request.mode || "upsert";
       if (mode === "replace_all") {
         capturedApiToursMap.clear();
+        masterToursMap.clear();
       }
       const tours = scanDomForTours();
       extractAndSyncAll(true, mode);
@@ -2185,10 +2452,11 @@
       return false;
     } else if (request.type === "CLEAR_CAPTURED_POOL") {
       capturedApiToursMap.clear();
+      masterToursMap.clear();
       latestOrderedTours = [];
       updateDockedSidebarUI();
       try {
-        chrome.storage.local.set({ lastDetectedTours: [] });
+        chrome.storage.local.set({ lastDetectedTours: [], udMasterToursPool: [] });
       } catch (e) {}
       sendResponse({ status: "cleared", count: 0 });
       return false;
@@ -2201,7 +2469,7 @@
   };
 
   // ==========================================
-  // 14. 30-Minute Interval & 1-Second Countdown
+  // 15. 30-Minute Interval & 1-Second Countdown
   // ==========================================
   function startCountdownTimer() {
     if (countdownInterval) clearInterval(countdownInterval);
@@ -2233,6 +2501,7 @@
       const tours = scanDomForTours();
       evaluateTourPriorities(tours);
       updateDockedSidebarUI();
+      triggerAutonomousDualTabScan();
       if (tours.length > 0) {
         extractAndSyncAll(false, "upsert");
       }
@@ -2240,13 +2509,14 @@
   }
 
   // ==========================================
-  // 15. Startup & Observers
+  // 16. Startup & Observers
   // ==========================================
   setTimeout(() => {
     injectDockedSidebar();
     const tours = scanDomForTours();
     updateDockedSidebarUI();
     startCountdownTimer();
+    triggerAutonomousDualTabScan();
     if (tours.length > 0) {
       extractAndSyncAll(false, "upsert");
     }
@@ -2255,10 +2525,11 @@
   setTimeout(() => {
     const tours = scanDomForTours();
     updateDockedSidebarUI();
+    triggerAutonomousDualTabScan();
     if (tours.length > 0) {
       extractAndSyncAll(false, "upsert");
     }
-  }, 2500);
+  }, 3000);
 
   const observer = new MutationObserver((mutations) => {
     const isOurUi = mutations.every(
