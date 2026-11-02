@@ -697,6 +697,7 @@
           const parsed = safeParseJson(text);
           if (parsed) {
             handlePossibleRelayData(parsed, url);
+            triggerSisterApiQuery(url);
           }
         }
       } catch (e) {}

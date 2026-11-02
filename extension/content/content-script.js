@@ -8,15 +8,41 @@
   "use strict";
 
   window.__ud_content_script_initialized = true;
-  window.__ud_version = "3.1.0";
+  window.__ud_version = "3.2.0";
 
-  console.log("🚚 [Unique Dispatch] Relay Ops Controller & CPT Engine v3.1 Active in frame:", window.location.href);
+  console.log("🚚 [Unique Dispatch] Relay Ops Controller & CPT Engine v3.2 Active in frame:", window.location.href);
 
   const capturedApiToursMap = new Map();
   const masterToursMap = new Map();
   let latestOrderedTours = [];
   let isSyncing = false;
   let debounceScanTimer = null;
+
+  let acknowledgedAlertKeys = new Set();
+  let evaluatedTourResults = [];
+  let evaluatedStats = {
+    totalLoads: 0,
+    actionRequired: 0,
+    unacknowledgedAlerts: 0,
+    delaysRaised: 0,
+    checkins35h: 0,
+    delivery30m: 0,
+    inTransit: 0,
+    plannedUpcoming: 0,
+    historyLoads: 0,
+  };
+  let activeFilterTab = "all"; // 'all', 'upcoming', 'in_transit', 'history'
+  let activeDateFilter = "";   // 'YYYY-MM-DD' or empty for all
+  let activeDateMode = "single"; // 'single' or 'range'
+  let searchQuery = "";
+  let isSidebarCollapsed = false;
+  let autoSyncEnabled = true;
+  let currentTheme = "light"; // 'light' (default matching competitor) or 'dark'
+  let currentPanelWidth = 380; // 380 (standard) or 460 (wide)
+
+  const SYNC_INTERVAL_MS = 30 * 60 * 1000; // 30 Minutes
+  let nextSyncTimestamp = Date.now() + SYNC_INTERVAL_MS;
+  let countdownInterval = null;
 
   function isExtensionValid() {
     try {
@@ -26,22 +52,114 @@
     }
   }
 
-  // Load accumulated master tours from storage at startup
+  // Unified asynchronous storage loader
+  const storageReadyPromise = new Promise((resolve) => {
+    try {
+      if (isExtensionValid() && chrome.storage && chrome.storage.local) {
+        chrome.storage.local.get(
+          ["udMasterToursPool", "acknowledgedAlertKeys", "sidebarCollapsed", "autoSyncEnabled", "uiTheme", "panelWidth"],
+          (data) => {
+            if (data && Array.isArray(data.udMasterToursPool) && data.udMasterToursPool.length > 0) {
+              data.udMasterToursPool.forEach((t) => {
+                if (t && t.vrid) masterToursMap.set(t.vrid, t);
+              });
+              latestOrderedTours = Array.from(masterToursMap.values());
+            }
+            if (data && Array.isArray(data.acknowledgedAlertKeys)) {
+              data.acknowledgedAlertKeys.forEach((k) => acknowledgedAlertKeys.add(k));
+            }
+            if (data && typeof data.sidebarCollapsed === "boolean") isSidebarCollapsed = data.sidebarCollapsed;
+            if (data && typeof data.autoSyncEnabled === "boolean") autoSyncEnabled = data.autoSyncEnabled;
+            if (data && (data.uiTheme === "light" || data.uiTheme === "dark")) currentTheme = data.uiTheme;
+            if (data && (data.panelWidth === 380 || data.panelWidth === 460)) currentPanelWidth = data.panelWidth;
+            resolve();
+            if (typeof updateDockedSidebarUI === "function") {
+              updateDockedSidebarUI();
+            }
+          }
+        );
+      } else {
+        resolve();
+      }
+    } catch (e) {
+      resolve();
+    }
+  });
+
+  // Cross-tab real-time sync via storage listener
   try {
-    if (isExtensionValid() && chrome.storage && chrome.storage.local) {
-      chrome.storage.local.get(["udMasterToursPool"], (data) => {
-        if (data && Array.isArray(data.udMasterToursPool) && data.udMasterToursPool.length > 0) {
-          data.udMasterToursPool.forEach((t) => {
-            if (t && t.vrid) masterToursMap.set(t.vrid, t);
-          });
-          latestOrderedTours = Array.from(masterToursMap.values());
-          if (typeof updateDockedSidebarUI === "function") {
-            updateDockedSidebarUI();
+    if (isExtensionValid() && chrome.storage && chrome.storage.onChanged) {
+      chrome.storage.onChanged.addListener((changes, areaName) => {
+        if (areaName === "local" && changes.udMasterToursPool) {
+          const newPool = changes.udMasterToursPool.newValue;
+          if (Array.isArray(newPool)) {
+            newPool.forEach((t) => {
+              if (t && t.vrid) {
+                if (masterToursMap.has(t.vrid)) {
+                  const existing = masterToursMap.get(t.vrid);
+                  masterToursMap.set(t.vrid, { ...existing, ...t });
+                } else {
+                  masterToursMap.set(t.vrid, t);
+                }
+              }
+            });
+            latestOrderedTours = Array.from(masterToursMap.values());
+            if (typeof updateDockedSidebarUI === "function") {
+              updateDockedSidebarUI();
+            }
           }
         }
       });
     }
   } catch (e) {}
+
+  // Master Tours Pool Persister: Merges with persistent storage so Upcoming & Transit NEVER overwrite each other
+  function persistMasterTours(triggerSync = false) {
+    if (!isExtensionValid() || !chrome.storage || !chrome.storage.local) return;
+    try {
+      chrome.storage.local.get(["udMasterToursPool"], (data) => {
+        const pool = new Map();
+        // 1. Keep all existing stored tours from any tab (Upcoming, Transit, History)
+        if (data && Array.isArray(data.udMasterToursPool)) {
+          data.udMasterToursPool.forEach((t) => {
+            if (t && t.vrid) pool.set(t.vrid, t);
+          });
+        }
+        // 2. Merge all current in-memory master tours (updating status, driver, stops)
+        masterToursMap.forEach((t, vrid) => {
+          if (pool.has(vrid)) {
+            const existing = pool.get(vrid);
+            pool.set(vrid, {
+              ...existing,
+              ...t,
+              status: t.status || existing.status,
+              driverName: (t.driverName && t.driverName !== "Assigned Driver") ? t.driverName : existing.driverName,
+              stops: (t.stops && t.stops.length > (existing.stops ? existing.stops.length : 0)) ? t.stops : existing.stops,
+              subTrips: (t.subTrips && t.subTrips.length > (existing.subTrips ? existing.subTrips.length : 0)) ? t.subTrips : existing.subTrips,
+            });
+          } else {
+            pool.set(vrid, t);
+          }
+        });
+        // 3. Keep in-memory master map fully aligned with the master pool
+        pool.forEach((t, vrid) => masterToursMap.set(vrid, t));
+        latestOrderedTours = Array.from(masterToursMap.values());
+
+        // 4. Save combined pool
+        chrome.storage.local.set({
+          udMasterToursPool: latestOrderedTours,
+          lastDetectedTours: latestOrderedTours,
+        });
+
+        if (typeof updateDockedSidebarUI === "function") {
+          updateDockedSidebarUI();
+        }
+        if (triggerSync && latestOrderedTours.length > 0) {
+          extractAndSyncAll(false, "upsert");
+        }
+      });
+    } catch (e) {}
+  }
 
   // 1. Listen for messages from Main-World API Interceptor & Sister Tab Scanner
   window.addEventListener("message", (event) => {
@@ -57,6 +175,7 @@
             masterToursMap.set(tour.vrid, {
               ...existing,
               ...tour,
+              status: tour.status || existing.status,
               driverName: (tour.driverName && tour.driverName !== "Assigned Driver") ? tour.driverName : existing.driverName,
               stops: (tour.stops && tour.stops.length > (existing.stops ? existing.stops.length : 0)) ? tour.stops : existing.stops,
               subTrips: (tour.subTrips && tour.subTrips.length > (existing.subTrips ? existing.subTrips.length : 0)) ? tour.subTrips : existing.subTrips,
@@ -67,11 +186,7 @@
         }
       });
 
-      scanDomForTours();
-      updateDockedSidebarUI();
-      if (latestOrderedTours.length > 0) {
-        extractAndSyncAll(false, "upsert");
-      }
+      persistMasterTours(true);
     }
 
     if (event.data.type === "UD_SYNC_IFRAME_TOURS" && Array.isArray(event.data.tours)) {
@@ -83,6 +198,7 @@
             masterToursMap.set(tour.vrid, {
               ...existing,
               ...tour,
+              status: tour.status || existing.status,
               driverName: (tour.driverName && tour.driverName !== "Assigned Driver") ? tour.driverName : existing.driverName,
               stops: (tour.stops && tour.stops.length > (existing.stops ? existing.stops.length : 0)) ? tour.stops : existing.stops,
               subTrips: (tour.subTrips && tour.subTrips.length > (existing.subTrips ? existing.subTrips.length : 0)) ? tour.subTrips : existing.subTrips,
@@ -93,17 +209,7 @@
         }
       });
 
-      latestOrderedTours = Array.from(masterToursMap.values());
-      try {
-        if (isExtensionValid() && chrome.storage && chrome.storage.local) {
-          chrome.storage.local.set({ udMasterToursPool: latestOrderedTours });
-        }
-      } catch (e) {}
-
-      updateDockedSidebarUI();
-      if (latestOrderedTours.length > 0) {
-        extractAndSyncAll(false, "upsert");
-      }
+      persistMasterTours(true);
     }
   });
 
@@ -1057,14 +1163,7 @@
 
     // 8. Compile ordered tours from master map (Always preserves both Upcoming & In Transit)
     latestOrderedTours = Array.from(masterToursMap.values());
-    try {
-      if (isExtensionValid() && chrome.storage && chrome.storage.local) {
-        chrome.storage.local.set({
-          lastDetectedTours: latestOrderedTours,
-          udMasterToursPool: latestOrderedTours,
-        });
-      }
-    } catch (e) {}
+    persistMasterTours(false);
 
     return latestOrderedTours;
   }
@@ -1224,66 +1323,8 @@
   });
 
   // ==========================================
-  // 7. Priority Dispatch & UI Ergonomics State
+  // 7. Active Alerts Check
   // ==========================================
-  let acknowledgedAlertKeys = new Set();
-  let evaluatedTourResults = [];
-  let evaluatedStats = {
-    totalLoads: 0,
-    actionRequired: 0,
-    unacknowledgedAlerts: 0,
-    delaysRaised: 0,
-    checkins35h: 0,
-    delivery30m: 0,
-    inTransit: 0,
-    plannedUpcoming: 0,
-    historyLoads: 0,
-  };
-  let activeFilterTab = "all"; // 'all', 'upcoming', 'in_transit', 'history'
-  let activeDateFilter = "";   // 'YYYY-MM-DD' or empty for all
-  let activeDateMode = "single"; // 'single' or 'range'
-  let searchQuery = "";
-  let isSidebarCollapsed = false;
-  let autoSyncEnabled = true;
-  let currentTheme = "light"; // 'light' (default matching competitor) or 'dark'
-  let currentPanelWidth = 380; // 380 (standard) or 460 (wide)
-
-  const SYNC_INTERVAL_MS = 30 * 60 * 1000; // 30 Minutes
-  let nextSyncTimestamp = Date.now() + SYNC_INTERVAL_MS;
-  let countdownInterval = null;
-
-  // Initialize stored acknowledgments & preferences
-  try {
-    if (isExtensionValid() && chrome.storage && chrome.storage.local) {
-      chrome.storage.local.get(
-        ["acknowledgedAlertKeys", "sidebarCollapsed", "autoSyncEnabled", "uiTheme", "panelWidth", "udMasterToursPool"],
-        (data) => {
-          if (data && Array.isArray(data.acknowledgedAlertKeys)) {
-            data.acknowledgedAlertKeys.forEach((k) => acknowledgedAlertKeys.add(k));
-          }
-          if (data && typeof data.sidebarCollapsed === "boolean") {
-            isSidebarCollapsed = data.sidebarCollapsed;
-          }
-          if (data && typeof data.autoSyncEnabled === "boolean") {
-            autoSyncEnabled = data.autoSyncEnabled;
-          }
-          if (data && (data.uiTheme === "light" || data.uiTheme === "dark")) {
-            currentTheme = data.uiTheme;
-          }
-          if (data && (data.panelWidth === 380 || data.panelWidth === 460)) {
-            currentPanelWidth = data.panelWidth;
-          }
-          if (data && Array.isArray(data.udMasterToursPool) && data.udMasterToursPool.length > 0) {
-            data.udMasterToursPool.forEach((t) => {
-              if (t && t.vrid) masterToursMap.set(t.vrid, t);
-            });
-            latestOrderedTours = Array.from(masterToursMap.values());
-            updateDockedSidebarUI();
-          }
-        }
-      );
-    }
-  } catch (e) {}
 
   function hasActiveUnacknowledgedAlerts() {
     return evaluatedStats.unacknowledgedAlerts > 0;
@@ -1297,6 +1338,8 @@
     let delayCount = 0;
     let checkin35hCount = 0;
     let delivery30mCount = 0;
+    let latePickupCount = 0;
+    let overdueDeliveryCount = 0;
     let inTransitCount = 0;
     let upcomingCount = 0;
     let historyCount = 0;
@@ -1316,9 +1359,13 @@
         /delayed|delay|at\s*risk|disrupted|late/i.test(tour.notes || "") ||
         /delayed|delay|disrupted/i.test(tour.acceptanceStatus || "");
 
+      // Mutually exclusive clear phase assignment:
+      const isInTransit = (status === "in_transit" || status === "at_pickup" || status === "at_delivery" || status.includes("transit") || status.includes("rolling")) && !isDelivered;
+      const isUpcoming = !isInTransit && !isDelivered;
+
       const alerts = [];
 
-      // Priority 1: Critical Delay / Disruption Raised
+      // Priority 1: Critical Delay / Disruption Raised (Applies to both Upcoming and In Transit)
       if (isDelayed && !isDelivered) {
         delayCount++;
         const alertKey = `${tour.vrid}_delay`;
@@ -1328,6 +1375,7 @@
         alerts.push({
           key: alertKey,
           vrid: tour.vrid,
+          phase: isInTransit ? "in_transit" : "upcoming",
           type: "delay",
           priorityRank: 1,
           isAcknowledged: isAck,
@@ -1342,58 +1390,110 @@
         });
       }
 
-      // Priority 2: 3.5h Pickup Milestone (<= 210 mins and not yet underway)
-      const isUpcoming = (status === "upcoming" || status === "confirmed" || status === "pending_acceptance") && !isDelivered;
-      if (isUpcoming && minutesToPickup > 0 && minutesToPickup <= 210) {
-        checkin35hCount++;
-        const alertKey = `${tour.vrid}_pickup_3.5h`;
-        const isAck = acknowledgedAlertKeys.has(alertKey);
-        if (!isAck) unacknowledgedAlertsCount++;
+      // Priority 2: Upcoming Milestones & Late Departures
+      if (isUpcoming) {
+        // Milestone: 3.5h Check-in Due (Within 3.5 hours of pickup)
+        if (minutesToPickup > 0 && minutesToPickup <= 210) {
+          checkin35hCount++;
+          const alertKey = `${tour.vrid}_pickup_3.5h`;
+          const isAck = acknowledgedAlertKeys.has(alertKey);
+          if (!isAck) unacknowledgedAlertsCount++;
 
-        const h = Math.floor(minutesToPickup / 60);
-        const m = minutesToPickup % 60;
-        const timeStr = h > 0 ? `${h}h ${m}m` : `${m}m`;
+          const h = Math.floor(minutesToPickup / 60);
+          const m = minutesToPickup % 60;
+          const timeStr = h > 0 ? `${h}h ${m}m` : `${m}m`;
 
-        alerts.push({
-          key: alertKey,
-          vrid: tour.vrid,
-          type: "pickup_3.5h",
-          priorityRank: 2,
-          isAcknowledged: isAck,
-          badgeText: "⚠️ 3.5H CHECK-IN DUE",
-          badgeColor: "#d97706",
-          badgeBg: "rgba(217, 119, 6, 0.12)",
-          title: `Pickup in ${timeStr} • Driver Check-in Required`,
-          desc: `Tour departs soon from ${tour.originFacilityCode || tour.originCity}. Send driver message to confirm on-time rolling status.`,
-          actionLabel: "Send Driver Message",
-          suggestedMsg: `Hello ${tour.driverName || "Driver"}, Unique Dispatch checking in. Your Amazon Relay Tour #${tour.vrid} pickup starts in ${timeStr} at ${tour.originFacilityCode || tour.originCity}. Please confirm you are on schedule with equipment ready. Thank you!`,
-          tour: tour,
-        });
+          alerts.push({
+            key: alertKey,
+            vrid: tour.vrid,
+            phase: "upcoming",
+            type: "pickup_3.5h",
+            priorityRank: 2,
+            isAcknowledged: isAck,
+            badgeText: "⚠️ 3.5H CHECK-IN DUE",
+            badgeColor: "#d97706",
+            badgeBg: "rgba(217, 119, 6, 0.12)",
+            title: `Pickup in ${timeStr} • Driver Check-in Required`,
+            desc: `Tour departs soon from ${tour.originFacilityCode || tour.originCity}. Send driver message to confirm on-time rolling status.`,
+            actionLabel: "Send Driver Message",
+            suggestedMsg: `Hello ${tour.driverName || "Driver"}, Unique Dispatch checking in. Your Amazon Relay Tour #${tour.vrid} pickup starts in ${timeStr} at ${tour.originFacilityCode || tour.originCity}. Please confirm you are on schedule with equipment ready. Thank you!`,
+            tour: tour,
+          });
+        } else if (minutesToPickup <= 0 && pickupMs > 0 && !isDelayed) {
+          // Late Departure Alert
+          latePickupCount++;
+          const alertKey = `${tour.vrid}_late_pickup`;
+          const isAck = acknowledgedAlertKeys.has(alertKey);
+          if (!isAck) unacknowledgedAlertsCount++;
+
+          alerts.push({
+            key: alertKey,
+            vrid: tour.vrid,
+            phase: "upcoming",
+            type: "late_pickup",
+            priorityRank: 1,
+            isAcknowledged: isAck,
+            badgeText: "🚨 LATE DEPARTURE",
+            badgeColor: "#dc2626",
+            badgeBg: "rgba(220, 38, 38, 0.12)",
+            title: `Pickup Overdue by ${Math.abs(minutesToPickup)}m • Action Required`,
+            desc: `Tour scheduled departure at ${tour.originFacilityCode || tour.originCity} has passed. Contact driver immediately.`,
+            actionLabel: "Call Driver Urgently",
+            suggestedMsg: `URGENT: Tour #${tour.vrid} scheduled pickup at ${tour.originFacilityCode || tour.originCity} is overdue by ${Math.abs(minutesToPickup)} minutes. Driver ${tour.driverName || ""}, please report status immediately.`,
+            tour: tour,
+          });
+        }
       }
 
-      // Priority 3: 30m Delivery Milestone (<= 30 mins and currently underway)
-      const isInTransit = (status === "in_transit" || status === "at_pickup" || status === "at_delivery" || (minutesToPickup <= 0 && minutesToDelivery > 0)) && !isDelivered;
-      if (isInTransit && minutesToDelivery > 0 && minutesToDelivery <= 30) {
-        delivery30mCount++;
-        const alertKey = `${tour.vrid}_delivery_30m`;
-        const isAck = acknowledgedAlertKeys.has(alertKey);
-        if (!isAck) unacknowledgedAlertsCount++;
+      // Priority 3: In-Transit Milestones & Overdue Deliveries
+      if (isInTransit) {
+        // Milestone: 30m Delivery Confirmation (Approaching destination)
+        if (minutesToDelivery > 0 && minutesToDelivery <= 30) {
+          delivery30mCount++;
+          const alertKey = `${tour.vrid}_delivery_30m`;
+          const isAck = acknowledgedAlertKeys.has(alertKey);
+          if (!isAck) unacknowledgedAlertsCount++;
 
-        alerts.push({
-          key: alertKey,
-          vrid: tour.vrid,
-          type: "delivery_30m",
-          priorityRank: 3,
-          isAcknowledged: isAck,
-          badgeText: "📞 30M DELIVERY CONFIRMATION",
-          badgeColor: "#0284c7",
-          badgeBg: "rgba(2, 132, 199, 0.12)",
-          title: `Delivery in ${minutesToDelivery}m • Call Driver Now`,
-          desc: `Approaching destination ${tour.destFacilityCode || tour.destCity}. Call driver to ensure smooth gate arrival & guard check-in.`,
-          actionLabel: "Call Driver Immediately",
-          suggestedMsg: `Hello ${tour.driverName || "Driver"}, Unique Dispatch here. Tour #${tour.vrid} final delivery at ${tour.destFacilityCode || tour.destCity} is scheduled in ${minutesToDelivery} minutes. Please call dispatch or confirm arrival once at the guard shack.`,
-          tour: tour,
-        });
+          alerts.push({
+            key: alertKey,
+            vrid: tour.vrid,
+            phase: "in_transit",
+            type: "delivery_30m",
+            priorityRank: 3,
+            isAcknowledged: isAck,
+            badgeText: "📞 30M DELIVERY CONFIRMATION",
+            badgeColor: "#0284c7",
+            badgeBg: "rgba(2, 132, 199, 0.12)",
+            title: `Delivery in ${minutesToDelivery}m • Call Driver Now`,
+            desc: `Approaching destination ${tour.destFacilityCode || tour.destCity}. Call driver to ensure smooth gate arrival & guard check-in.`,
+            actionLabel: "Call Driver Immediately",
+            suggestedMsg: `Hello ${tour.driverName || "Driver"}, Unique Dispatch here. Tour #${tour.vrid} final delivery at ${tour.destFacilityCode || tour.destCity} is scheduled in ${minutesToDelivery} minutes. Please call dispatch or confirm arrival once at the guard shack.`,
+            tour: tour,
+          });
+        } else if (minutesToDelivery <= 0 && deliveryMs > 0 && !isDelayed) {
+          // Overdue Delivery Alert
+          overdueDeliveryCount++;
+          const alertKey = `${tour.vrid}_overdue_delivery`;
+          const isAck = acknowledgedAlertKeys.has(alertKey);
+          if (!isAck) unacknowledgedAlertsCount++;
+
+          alerts.push({
+            key: alertKey,
+            vrid: tour.vrid,
+            phase: "in_transit",
+            type: "overdue_delivery",
+            priorityRank: 1,
+            isAcknowledged: isAck,
+            badgeText: "🚨 OVERDUE DELIVERY",
+            badgeColor: "#dc2626",
+            badgeBg: "rgba(220, 38, 38, 0.12)",
+            title: `Delivery Overdue by ${Math.abs(minutesToDelivery)}m`,
+            desc: `Arrival at ${tour.destFacilityCode || tour.destCity} is past scheduled time. Call driver and check arrival status.`,
+            actionLabel: "Call Driver Immediately",
+            suggestedMsg: `URGENT: Tour #${tour.vrid} delivery at ${tour.destFacilityCode || tour.destCity} is overdue by ${Math.abs(minutesToDelivery)} minutes. Driver ${tour.driverName || ""}, please confirm your current ETA or gate status.`,
+            tour: tour,
+          });
+        }
       }
 
       if (isDelivered) historyCount++;
@@ -1435,9 +1535,9 @@
     evaluatedTourResults = evaluated;
     evaluatedStats = {
       totalLoads: tours.length,
-      actionRequired: delayCount + checkin35hCount + delivery30mCount,
+      actionRequired: delayCount + checkin35hCount + delivery30mCount + latePickupCount + overdueDeliveryCount,
       unacknowledgedAlerts: unacknowledgedAlertsCount,
-      delaysRaised: delayCount,
+      delaysRaised: delayCount + latePickupCount + overdueDeliveryCount,
       checkins35h: checkin35hCount,
       delivery30m: delivery30mCount,
       inTransit: inTransitCount,
@@ -1669,7 +1769,7 @@
           <span style="font-size:18px;">🚚</span>
           <div>
             <div style="font-weight:900; font-size:12px; color:#ea580c; letter-spacing:0.4px;">UNIQUE DISPATCH</div>
-            <div style="font-size:9px; color:var(--ud-text-secondary); font-weight:600;">Relay Ops Controller & CPT Engine v3.1</div>
+            <div style="font-size:9px; color:var(--ud-text-secondary); font-weight:600;">Relay Ops Controller & CPT Engine v3.2</div>
           </div>
         </div>
         <div style="display:flex; align-items:center; gap:5px;">
@@ -2080,7 +2180,7 @@
       }
     }
 
-    // 2. KPI Cards Grid (Matching competitor 2x3 layout with crisp high-contrast values)
+    // 2. KPI Cards Grid (8 Cards: Total Loads, Action Required, In Transit, Upcoming, Checkins, Delivery, Delays, History)
     const kpiGrid = document.getElementById("ud-kpi-grid");
     if (kpiGrid) {
       const isDark = currentTheme === "dark";
@@ -2095,34 +2195,44 @@
       const deliveryColor = stats.delivery30m > 0 ? "#0284c7" : subCol;
 
       kpiGrid.innerHTML = `
-        <div style="background:${cardBg}; border:1px solid ${borderCol}; border-radius:8px; padding:8px 10px; text-align:center; box-shadow:var(--ud-card-shadow);">
-          <div style="font-size:22px; font-weight:900; color:${textCol};">${stats.totalLoads}</div>
+        <div style="background:${cardBg}; border:1px solid ${borderCol}; border-radius:8px; padding:7px 8px; text-align:center; box-shadow:var(--ud-card-shadow);">
+          <div style="font-size:20px; font-weight:900; color:${textCol};">${stats.totalLoads}</div>
           <div style="font-size:9px; font-weight:700; color:${subCol}; text-transform:uppercase; letter-spacing:0.3px;">Total Loads</div>
         </div>
 
-        <div style="background:${cardBg}; border:1px solid ${actionColor}; border-radius:8px; padding:8px 10px; text-align:center; box-shadow:var(--ud-card-shadow);">
-          <div style="font-size:22px; font-weight:900; color:${actionColor};">${stats.actionRequired}</div>
+        <div style="background:${cardBg}; border:1px solid ${actionColor}; border-radius:8px; padding:7px 8px; text-align:center; box-shadow:var(--ud-card-shadow);">
+          <div style="font-size:20px; font-weight:900; color:${actionColor};">${stats.actionRequired}</div>
           <div style="font-size:9px; font-weight:700; color:${actionColor}; text-transform:uppercase; letter-spacing:0.3px;">Action Required</div>
         </div>
 
-        <div style="background:${cardBg}; border:1px solid ${borderCol}; border-radius:8px; padding:8px 10px; text-align:center; box-shadow:var(--ud-card-shadow);">
-          <div style="font-size:22px; font-weight:900; color:${delayColor};">${stats.delaysRaised}</div>
-          <div style="font-size:9px; font-weight:700; color:${subCol}; text-transform:uppercase; letter-spacing:0.3px;">Delays Raised</div>
+        <div style="background:${cardBg}; border:1px solid ${borderCol}; border-radius:8px; padding:7px 8px; text-align:center; box-shadow:var(--ud-card-shadow);">
+          <div style="font-size:20px; font-weight:900; color:#059669;">${stats.inTransit}</div>
+          <div style="font-size:9px; font-weight:700; color:${subCol}; text-transform:uppercase; letter-spacing:0.3px;">In Transit</div>
         </div>
 
-        <div style="background:${cardBg}; border:1px solid ${borderCol}; border-radius:8px; padding:8px 10px; text-align:center; box-shadow:var(--ud-card-shadow);">
-          <div style="font-size:22px; font-weight:900; color:${checkinColor};">${stats.checkins35h}</div>
+        <div style="background:${cardBg}; border:1px solid ${borderCol}; border-radius:8px; padding:7px 8px; text-align:center; box-shadow:var(--ud-card-shadow);">
+          <div style="font-size:20px; font-weight:900; color:#0284c7;">${stats.plannedUpcoming}</div>
+          <div style="font-size:9px; font-weight:700; color:${subCol}; text-transform:uppercase; letter-spacing:0.3px;">Upcoming Loads</div>
+        </div>
+
+        <div style="background:${cardBg}; border:1px solid ${borderCol}; border-radius:8px; padding:7px 8px; text-align:center; box-shadow:var(--ud-card-shadow);">
+          <div style="font-size:20px; font-weight:900; color:${checkinColor};">${stats.checkins35h}</div>
           <div style="font-size:9px; font-weight:700; color:${subCol}; text-transform:uppercase; letter-spacing:0.3px;">3.5h Check-ins</div>
         </div>
 
-        <div style="background:${cardBg}; border:1px solid ${borderCol}; border-radius:8px; padding:8px 10px; text-align:center; box-shadow:var(--ud-card-shadow);">
-          <div style="font-size:22px; font-weight:900; color:${deliveryColor};">${stats.delivery30m}</div>
+        <div style="background:${cardBg}; border:1px solid ${borderCol}; border-radius:8px; padding:7px 8px; text-align:center; box-shadow:var(--ud-card-shadow);">
+          <div style="font-size:20px; font-weight:900; color:${deliveryColor};">${stats.delivery30m}</div>
           <div style="font-size:9px; font-weight:700; color:${subCol}; text-transform:uppercase; letter-spacing:0.3px;">30m Delivery</div>
         </div>
 
-        <div style="background:${cardBg}; border:1px solid ${borderCol}; border-radius:8px; padding:8px 10px; text-align:center; box-shadow:var(--ud-card-shadow);">
-          <div style="font-size:22px; font-weight:900; color:#059669;">${stats.inTransit}</div>
-          <div style="font-size:9px; font-weight:700; color:${subCol}; text-transform:uppercase; letter-spacing:0.3px;">In Transit</div>
+        <div style="background:${cardBg}; border:1px solid ${borderCol}; border-radius:8px; padding:7px 8px; text-align:center; box-shadow:var(--ud-card-shadow);">
+          <div style="font-size:20px; font-weight:900; color:${delayColor};">${stats.delaysRaised}</div>
+          <div style="font-size:9px; font-weight:700; color:${subCol}; text-transform:uppercase; letter-spacing:0.3px;">Delays / Late</div>
+        </div>
+
+        <div style="background:${cardBg}; border:1px solid ${borderCol}; border-radius:8px; padding:7px 8px; text-align:center; box-shadow:var(--ud-card-shadow);">
+          <div style="font-size:20px; font-weight:900; color:${subCol};">${stats.historyLoads}</div>
+          <div style="font-size:9px; font-weight:700; color:${subCol}; text-transform:uppercase; letter-spacing:0.3px;">History / Done</div>
         </div>
       `;
     }
@@ -2185,11 +2295,15 @@
       const bgCol = isAck ? (isDark ? "#0f172a" : "#ffffff") : alert.badgeBg;
       const titleCol = isDark ? "#f8fafc" : "#0f172a";
       const descCol = isDark ? "#cbd5e1" : "#475569";
+      const phaseBadge = alert.phase === "upcoming"
+        ? `<span style="background:#0284c7; color:#ffffff; font-size:9px; font-weight:800; padding:1px 5px; border-radius:3px; letter-spacing:0.3px;">UPCOMING</span>`
+        : `<span style="background:#059669; color:#ffffff; font-size:9px; font-weight:800; padding:1px 5px; border-radius:3px; letter-spacing:0.3px;">IN TRANSIT</span>`;
 
       return `
         <div style="background:${bgCol}; border:1px solid ${borderCol}; border-radius:8px; padding:9px 11px; display:flex; flex-direction:column; gap:4px; box-shadow:var(--ud-card-shadow);">
           <div style="display:flex; justify-content:space-between; align-items:center;">
-            <div style="display:flex; align-items:center; gap:6px;">
+            <div style="display:flex; align-items:center; gap:5px;">
+              ${phaseBadge}
               <span style="background:${alert.badgeColor}; color:#ffffff; font-size:9px; font-weight:900; padding:2px 6px; border-radius:4px;">${alert.badgeText}</span>
               <span style="font-family:monospace; font-weight:900; color:#ea580c; font-size:12px;">${alert.vrid}</span>
             </div>
@@ -2595,7 +2709,8 @@
   // ==========================================
   // 16. Startup & Observers
   // ==========================================
-  setTimeout(() => {
+  setTimeout(async () => {
+    await storageReadyPromise;
     injectDockedSidebar();
     const tours = scanDomForTours();
     updateDockedSidebarUI();
@@ -2604,16 +2719,17 @@
     if (tours.length > 0) {
       extractAndSyncAll(false, "upsert");
     }
-  }, 1000);
+  }, 400);
 
-  setTimeout(() => {
+  setTimeout(async () => {
+    await storageReadyPromise;
     const tours = scanDomForTours();
     updateDockedSidebarUI();
     triggerAutonomousDualTabScan();
     if (tours.length > 0) {
       extractAndSyncAll(false, "upsert");
     }
-  }, 3000);
+  }, 2500);
 
   const observer = new MutationObserver((mutations) => {
     const isOurUi = mutations.every(
