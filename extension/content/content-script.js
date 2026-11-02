@@ -8,9 +8,9 @@
   "use strict";
 
   window.__ud_content_script_initialized = true;
-  window.__ud_version = "3.0.0";
+  window.__ud_version = "3.1.0";
 
-  console.log("🚚 [Unique Dispatch] Relay Ops Controller & CPT Engine v3.0 Active in frame:", window.location.href);
+  console.log("🚚 [Unique Dispatch] Relay Ops Controller & CPT Engine v3.1 Active in frame:", window.location.href);
 
   const capturedApiToursMap = new Map();
   const masterToursMap = new Map();
@@ -1072,6 +1072,8 @@
   // ==========================================
   // 6. Web Audio Siren Synthesizer Engine
   // ==========================================
+  let userGestureDetected = false;
+
   class SirenAudioEngine {
     constructor() {
       this.audioCtx = null;
@@ -1080,27 +1082,48 @@
       this.timer = null;
       this.isPlaying = false;
       this.isMuted = false;
+      this.pendingAlertAlarm = false;
     }
 
     init() {
-      if (!this.audioCtx) {
-        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-        if (AudioContextClass) {
-          this.audioCtx = new AudioContextClass();
+      if (!userGestureDetected || window.self !== window.top) return false;
+      try {
+        if (!this.audioCtx) {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (AudioContextClass) {
+            this.audioCtx = new AudioContextClass();
+          }
         }
-      }
-      if (this.audioCtx && this.audioCtx.state === "suspended") {
-        this.audioCtx.resume().catch(() => {});
+        if (this.audioCtx && this.audioCtx.state === "suspended") {
+          this.audioCtx.resume().catch(() => {});
+        }
+        return Boolean(this.audioCtx);
+      } catch (e) {
+        return false;
       }
     }
 
     start() {
-      if (this.isPlaying || this.isMuted) return;
+      if (this.isPlaying || this.isMuted || window.self !== window.top) return;
+
+      if (!userGestureDetected) {
+        this.pendingAlertAlarm = true;
+        this.updatePendingUiBanner();
+        return;
+      }
+
       this.init();
-      if (!this.audioCtx) return;
+      if (!this.audioCtx || this.audioCtx.state === "suspended") {
+        this.pendingAlertAlarm = true;
+        this.updatePendingUiBanner();
+        return;
+      }
 
       try {
         this.isPlaying = true;
+        this.pendingAlertAlarm = false;
+        this.updatePendingUiBanner();
+
         const osc = this.audioCtx.createOscillator();
         const gain = this.audioCtx.createGain();
 
@@ -1113,6 +1136,7 @@
         osc.start();
 
         let toggle = false;
+        if (this.timer) clearInterval(this.timer);
         this.timer = setInterval(() => {
           if (!this.isPlaying || !this.audioCtx) return;
           try {
@@ -1127,11 +1151,13 @@
         this.oscillator = osc;
         this.gainNode = gain;
       } catch (e) {
-        console.warn("[Unique Dispatch] SirenAudioEngine start warning:", e);
+        this.isPlaying = false;
       }
     }
 
     stop() {
+      this.pendingAlertAlarm = false;
+      this.updatePendingUiBanner();
       if (!this.isPlaying) return;
       this.isPlaying = false;
       if (this.timer) {
@@ -1145,6 +1171,12 @@
         } catch (e) {}
         this.oscillator = null;
       }
+      if (this.gainNode) {
+        try {
+          this.gainNode.disconnect();
+        } catch (e) {}
+        this.gainNode = null;
+      }
     }
 
     toggleMute() {
@@ -1156,6 +1188,7 @@
     }
 
     testSiren(durationMs = 2500) {
+      userGestureDetected = true;
       this.start();
       setTimeout(() => {
         if (!hasActiveUnacknowledgedAlerts()) {
@@ -1163,13 +1196,32 @@
         }
       }, durationMs);
     }
+
+    updatePendingUiBanner() {
+      try {
+        const banner = document.getElementById("ud-audio-gesture-banner");
+        if (banner) {
+          banner.style.display = (this.pendingAlertAlarm && !this.isPlaying && !this.isMuted) ? "block" : "none";
+        }
+      } catch (e) {}
+    }
   }
 
   const siren = new SirenAudioEngine();
 
-  // Unlock AudioContext on first user interaction anywhere on page
-  document.addEventListener("click", () => siren.init(), { once: true, passive: true });
-  document.addEventListener("keydown", () => siren.init(), { once: true, passive: true });
+  // Unlock AudioContext and trigger queued alarm on first user interaction anywhere
+  const unlockAudioOnGesture = () => {
+    userGestureDetected = true;
+    siren.init();
+    if (siren.pendingAlertAlarm) {
+      siren.start();
+    }
+  };
+
+  ["click", "pointerdown", "keydown", "touchstart"].forEach((evt) => {
+    window.addEventListener(evt, unlockAudioOnGesture, { capture: true, passive: true });
+    document.addEventListener(evt, unlockAudioOnGesture, { capture: true, passive: true });
+  });
 
   // ==========================================
   // 7. Priority Dispatch & UI Ergonomics State
@@ -1617,7 +1669,7 @@
           <span style="font-size:18px;">🚚</span>
           <div>
             <div style="font-weight:900; font-size:12px; color:#ea580c; letter-spacing:0.4px;">UNIQUE DISPATCH</div>
-            <div style="font-size:9px; color:var(--ud-text-secondary); font-weight:600;">Relay Ops Controller & CPT Engine v3.0</div>
+            <div style="font-size:9px; color:var(--ud-text-secondary); font-weight:600;">Relay Ops Controller & CPT Engine v3.1</div>
           </div>
         </div>
         <div style="display:flex; align-items:center; gap:5px;">
@@ -1677,6 +1729,24 @@
             <span>Next Auto-Sync: <b id="ud-header-countdown" style="color:#0284c7; font-family:monospace; font-weight:800;">30:00</b></span>
             <span id="ud-autosync-indicator" style="color:#059669; font-weight:800;">● Active (Every 30m)</span>
           </div>
+        </div>
+
+        <!-- Audio Gesture Unlock Banner (Shown only when siren is queued before first user gesture) -->
+        <div id="ud-audio-gesture-banner" style="
+          display: none;
+          background: #dc2626;
+          border: 1px solid #ef4444;
+          color: #ffffff;
+          padding: 8px 10px;
+          border-radius: 6px;
+          font-size: 11px;
+          font-weight: 800;
+          text-align: center;
+          cursor: pointer;
+          box-shadow: 0 4px 12px rgba(220,38,38,0.35);
+          animation: udPulseSiren 1.5s infinite;
+        ">
+          🚨 CRITICAL ALERT ACTIVE: Click here to unmute loud siren
         </div>
 
         <!-- Urgent Priority Action Queue Section -->
@@ -1861,6 +1931,15 @@
       });
     }
 
+    const gestureBanner = document.getElementById("ud-audio-gesture-banner");
+    if (gestureBanner) {
+      gestureBanner.addEventListener("click", () => {
+        userGestureDetected = true;
+        siren.init();
+        siren.start();
+      });
+    }
+
     if (fetchBtn) {
       fetchBtn.addEventListener("click", () => {
         nextSyncTimestamp = Date.now() + SYNC_INTERVAL_MS;
@@ -1958,21 +2037,26 @@
     }
 
     const { evaluated, stats } = evaluateTourPriorities(latestOrderedTours);
+    siren.updatePendingUiBanner();
 
     // 1. Operational Status Banner
     const statusContainer = document.getElementById("ud-ops-status-container");
     if (statusContainer) {
       if (stats.unacknowledgedAlerts > 0) {
+        const sirenStatusLabel = userGestureDetected ? "SIREN ACTIVE" : "SIREN QUEUED (CLICK TO UNMUTE)";
+        const sirenSubText = userGestureDetected
+          ? "Continuous alarm playing until dispatcher acknowledges all pending alerts."
+          : "Audio is queued. Click anywhere or on the banner to enable audible siren!";
         statusContainer.innerHTML = `
           <div style="background:#dc2626; border:1px solid #ef4444; border-radius:8px; padding:10px 12px; animation: udPulseSiren 1.5s infinite; color:#ffffff; box-shadow: 0 4px 12px rgba(220,38,38,0.35);">
             <div style="display:flex; justify-content:space-between; align-items:center;">
               <div style="font-weight:900; font-size:11px; display:flex; align-items:center; gap:6px;">
                 <span>🚨</span>
-                <span>SIREN ACTIVE • ${stats.unacknowledgedAlerts} ACTION ALERT(S)</span>
+                <span>${sirenStatusLabel} • ${stats.unacknowledgedAlerts} ACTION ALERT(S)</span>
               </div>
               <button id="ud-silence-all-btn" class="ud-btn-hover" style="background:#ffffff; color:#dc2626; border:none; padding:4px 9px; border-radius:5px; font-size:9px; font-weight:900; cursor:pointer;">✓ Silence All</button>
             </div>
-            <div style="font-size:9px; color:#fee2e2; margin-top:3px;">Continuous alarm playing until dispatcher acknowledges all pending alerts.</div>
+            <div style="font-size:9px; color:#fee2e2; margin-top:3px;">${sirenSubText}</div>
           </div>
         `;
         const silenceBtn = document.getElementById("ud-silence-all-btn");
