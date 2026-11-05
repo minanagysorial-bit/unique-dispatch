@@ -359,10 +359,31 @@ export default function DispatcherOperationsBoardPage() {
     fetchUser();
   }, []);
 
+  // Bandwidth-optimized smart polling:
+  // 1. Poll every 60s instead of 10s (saves ~85% Fast Origin Transfer)
+  // 2. Pause completely when tab is hidden/inactive in background
+  // 3. Immediately refresh when dispatcher returns to this tab
   useEffect(() => {
     fetchLoads();
-    const interval = setInterval(fetchLoads, 10000); // Poll every 10s
-    return () => clearInterval(interval);
+
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        fetchLoads();
+      }
+    }, 60000);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchLoads();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [fetchLoads]);
 
   // Load Update Handler

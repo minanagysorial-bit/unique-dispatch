@@ -112,10 +112,31 @@ export default function SuperAdminDashboardPage() {
     }
   };
 
+  // Bandwidth-optimized smart polling:
+  // 1. Poll every 120s (2 min) instead of 15s (saves ~87.5% Fast Origin Transfer)
+  // 2. Pause completely when admin tab is in background
+  // 3. Immediately refresh when admin returns to tab
   useEffect(() => {
     fetchDashboardData();
-    const interval = setInterval(fetchDashboardData, 15000);
-    return () => clearInterval(interval);
+
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        fetchDashboardData();
+      }
+    }, 120000);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchDashboardData();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, []);
 
   return (
